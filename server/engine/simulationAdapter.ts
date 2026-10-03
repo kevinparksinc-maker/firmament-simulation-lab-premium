@@ -14,6 +14,7 @@ import {
 } from "./index";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 import { runRegisteredMethods } from "./methodRegistry";
+import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
 
 export type SimulationEventInput = {
   id?: string;
@@ -46,6 +47,7 @@ type LayerResult = {
   verdict: "hit" | "miss" | "tie" | "unverified";
   detail: string;
   source: string;
+  neutralDiagnostic: NeutralMethodDiagnostic;
   calculation?: { formula: string; inputs: string[]; steps: string[] };
 };
 
@@ -65,7 +67,7 @@ function layerFromEvidence(
   actualWinner?: Winner,
 ): LayerResult {
   const winner = winnerFor(layer.scoreA, layer.scoreB);
-  return {
+  const result = {
     name: layer.name,
     scoreA: Number(layer.scoreA.toFixed(3)),
     scoreB: Number(layer.scoreB.toFixed(3)),
@@ -78,6 +80,7 @@ function layerFromEvidence(
       steps: [...layer.calculation.steps, `Final method output: A ${layer.scoreA.toFixed(3)} vs B ${layer.scoreB.toFixed(3)} → ${winner === "A" ? "Side A" : winner === "B" ? "Side B" : "Tie"}.`, actualWinner ? `Hit/miss test: ${winner === actualWinner ? "HIT" : "MISS"} because method call ${winner} ${winner === actualWinner ? "matches" : "does not match"} verified result ${actualWinner}.` : "Hit/miss test: UNVERIFIED because no actual winner was supplied."],
     } : undefined,
   };
+  return { ...result, neutralDiagnostic: auditNeutralMethod(result) };
 }
 
 function houseOverlays(planet: { manzil: { startLongitude: number; endLongitude: number }; nakshatra: string }, ascendantLongitude: number) {
