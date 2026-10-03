@@ -5,9 +5,9 @@ import { calculateRestoredTerritorial, type TerritorialEvidence } from "./territ
 const require = createRequire(import.meta.url);
 const Astronomy = require("astronomy-engine") as typeof import("astronomy-engine");
 
-export const GAME_TYPES = ["MLB", "NBA", "NFL", "boxing"] as const;
+export const GAME_TYPES = ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "boxing"] as const;
 export type GameType = (typeof GAME_TYPES)[number];
-export const DOME_MODELS = ["polaris-fixed-ra", "azimuth", "fixed-ecliptic", "unified-ephemeris", "fixed-j2000-kp"] as const;
+export const DOME_MODELS = ["polaris-fixed-ra", "azimuth", "fixed-ecliptic", "unified-ephemeris", "fixed-zodiac-wheel"] as const;
 export type DomeModel = (typeof DOME_MODELS)[number];
 export type Side = "ascendant" | "descendant" | "neutral";
 export type Allegiance = "supports" | "opposes" | "neutral";
@@ -22,14 +22,22 @@ const SIGNS = [
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
 ] as const;
 
-const NAKSHATRAS = [
+export const NAKSHATRAS = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
   "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
   "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
 ] as const;
-
-const DASHA_SEQUENCE = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"] as const;
-const DASHA_YEARS: Record<(typeof DASHA_SEQUENCE)[number], number> = {
+export const NAKSHATRA_ARC_DEGREES = 360 / 27;
+export const MANZIL_ARC_DEGREES = 360 / 28;
+export const ARABIC_LUNAR_MANSIONS = [
+  "Al-Sharatain", "Al-Butain", "Al-Thurayya", "Al-Dabaran", "Al-Haqa", "Al-Hana",
+  "Al-Dhira", "Al-Nathra", "Al-Tarf", "Al-Jabhah", "Al-Zubrah", "Al-Sarfah",
+  "Al-Awwa", "Al-Simak", "Al-Ghafr", "Al-Zubana", "Al-Iklil", "Al-Qalb",
+  "Al-Shaulah", "Al-Na'amah", "Al-Baldah", "Sa'd al-Dhabih", "Sa'd Bula",
+  "Sa'd al-Su'ud", "Sa'd al-Akhbiyah", "Al-Fargh al-Muqaddam", "Al-Fargh al-Mu'akhkhar", "Batn al-Hut",
+] as const;
+export const DASHA_SEQUENCE = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"] as const;
+export const DASHA_YEARS: Record<(typeof DASHA_SEQUENCE)[number], number> = {
   Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17,
 };
 
@@ -84,10 +92,12 @@ export type KP249Entry = {
 export type PlanetReading = {
   planet: string;
   ofDateEclipticLongitude: number;
+  /** Absolute 0°–360° wheel used by stars, mansions, decans, and signs. */
+  backgroundWheelLongitude: number;
   tropicalLongitude: number;
   fixedJ2000EclipticLongitude: number;
   kpLongitude: number;
-  kpCoordinateFrame: "of-date-ecliptic-with-fixed-kp-offset" | "raw-of-date-ecliptic" | "fixed-j2000-ecliptic";
+  kpCoordinateFrame: "of-date-ecliptic-with-fixed-kp-offset" | "raw-of-date-ecliptic" | "fixed-zodiac-wheel";
   j2000RaDegrees: number;
   j2000DecDegrees: number;
   firmamentRA: number;
@@ -113,6 +123,17 @@ export type PlanetReading = {
   pada: 1 | 2 | 3 | 4;
   starLord: string;
   subLord: string;
+  manzil: ManzilReading;
+};
+
+export type ManzilReading = {
+  index: number;
+  name: (typeof ARABIC_LUNAR_MANSIONS)[number];
+  startLongitude: number;
+  endLongitude: number;
+  centerLongitude: number;
+  degreeInMansion: number;
+  centerOrb: number;
 };
 
 export type HouseReading = {
@@ -137,7 +158,7 @@ export type LayerVerdict = {
 };
 
 export type KPClusterDensityEvidence = {
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   thresholdPercent: number;
   ascendant: { houses: number[]; densityPercent: number; normalizedPeerScore: number; cuspSubLords: Array<{ house: number; subLord: string; connections: number; significations: number[] }> };
   descendant: { houses: number[]; densityPercent: number; normalizedPeerScore: number; cuspSubLords: Array<{ house: number; subLord: string; connections: number; significations: number[] }> };
@@ -203,7 +224,7 @@ export type KPCuspResonanceAudit = {
 
 export type KPTerritorialResonanceExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   config: KPResonanceConfig;
   territorial: { scoreA: number; scoreB: number; margin: number; classification: "CLOSE_TERRITORIAL_MATCHUP" | "CLEAR_TERRITORIAL_ADVANTAGE"; winner: "A" | "B" | "TIE"; evidence: TerritorialEvidence };
   ascendant: { team: string; familyScore: number; subLordScore: number; subSubLordAdjustment: number; finalKPWinFit: number; resonanceStates: Record<KPResonanceState, number>; auditChain: KPCuspResonanceAudit[] };
@@ -212,13 +233,13 @@ export type KPTerritorialResonanceExperiment = {
 };
 
 export type AscendantHouseResonanceSimulation = Omit<KPTerritorialResonanceExperiment, "coordinateFrame"> & {
-  coordinateFrame: "observer-local-ascendant-whole-sign";
+  coordinateFrame: "observer-local-ascendant-equal-house";
   ascendantLongitude: number;
 };
 
 export type FullLayerFrameAudit = {
-  coordinateFrame: "fixed-j2000-ecliptic" | "observer-local-ascendant-whole-sign";
-  houseRule: "permanent-aries-zero-whole-sign" | "local-moving-ascendant-whole-sign";
+  coordinateFrame: "fixed-zodiac-wheel" | "observer-local-ascendant-equal-house";
+  houseRule: "permanent-aries-zero-equal-house" | "local-moving-ascendant-equal-house";
   ascendantLongitude?: number;
   territorial: KPTerritorialResonanceExperiment["territorial"];
   kp: Pick<KPTerritorialResonanceExperiment, "ascendant" | "descendant" | "resolution">;
@@ -260,7 +281,7 @@ export const DEFAULT_KP_RESONANCE_CONFIG: KPResonanceConfig = Object.freeze({
 });
 
 export type KPSubSubClusterDensityEvidence = {
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   thresholdPercent: number;
   ascendant: { houses: number[]; densityPercent: number; cuspSubSubLords: Array<{ house: number; subLord: string; subSubLord: string; connections: number; significations: number[] }> };
   descendant: { houses: number[]; densityPercent: number; cuspSubSubLords: Array<{ house: number; subLord: string; subSubLord: string; connections: number; significations: number[] }> };
@@ -270,7 +291,7 @@ export type KPSubSubClusterDensityEvidence = {
 
 export type FixedJ2000KPSubSubExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
   activeFixedKPWinner: "A" | "B" | "TIE";
   activeCombinedWinner: "A" | "B" | "TIE";
@@ -307,7 +328,7 @@ export type GodViewMovingKPMatrixRow = {
 
 export type GodViewMovingKPMatrixExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
   activeFixedKPWinner: "A" | "B" | "TIE";
   activeCombinedWinner: "A" | "B" | "TIE";
@@ -351,7 +372,7 @@ export type GodViewFullKPFamilyRow = {
 
 export type GodViewFullKPFamilyExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
   activeFixedKPWinner: "A" | "B" | "TIE";
   activeCombinedWinner: "A" | "B" | "TIE";
@@ -381,7 +402,7 @@ export type GodViewPerCuspFamilyScoreRow = {
 
 export type GodViewPerCuspFamilyScoreExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
   activeFixedKPWinner: "A" | "B" | "TIE";
   activeCombinedWinner: "A" | "B" | "TIE";
@@ -401,7 +422,7 @@ export type GodViewDeduplicatedAnchorGroup = {
 
 export type GodViewDeduplicatedAnchorScoreExperiment = {
   status: "experimental-read-only";
-  coordinateFrame: "fixed-j2000-ecliptic";
+  coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
   activeFixedKPWinner: "A" | "B" | "TIE";
   activeCombinedWinner: "A" | "B" | "TIE";
@@ -437,6 +458,24 @@ const KNOWN_VENUES: Array<{ keys: string[]; label: string; latitude: number; lon
 
 function normalize(value: number) {
   return ((value % 360) + 360) % 360;
+}
+
+/** Return the fixed 28-part Arabic lunar mansion containing an absolute wheel longitude. */
+export function manzilFromLongitude(longitude: number): ManzilReading {
+  const normalized = normalize(longitude);
+  const index = Math.min(ARABIC_LUNAR_MANSIONS.length - 1, Math.floor((normalized + 1e-10) / MANZIL_ARC_DEGREES));
+  const startLongitude = index * MANZIL_ARC_DEGREES;
+  const centerLongitude = startLongitude + MANZIL_ARC_DEGREES / 2;
+  const centerDistance = Math.abs(normalized - centerLongitude);
+  return {
+    index: index + 1,
+    name: ARABIC_LUNAR_MANSIONS[index]!,
+    startLongitude: Number(startLongitude.toFixed(6)),
+    endLongitude: Number((startLongitude + MANZIL_ARC_DEGREES).toFixed(6)),
+    centerLongitude: Number(centerLongitude.toFixed(6)),
+    degreeInMansion: Number((normalized - startLongitude).toFixed(6)),
+    centerOrb: Number(Math.min(centerDistance, 360 - centerDistance).toFixed(6)),
+  };
 }
 
 function hashLocation(value: string) {
@@ -608,6 +647,32 @@ export function fixedEclipticHouseFromLongitude(longitude: number) {
   return { house, degreeInHouse: normalizedLongitude % 30, sign: SIGNS[house - 1] };
 }
 
+export type EqualHouseZonePlacement = {
+  centerHouse: number;
+  segments: Array<{ house: number; startLongitude: number; endLongitude: number; degrees: number; percentage: number }>;
+};
+
+/** Maps a fixed 360° zone into the local equal-house wheel without moving the zone itself. */
+export function equalHouseZonePlacement(startLongitude: number, endLongitude: number, ascendantLongitude: number): EqualHouseZonePlacement {
+  const width = Math.max(0, endLongitude - startLongitude);
+  const displayLongitude = (value: number) => Math.abs(value - 360) < 1e-9 ? 360 : Number(normalize(value).toFixed(6));
+  const boundaries = [startLongitude, endLongitude];
+  for (let index = -12; index <= 24; index += 1) {
+    const boundary = normalize(ascendantLongitude) + index * 30;
+    if (boundary > startLongitude + 1e-9 && boundary < endLongitude - 1e-9) boundaries.push(boundary);
+  }
+  boundaries.sort((left, right) => left - right);
+  const segments = boundaries.slice(0, -1).map((left, index) => {
+    const right = boundaries[index + 1]!;
+    const midpoint = (left + right) / 2;
+    const house = fixedEclipticHouseFromLongitude(midpoint - ascendantLongitude).house;
+    const degrees = right - left;
+    return { house, startLongitude: displayLongitude(left), endLongitude: displayLongitude(right), degrees: Number(degrees.toFixed(6)), percentage: width ? Number((degrees / width * 100).toFixed(2)) : 0 };
+  });
+  const centerHouse = fixedEclipticHouseFromLongitude((startLongitude + endLongitude) / 2 - ascendantLongitude).house;
+  return { centerHouse, segments };
+}
+
 export function clusterForHouse(house: number): Side {
   if ((ASCENDANT_CLUSTER as readonly number[]).includes(house)) return "ascendant";
   if ((DESCENDANT_CLUSTER as readonly number[]).includes(house)) return "descendant";
@@ -678,53 +743,61 @@ function firmamentCoordinateFromJ2000RA(raDegrees: number) {
 function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: number }, domeModel: DomeModel = "azimuth") {
   const localSiderealTime = normalize(Astronomy.SiderealTime(Astronomy.MakeTime(date)) * 15 + venue.longitude);
   const ascendantLongitude = calculateAscendantLongitude(date, venue.latitude, venue.longitude);
-  const ascendantSignStart = Math.floor(ascendantLongitude / 30) * 30;
-  const usesFixedJ2000KP = domeModel === "fixed-j2000-kp";
+  const usesFixedJ2000KP = domeModel === "fixed-zodiac-wheel";
   const readings: PlanetReading[] = [];
   for (const planet of PLANETS) {
     const ofDateLongitude = planet === "Rahu" ? nodeLongitude(date) : planet === "Ketu" ? normalize(nodeLongitude(date) + 180) : geocentricEclipticLongitude(BODY_BY_PLANET[planet], date);
+    const backgroundWheelLongitude = ofDateLongitude;
     const fixedJ2000EclipticLongitude = planet === "Rahu" ? nodeLongitude(date) : planet === "Ketu" ? normalize(nodeLongitude(date) + 180) : geocentricFixedJ2000EclipticLongitude(BODY_BY_PLANET[planet], date);
     const nextDate = new Date(date.getTime() + 86400000);
     const followingOfDateLongitude = planet === "Rahu" ? nodeLongitude(nextDate) : planet === "Ketu" ? normalize(nodeLongitude(nextDate) + 180) : geocentricEclipticLongitude(BODY_BY_PLANET[planet], nextDate);
-    const followingFixedJ2000EclipticLongitude = planet === "Rahu" ? nodeLongitude(nextDate) : planet === "Ketu" ? normalize(nodeLongitude(nextDate) + 180) : geocentricFixedJ2000EclipticLongitude(BODY_BY_PLANET[planet], nextDate);
-    const tropicalLongitude = usesFixedJ2000KP ? fixedJ2000EclipticLongitude : ofDateLongitude;
-    const followingLongitude = usesFixedJ2000KP ? followingFixedJ2000EclipticLongitude : followingOfDateLongitude;
+    // Canonical reference is always of-date now; fixedJ2000EclipticLongitude is
+    // retained below purely as an audit/legacy field, never as a driver of
+    // house, stellar, or degree-in-sign math.
+    const tropicalLongitude = ofDateLongitude;
+    const followingLongitude = followingOfDateLongitude;
     const j2000Equatorial = planet === "Rahu" || planet === "Ketu"
       ? (() => {
-          const node = nodeRaDec(usesFixedJ2000KP ? fixedJ2000EclipticLongitude : ofDateLongitude);
+          const node = nodeRaDec(ofDateLongitude);
           return { raDegrees: node.raHours * 15, decDegrees: node.decDegrees };
         })()
       : geocentricJ2000Equatorial(BODY_BY_PLANET[planet], date);
     const equatorial = { raHours: j2000Equatorial.raDegrees / 15, decDegrees: j2000Equatorial.decDegrees };
     const horizontal = { azimuth: 0, altitude: 0 };
     const azimuthDome = fixedDomeHouseFromAzimuth(horizontal.azimuth);
-    const eclipticDome = fixedEclipticHouseFromLongitude(ofDateLongitude);
-    const fixedJ2000EclipticDome = fixedEclipticHouseFromLongitude(fixedJ2000EclipticLongitude);
+    // eclipticDome is God View: a permanent Aries-zero wheel applied to the
+    // real of-date planet position (fixed house wheel, moving sky).
+    const eclipticDome = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
     const firmamentRA = firmamentCoordinateFromJ2000RA(j2000Equatorial.raDegrees);
     const firmamentDome = fixedFirmamentHouseFromRA(firmamentRA);
     // Compatibility model names remain in the API, but every active model now
     // resolves to the same permanent raw fixed-dome sectors.
     void domeModel;
-    const localHouse = fixedEclipticHouseFromLongitude(fixedJ2000EclipticLongitude - ascendantSignStart);
-    const dome = { ...fixedJ2000EclipticDome, house: localHouse.house, degreeInHouse: localHouse.degreeInHouse };
-    const stellar = kpDetailsFromCanonicalLongitude(tropicalLongitude, date, domeModel !== "unified-ephemeris" && !usesFixedJ2000KP);
+    void usesFixedJ2000KP;
+    // The background wheel is absolute and shared by both views. AgentView
+    // uses exact-degree equal houses; God View keeps the fixed Aries-zero wheel.
+    const localHouse = fixedEclipticHouseFromLongitude(backgroundWheelLongitude - ascendantLongitude);
+    const dome = domeModel === "fixed-zodiac-wheel"
+      ? eclipticDome
+      : { ...eclipticDome, house: localHouse.house, degreeInHouse: localHouse.degreeInHouse };
+    const stellar = kpDetailsFromCanonicalLongitude(backgroundWheelLongitude, date, domeModel !== "unified-ephemeris");
+    const manzil = manzilFromLongitude(backgroundWheelLongitude);
     readings.push({
       planet,
       ofDateEclipticLongitude: ofDateLongitude,
+      backgroundWheelLongitude,
       tropicalLongitude,
       fixedJ2000EclipticLongitude,
       kpLongitude: stellar.adjustedLongitude,
-      kpCoordinateFrame: usesFixedJ2000KP
-        ? "fixed-j2000-ecliptic"
-        : domeModel === "unified-ephemeris"
-          ? "raw-of-date-ecliptic"
-          : "of-date-ecliptic-with-fixed-kp-offset",
+      kpCoordinateFrame: domeModel === "unified-ephemeris"
+        ? "raw-of-date-ecliptic"
+        : "of-date-ecliptic-with-fixed-kp-offset",
       j2000RaDegrees: j2000Equatorial.raDegrees,
       j2000DecDegrees: j2000Equatorial.decDegrees,
       firmamentRA,
       firmamentHouse: firmamentDome.house,
       firmamentDegreeInHouse: firmamentDome.degreeInHouse,
-      degreeInSign: usesFixedJ2000KP ? fixedJ2000EclipticDome.degreeInHouse : eclipticDome.degreeInHouse,
+      degreeInSign: eclipticDome.degreeInHouse,
       localSiderealTime,
       raHours: equatorial.raHours,
       decDegrees: equatorial.decDegrees,
@@ -744,6 +817,7 @@ function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: n
       pada: stellar.pada,
       starLord: stellar.starLord,
       subLord: stellar.subLord,
+      manzil,
     });
   }
   return readings;
@@ -755,7 +829,7 @@ function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: n
  * are neutral placeholders and cannot affect returned fixed placements.
  */
 export function generateFixedJ2000PlanetReadings(date: Date) {
-  return buildPlanetReadings(date, { latitude: 0, longitude: 0 }, "fixed-j2000-kp");
+  return buildPlanetReadings(date, { latitude: 0, longitude: 0 }, "fixed-zodiac-wheel");
 }
 
 function layerWinner(scoreA: number, scoreB: number): "A" | "B" | "TIE" {
@@ -799,7 +873,7 @@ function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
   const differentialPercent = Number((descendant.densityPercent - ascendant.densityPercent).toFixed(2));
   const result = differentialPercent > 2 ? "DESCENDANT" : differentialPercent < -2 ? "ASCENDANT" : "NEUTRAL";
   const evidence: KPClusterDensityEvidence = {
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     thresholdPercent: 2,
     ascendant,
     descendant,
@@ -835,7 +909,7 @@ function subSubClusterDensityExperiment(planets: PlanetReading[]): KPSubSubClust
   const descendant = densityFor(DESCENDANT_CLUSTER);
   const differentialPercent = Number((descendant.densityPercent - ascendant.densityPercent).toFixed(2));
   return {
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     thresholdPercent: 2,
     ascendant,
     descendant,
@@ -980,7 +1054,7 @@ function resonanceAuditForSide(planets: PlanetReading[], targetSide: "A" | "B", 
 }
 
 function kpVerdict(houses: HouseReading[], planets: PlanetReading[], domeModel: DomeModel): LayerVerdict {
-  if (domeModel === "fixed-j2000-kp") return clusterDensityVerdict(planets);
+  if (domeModel === "fixed-zodiac-wheel") return clusterDensityVerdict(planets);
   let scoreA = 0;
   let scoreB = 0;
   const rationale: string[] = [];
@@ -999,11 +1073,12 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
     : resolveVenue(input.location);
   const planets = buildPlanetReadings(input.startTime, venue, domeModel);
   const ascendantLongitude = calculateAscendantLongitude(input.startTime, venue.latitude, venue.longitude);
-  const ascendantSignStart = Math.floor(ascendantLongitude / 30) * 30;
   const planetsByName = new Map(planets.map((planet) => [planet.planet, planet]));
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = (ascendantSignStart + index * 30) % 360;
+    const cuspLongitude = domeModel === "fixed-zodiac-wheel"
+      ? index * 30
+      : normalize(ascendantLongitude + index * 30);
     const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, input.startTime, domeModel !== "unified-ephemeris");
     const subLordPlacement = planetsByName.get(stellar.subLord) ?? planets[0];
     const cluster = clusterForHouse(house);
@@ -1019,9 +1094,8 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
       subLordAllegiance: cluster === "neutral" ? "neutral" : allegiance(subLordPlacement.house, cluster),
     };
   });
-  const lotHouseFromLongitude = (longitude: number) => {
-    return fixedEclipticHouseFromLongitude(longitude - ascendantSignStart).house;
-  };
+  const houseAnchor = domeModel === "fixed-zodiac-wheel" ? 0 : ascendantLongitude;
+  const lotHouseFromLongitude = (longitude: number) => fixedEclipticHouseFromLongitude(longitude - houseAnchor).house;
   const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude);
   const kpStellar = kpVerdict(houses, planets, domeModel);
   const territorialWeight = 0.4;
@@ -1091,7 +1165,7 @@ export function generateUnifiedEphemerisPrediction(input: GameInput) {
  * permanent J2000 ecliptic, fixed 0° Aries, fixed Nakshatras, and zero ayanamsa.
  */
 export function generateFixedJ2000KPPrediction(input: GameInput) {
-  return generatePredictionForModel(input, "fixed-j2000-kp");
+  return generatePredictionForModel(input, "fixed-zodiac-wheel");
 }
 
 /**
@@ -1102,7 +1176,7 @@ export function runFixedJ2000KPSubSubExperiment(input: GameInput): FixedJ2000KPS
   const activePrediction = generateFixedJ2000KPPrediction(input);
   return {
     status: "experimental-read-only",
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     input,
     activeFixedKPWinner: activePrediction.kpStellar.winner,
     activeCombinedWinner: activePrediction.combined.winner,
@@ -1156,7 +1230,7 @@ export function runGodViewMovingKPMatrixExperiment(input: GameInput): GodViewMov
   const winner = net > noCallThreshold ? "A" : net < -noCallThreshold ? "B" : "TIE";
   return {
     status: "experimental-read-only",
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     input,
     activeFixedKPWinner: activePrediction.kpStellar.winner,
     activeCombinedWinner: activePrediction.combined.winner,
@@ -1213,7 +1287,7 @@ export function runGodViewFullKPFamilyExperiment(input: GameInput): GodViewFullK
   });
   return {
     status: "experimental-read-only",
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     input,
     activeFixedKPWinner: activePrediction.kpStellar.winner,
     activeCombinedWinner: activePrediction.combined.winner,
@@ -1305,7 +1379,7 @@ export function runGodViewPerCuspFamilyScoreExperiment(input: GameInput): GodVie
   const winner = net >= noCallThreshold ? "A" : net <= -noCallThreshold ? "B" : "TIE";
   return {
     status: "experimental-read-only",
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     input,
     activeFixedKPWinner: family.activeFixedKPWinner,
     activeCombinedWinner: family.activeCombinedWinner,
@@ -1359,7 +1433,7 @@ export function runGodViewDeduplicatedAnchorScoreExperiment(input: GameInput): G
   const movingAnchorSubtotal = anchorGroups.reduce((total, group) => total + group.total, 0);
   const net = fixedSubtotal + movingAnchorSubtotal;
   const winner = net >= noCallThreshold ? "A" : net <= -noCallThreshold ? "B" : "TIE";
-  return { status: "experimental-read-only", coordinateFrame: "fixed-j2000-ecliptic", input, activeFixedKPWinner: family.activeFixedKPWinner, activeCombinedWinner: family.activeCombinedWinner, rules: { sourceWeights, supportHouseIncrement, connectionBonuses, noCallThreshold, movingAnchorPolicy: "count-once-per-planet" }, fixedRows, anchorGroups, totals: { fixedSubtotal, movingAnchorSubtotal, net, winner, noCall: winner === "TIE" } };
+  return { status: "experimental-read-only", coordinateFrame: "fixed-zodiac-wheel", input, activeFixedKPWinner: family.activeFixedKPWinner, activeCombinedWinner: family.activeCombinedWinner, rules: { sourceWeights, supportHouseIncrement, connectionBonuses, noCallThreshold, movingAnchorPolicy: "count-once-per-planet" }, fixedRows, anchorGroups, totals: { fixedSubtotal, movingAnchorSubtotal, net, winner, noCall: winner === "TIE" } };
 }
 
 /**
@@ -1386,7 +1460,7 @@ export function runFixedJ2000KPTerritorialResonanceExperiment(
       : activePrediction.territorial.winner;
   return {
     status: "experimental-read-only",
-    coordinateFrame: "fixed-j2000-ecliptic",
+    coordinateFrame: "fixed-zodiac-wheel",
     config,
     territorial: {
       scoreA: activePrediction.territorial.scoreA,
@@ -1441,7 +1515,7 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
   const proposedWinner = !config.enabled ? territorial.winner : classification === "CLOSE_TERRITORIAL_MATCHUP" ? kpWinner : territorial.winner;
   return {
     status: "experimental-read-only",
-    coordinateFrame: "observer-local-ascendant-whole-sign",
+    coordinateFrame: "observer-local-ascendant-equal-house",
     ascendantLongitude,
     config,
     territorial: { scoreA: territorial.scoreA, scoreB: territorial.scoreB, margin, classification, winner: territorial.winner, evidence: territorial.evidence! },
@@ -1497,8 +1571,8 @@ export function runAgentGodFullLayerExperiment(
       "Arabic Lots",
       "Nine-planet influence",
     ],
-    god: buildFrame(godSource, "permanent-aries-zero-whole-sign"),
-    agent: buildFrame(agentSource, "local-moving-ascendant-whole-sign"),
+    god: buildFrame(godSource, "permanent-aries-zero-equal-house"),
+    agent: buildFrame(agentSource, "local-moving-ascendant-equal-house"),
     boundary: "Read-only evidence experiment: the two frames retain their separate Territorial and KP resolutions. No cross-frame score, winner, live prediction, model weight, or validation record is changed.",
   };
 }
@@ -1547,7 +1621,7 @@ function runBacktestForModel(domeModel: DomeModel) {
       ? generateFixedEclipticPrediction(input)
       : domeModel === "unified-ephemeris"
         ? generateUnifiedEphemerisPrediction(input)
-        : domeModel === "fixed-j2000-kp"
+        : domeModel === "fixed-zodiac-wheel"
           ? generateFixedJ2000KPPrediction(input)
         : generateAzimuthLegacyPrediction(input);
     const pick = (winner: "A" | "B" | "TIE") => winner === "A" ? game.teamA : winner === "B" ? game.teamB : "Tie";
@@ -1603,7 +1677,7 @@ export function runUnifiedEphemerisBacktest() {
 
 /** Same verified slate through the fixed zero-tilt dome KP path. */
 export function runFixedJ2000KPBacktest() {
-  return runBacktestForModel("fixed-j2000-kp");
+  return runBacktestForModel("fixed-zodiac-wheel");
 }
 
 export function runDomeModelComparisonBacktest() {

@@ -8,11 +8,6 @@ import {
   Play,
   RefreshCw,
   X,
-  Compass,
-  CheckCircle2,
-  AlertTriangle,
-  HelpCircle,
-  Sparkles,
 } from "lucide-react";
 
 type Sport = "MLB" | "NBA" | "NFL" | "boxing";
@@ -57,7 +52,6 @@ const venueCoordinates: Record<string, { latitude: string; longitude: string }> 
   "yankee stadium": { latitude: "40.8296", longitude: "-73.9262" },
   "fenway park": { latitude: "42.3467", longitude: "-71.0972" },
   "dodger stadium": { latitude: "34.0739", longitude: "-118.2400" },
-  "minute maid park": { latitude: "29.7573", longitude: "-95.3555" },
 };
 
 function lookupVenue(value: string) {
@@ -92,11 +86,11 @@ export function ManualFixtureDialog({ open, onClose, onRun, isRunning }: ManualF
     const longitude = fixture.longitude.trim() === "" ? undefined : Number(fixture.longitude);
 
     if (!fixture.teamA.trim() || !fixture.teamB.trim() || !fixture.location.trim() || !fixture.startTime) {
-      setError("Competitor titles, venue coordinates, and UTC start time are required.");
+      setError("Teams, venue, and start time are required.");
       return;
     }
     if ((latitude !== undefined && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) || (longitude !== undefined && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
-      setError("Enter valid decimal coordinates or leave blank for geocoding.");
+      setError("Enter valid coordinates, or leave both coordinate fields blank.");
       return;
     }
 
@@ -109,76 +103,36 @@ export function ManualFixtureDialog({ open, onClose, onRun, isRunning }: ManualF
       latitude,
       longitude,
       startTime: new Date(fixture.startTime).toISOString(),
-      actualWinner: fixture.actualWinner === "unverified" ? undefined : (fixture.actualWinner as Winner),
+      ...(fixture.actualWinner === "unverified" ? {} : { actualWinner: fixture.actualWinner as Winner }),
     });
+    setFixture(initialFixture);
+    setVenueWasResolved(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in-50 duration-200">
-      <div className="obs-panel relative w-full max-w-xl overflow-hidden border-cyan-400/30 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
-        <div className="obs-panel-header">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#020711]/80 p-4 backdrop-blur-sm sm:items-center">
+      <div className="my-6 w-full max-w-3xl overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#0b1628] shadow-2xl">
+        <div className="flex items-start justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6">
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Custom Event Specifier</p>
-            <h3 className="font-serif text-lg font-bold text-white">Ingest Bespoke Fixture</h3>
+            <p className="eyebrow text-cyan-200/80">New research fixture</p>
+            <h2 className="mt-1 font-display text-2xl text-white">Run a single event</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-400">Use a historical result to score evidence, or leave it unverified for a prospective research record.</p>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white transition-colors" aria-label="Close dialog">
-            <X size={18} />
-          </button>
+          <button type="button" onClick={onClose} className="icon-button" aria-label="Close manual fixture dialog"><X size={16} /></button>
         </div>
-        <form onSubmit={submit} className="p-6">
+        <form onSubmit={submit} className="p-5 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Side A / Competitor 1</label>
-              <input required value={fixture.teamA} onChange={(e) => update("teamA", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50" placeholder="e.g., Boston Red Sox" />
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Side B / Competitor 2</label>
-              <input required value={fixture.teamB} onChange={(e) => update("teamB", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50" placeholder="e.g., New York Yankees" />
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Sport Division</label>
-              <select value={fixture.sport} onChange={(e) => update("sport", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0b1222] px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50 cursor-pointer">
-                <option value="MLB">MLB Baseball</option>
-                <option value="NFL">NFL Football</option>
-                <option value="NBA">NBA Basketball</option>
-                <option value="boxing">Boxing / Combat</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Verified Outcome</label>
-              <select value={fixture.actualWinner} onChange={(e) => update("actualWinner", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0b1222] px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50 cursor-pointer">
-                <option value="unverified">Awaiting Completion (Prospective)</option>
-                <option value="A">Side A Confirmed Winner</option>
-                <option value="B">Side B Confirmed Winner</option>
-                <option value="TIE">Dead Heat / Tie</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Stadium / Geographic Coordinates</label>
-              <input required list="known-venues" value={fixture.location} onChange={(e) => update("location", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50" placeholder="e.g. Dodger Stadium or Tokyo Dome" />
-              <datalist id="known-venues">
-                <option value="Tokyo Dome" />
-                <option value="Oriole Park at Camden Yards" />
-                <option value="Yankee Stadium" />
-                <option value="Fenway Park" />
-                <option value="Dodger Stadium" />
-                <option value="Minute Maid Park" />
-              </datalist>
-              {venueWasResolved && <span className="mt-1.5 block text-[11px] font-mono text-emerald-400">✓ Coordinates auto-calibrated from venue registry.</span>}
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Timestamp (Local Horizon)</label>
-              <input required type="datetime-local" value={fixture.startTime} onChange={(e) => update("startTime", e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-400/50" />
-            </div>
+            <label className="space-y-1.5 text-xs text-slate-300">Side A / home or first competitor<input required value={fixture.teamA} onChange={(event) => update("teamA", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" placeholder="e.g., New York Yankees" /></label>
+            <label className="space-y-1.5 text-xs text-slate-300">Side B / away or second competitor<input required value={fixture.teamB} onChange={(event) => update("teamB", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" placeholder="e.g., Houston Astros" /></label>
+            <label className="space-y-1.5 text-xs text-slate-300">Sport<select value={fixture.sport} onChange={(event) => update("sport", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60"><option value="MLB">MLB</option><option value="NFL">NFL</option><option value="NBA">NBA</option><option value="boxing">Boxing</option></select></label>
+            <label className="space-y-1.5 text-xs text-slate-300">Verified winner (optional)<select value={fixture.actualWinner} onChange={(event) => update("actualWinner", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60"><option value="unverified">No result yet</option><option value="A">Side A</option><option value="B">Side B</option><option value="TIE">Tie</option></select></label>
+            <label className="space-y-1.5 text-xs text-slate-300 sm:col-span-2">Venue / location<input required list="known-venues" value={fixture.location} onChange={(event) => update("location", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" placeholder="Start typing a venue (e.g., Tokyo Dome)" /><datalist id="known-venues"><option value="Tokyo Dome" /><option value="Oriole Park at Camden Yards" /><option value="Yankee Stadium" /><option value="Fenway Park" /><option value="Dodger Stadium" /></datalist>{venueWasResolved ? <span className="mt-1 block text-[10px] text-emerald-200">Venue recognized — coordinates filled automatically.</span> : <span className="mt-1 block text-[10px] text-slate-600">Coordinates are looked up automatically for recognized venues.</span>}</label>
+            <label className="space-y-1.5 text-xs text-slate-300 sm:col-span-2">Start time (local)<input required type="datetime-local" value={fixture.startTime} onChange={(event) => update("startTime", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" /></label>
+            <details className="sm:col-span-2"><summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Advanced coordinate override</summary><div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="space-y-1.5 text-xs text-slate-300">Latitude <span className="text-slate-600">optional</span><input inputMode="decimal" value={fixture.latitude} onChange={(event) => update("latitude", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" placeholder="Auto-filled from venue" /></label><label className="space-y-1.5 text-xs text-slate-300">Longitude <span className="text-slate-600">optional</span><input inputMode="decimal" value={fixture.longitude} onChange={(event) => update("longitude", event.target.value)} className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/60" placeholder="Auto-filled from venue" /></label></div></details>
           </div>
-          {error && <p className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-200">{error}</p>}
-          <div className="mt-6 flex justify-end gap-3 border-t border-white/[0.08] pt-4">
-            <button type="button" onClick={onClose} className="glass-button">Cancel</button>
-            <button type="submit" disabled={isRunning} className="cyan-button">
-              <Play size={14} fill="currentColor" /> {isRunning ? "Synthesizing…" : "Run Simulation"}
-            </button>
-          </div>
+          {error && <p className="mt-4 rounded-lg border border-rose-300/20 bg-rose-300/[0.08] px-3 py-2 text-xs text-rose-100">{error}</p>}
+          <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-white/[0.08] pt-4"><button type="button" onClick={onClose} className="button-secondary">Cancel</button><button type="submit" disabled={isRunning} className="button-primary"><Play size={14} fill="currentColor" /> {isRunning ? "Calculating…" : "Run fixture"}</button></div>
         </form>
       </div>
     </div>
@@ -204,10 +158,10 @@ function resultLayers(result: any): ResultLayer[] {
 }
 
 const verdictStyle: Record<string, string> = {
-  hit: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200 shadow-[0_0_8px_rgba(52,211,153,0.15)]",
-  miss: "border-rose-400/30 bg-rose-400/10 text-rose-200 shadow-[0_0_8px_rgba(251,113,133,0.15)]",
-  tie: "border-amber-400/30 bg-amber-400/10 text-amber-200 shadow-[0_0_8px_rgba(251,191,36,0.15)]",
-  unverified: "border-slate-400/20 bg-slate-400/5 text-slate-400",
+  hit: "border-emerald-300/20 bg-emerald-300/[0.09] text-emerald-100",
+  miss: "border-rose-300/20 bg-rose-300/[0.09] text-rose-100",
+  tie: "border-amber-300/20 bg-amber-300/[0.09] text-amber-100",
+  unverified: "border-slate-300/15 bg-slate-300/[0.06] text-slate-300",
 };
 
 function downloadFile(filename: string, content: string, mime: string) {
@@ -231,19 +185,19 @@ export function downloadResultBundle(result: any) {
     ["event_id", "frame", "method", "verdict", "prediction", "score_a", "score_b", "detail"].join(","),
     ...layers.map((layer) => [result.id, layer.frame, layer.name, layer.verdict, layer.winner, layer.scoreA, layer.scoreB, layer.detail].map(csvCell).join(",")),
   ].join("\n");
-  downloadFile(`firmament-telemetry-${stamp}.json`, `${JSON.stringify(result, null, 2)}\n`, "application/json");
-  window.setTimeout(() => downloadFile(`firmament-audit-${stamp}.csv`, `${csv}\n`, "text/csv;charset=utf-8"), 120);
+  downloadFile(`firmament-event-${stamp}.json`, `${JSON.stringify(result, null, 2)}\n`, "application/json");
+  window.setTimeout(() => downloadFile(`firmament-method-audit-${stamp}.csv`, `${csv}\n`, "text/csv;charset=utf-8"), 120);
 }
 
 function displayWinner(winner: string | null | undefined, result: any) {
   if (winner === "A") return `${result.input.teamA} (Side A)`;
   if (winner === "B") return `${result.input.teamB} (Side B)`;
-  if (winner === "TIE") return "Undecided / Tie";
-  return "Not Available";
+  if (winner === "TIE" || winner === "TIE") return "Tie";
+  return "Not available";
 }
 
 function displayValue(value: unknown) {
-  if (value === null || value === undefined || value === "") return "Not Supplied";
+  if (value === null || value === undefined || value === "") return "Not supplied";
   return String(value);
 }
 
@@ -252,91 +206,25 @@ export function TransparencyPanel({ result }: { result: any }) {
   const actual = result.comparison.actualWinner;
   const frames = [result.godView, result.agentView];
   const baseRows = [
-    ["Territorial Stack Consensus", displayWinner(result.baseline.territorial?.winner, result)],
-    ["KP Stellar Sub-Lord Model", displayWinner(result.baseline.kpStellar?.winner, result)],
-    ["Consolidated Baseline Vector", displayWinner(result.baseline.winner, result)],
-    ["Dual-Frame Agreement Topology", displayValue(result.comparison.state)],
-    ["Agreement Target", displayWinner(result.comparison.winner, result)],
-    ["Historical Outcome Certification", displayWinner(actual, result)],
-    ["Scoring Modality", result.comparison.verified ? "Historical Scoreboard: Active" : "Prospective Horizon: Scoring Suspended"],
+    ["Territorial winner", displayWinner(result.baseline.territorial?.winner, result)],
+    ["KP stellar winner", displayWinner(result.baseline.kpStellar?.winner, result)],
+    ["Combined baseline winner", displayWinner(result.baseline.winner, result)],
+    ["Frame agreement state", displayValue(result.comparison.state)],
+    ["Frame agreement winner", displayWinner(result.comparison.winner, result)],
+    ["Actual result", displayWinner(actual, result)],
+    ["Scoring state", result.comparison.verified ? "Verified: HIT/MISS/TIE scoring enabled" : "Prospective: verdicts remain unverified"],
   ];
 
   return (
-    <section className="obs-panel overflow-hidden">
-      <div className="obs-panel-header">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Epistemic Transparency</p>
-          <h2 className="font-serif text-xl font-bold text-white">Complete Contract, Model & Trace Audit</h2>
-        </div>
-        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300">
-          Deterministic Trace
-        </span>
+    <section className="mt-6 panel overflow-hidden">
+      <div className="panel-header"><div><p className="eyebrow text-cyan-200/80">Transparency layer</p><h2 className="section-title">Every input, assumption, and decision</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">This is the complete calculation contract for this run. Nothing below is a confidence estimate or hidden model output; it is the recorded input and the engine’s returned evidence.</p></div><span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-cyan-100">Audit ready</span></div>
+      <div className="grid gap-4 border-b border-white/[0.07] p-5 xl:grid-cols-2">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow">01 / Normalized input</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{[["Event ID", input.id], ["Side A", input.teamA], ["Side B", input.teamB], ["Sport", input.sport], ["Venue", input.location], ["Start time (UTC)", input.startTime], ["Latitude", input.latitude], ["Longitude", input.longitude], ["Actual winner", actual ?? "UNVERIFIED"]].map(([label, value]) => <div key={label} className="rounded-lg border border-white/[0.06] bg-black/10 px-3 py-2"><span className="block text-[9px] uppercase tracking-[0.13em] text-slate-600">{label}</span><strong className="mt-1 block break-words text-[11px] font-medium text-slate-200">{displayValue(value)}</strong></div>)}</div></div>
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow">02 / Engine boundary</p><div className="mt-3 space-y-2">{[["Source", result.engine.source], ["Calculation path", result.engine.calculationPath], ["Fixed-background frame", result.engine.fixedBackground], ["Hamal anchor", result.engine.hamalAnchor], ["AgentView model", input.agentViewModel ?? "astronomical (default)"], ["Sunrise time", input.sunriseTime], ["Sunrise source", input.sunriseSource]].map(([label, value]) => <div key={label} className="grid gap-1 rounded-lg border border-white/[0.06] bg-black/10 px-3 py-2 sm:grid-cols-[155px_1fr]"><span className="text-[9px] uppercase tracking-[0.13em] text-slate-600">{label}</span><strong className="break-words text-[11px] font-medium text-slate-200">{displayValue(value)}</strong></div>)}</div></div>
       </div>
-
-      <div className="grid gap-6 border-b border-white/[0.08] p-6 xl:grid-cols-2 bg-white/[0.01]">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">01 / Ingested Event Parameters</p>
-          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-            {[
-              ["Identifier", input.id],
-              ["Side A Team", input.teamA],
-              ["Side B Team", input.teamB],
-              ["League / Sport", input.sport],
-              ["Venue Coordinates", input.location],
-              ["Epoch Time (UTC)", input.startTime],
-              ["Latitude", input.latitude],
-              ["Longitude", input.longitude],
-              ["Verified Winner", actual ?? "UNVERIFIED"],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <span className="block text-[9px] font-mono uppercase tracking-widest text-slate-400">{label}</span>
-                <strong className="mt-1 block break-words text-xs font-semibold text-white">{displayValue(value)}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">02 / Engine Boundary Specifications</p>
-          <div className="mt-4 space-y-2">
-            {[
-              ["Astrometric Engine", result.engine.source],
-              ["Calculation Pipeline", result.engine.calculationPath],
-              ["Invariant Reference", result.engine.fixedBackground],
-              ["Sidereal Hamal Anchor", result.engine.hamalAnchor],
-              ["AgentView Coordinate System", input.agentViewModel ?? "astronomical (default)"],
-              ["Sunrise Epoch", input.sunriseTime],
-              ["Sunrise Data Source", input.sunriseSource],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">{label}</span>
-                <strong className="text-xs font-mono text-cyan-200">{displayValue(value)}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b border-white/[0.08] p-6">
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">03 / Convergence Output & Metrics</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {baseRows.map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-black/20 p-3.5">
-              <span className="block text-[9px] font-mono uppercase tracking-widest text-slate-400">{label}</span>
-              <strong className="mt-1 block text-xs font-semibold text-slate-200">{value}</strong>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <details className="group p-6">
-        <summary className="cursor-pointer list-none text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300 hover:text-cyan-200 transition-colors">
-          04 / Raw Astrometric Telemetry JSON <span className="text-slate-500 group-open:hidden">(Click to Expand)</span>
-        </summary>
-        <pre className="mt-4 max-h-[460px] overflow-auto rounded-2xl border border-white/10 bg-[#02050e] p-5 font-mono text-[11px] leading-relaxed text-slate-400">
-          {JSON.stringify(result, null, 2)}
-        </pre>
-      </details>
+      <div className="border-b border-white/[0.07] p-5"><p className="eyebrow">03 / Decision trace</p><p className="mt-1 text-xs text-slate-500">Baseline and agreement fields are shown exactly as returned. A method winner is the side with the higher raw score; equal scores produce a tie. HIT/MISS is only computed when an actual result is supplied.</p><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{baseRows.map(([label, value]) => <div key={label} className="rounded-lg border border-white/[0.06] bg-black/10 px-3 py-2"><span className="block text-[9px] uppercase tracking-[0.13em] text-slate-600">{label}</span><strong className="mt-1 block text-[11px] font-medium text-slate-200">{value}</strong></div>)}</div></div>
+      <div className="border-b border-white/[0.07] p-5"><p className="eyebrow">04 / Frame assumptions and returned synthesis</p><div className="mt-3 grid gap-4 lg:grid-cols-2">{frames.map((frame: any) => <div key={frame.name} className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-white">{frame.name}</p><p className="mt-1 text-[10px] text-slate-500">{frame.coordinateFrame}</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-slate-300">{displayWinner(frame.synthesis.winner, result)}</span></div><div className="mt-3 space-y-2 text-[11px]">{[["House rule", frame.houseRule], ["Ascendant model", frame.ascendantModel], ["Ascendant longitude", `${displayValue(frame.ascendantLongitude)}°`], ["Sunrise time", frame.sunriseTime], ["Sunrise source", frame.sunriseSource], ["Returned synthesis verdict", frame.synthesis.verdict]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-white/[0.05] pb-2 last:border-0 last:pb-0"><span className="text-slate-600">{label}</span><strong className="max-w-[62%] text-right font-medium text-slate-300">{displayValue(value)}</strong></div>)}</div></div>)}</div></div>
+      <details className="group p-5"><summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200/80">05 / Show raw engine payload <span className="ml-2 text-slate-600 group-open:hidden">(expand)</span><span className="ml-2 hidden text-slate-600 group-open:inline">(collapse)</span></summary><pre className="mt-4 max-h-[520px] overflow-auto rounded-xl border border-white/[0.07] bg-[#050b14] p-4 text-[10px] leading-5 text-slate-400">{JSON.stringify(result, null, 2)}</pre></details>
     </section>
   );
 }
@@ -344,151 +232,20 @@ export function TransparencyPanel({ result }: { result: any }) {
 function FramePlacementTable({ label, frame, accent }: { label: string; frame: any; accent: "cyan" | "purple" }) {
   const houses = [...(frame.houses ?? [])].sort((a, b) => a.house - b.house);
   const planets = [...(frame.planets ?? [])].sort((a, b) => a.house - b.house || a.degreeInHouse - b.degreeInHouse);
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-        <div>
-          <p className={`text-[10px] font-mono uppercase tracking-[0.2em] ${accent === "cyan" ? "text-cyan-300" : "text-purple-300"}`}>{label}</p>
-          <p className="mt-1 text-xs text-slate-400">Ascendant: {displayValue(frame.ascendantLongitude)}° • {planets.length} Celestial Bodies</p>
-        </div>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[9px] font-mono font-bold text-slate-300 uppercase">
-          12 Cusps
-        </span>
-      </div>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[700px] text-left">
-          <thead>
-            <tr className="border-b border-white/[0.06] text-[10px] font-mono uppercase tracking-wider text-slate-400">
-              <th className="px-3 py-2.5">House</th>
-              <th>Zodiac Cusp</th>
-              <th>Star → Sub Lord</th>
-              <th>Planetary Occupants</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.04]">
-            {houses.map((house) => {
-              const occupants = planets.filter((planet) => planet.house === house.house);
-              return (
-                <tr key={`${label}-${house.house}`} className="text-xs text-slate-300">
-                  <td className="px-3 py-3 font-semibold text-white font-mono">H{house.house}</td>
-                  <td className="py-3">
-                    <span className="font-medium text-slate-200">{displayValue(house.sign)}</span>
-                    <span className="ml-2 font-mono text-[11px] text-slate-500">{Number(house.cuspLongitude).toFixed(2)}°</span>
-                  </td>
-                  <td className="py-3 font-mono text-slate-400">
-                    <span className="text-slate-200">{displayValue(house.starLord)}</span>
-                    <span className="mx-1 text-slate-600">→</span>
-                    <span className="text-cyan-300">{displayValue(house.subLord)}</span>
-                  </td>
-                  <td className="py-3">
-                    {occupants.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {occupants.map((planet) => (
-                          <span key={`${label}-${house.house}-${planet.planet}`} className="rounded-lg border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] text-slate-200">
-                            <strong>{planet.planet}</strong> {Number(planet.degreeInHouse).toFixed(2)}°
-                            {planet.isRetrograde && <span className="ml-1 text-amber-300 font-bold">R</span>}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-slate-600 text-[11px]">Unoccupied</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="flex items-start justify-between gap-3"><div><p className={`eyebrow ${accent === "cyan" ? "text-cyan-200/80" : "text-violet-200/80"}`}>{label}</p><p className="mt-1 text-xs text-slate-500">{displayValue(frame.domeModel)} · Ascendant {displayValue(frame.ascendantLongitude)}° · {planets.length} bodies</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-slate-300">12 houses in order</span></div><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-white/[0.07] text-[9px] uppercase tracking-[0.14em] text-slate-600"><th className="px-3 py-2">House</th><th>Sign / cusp</th><th>Star → Sub</th><th>Planets placed in this house</th></tr></thead><tbody>{houses.map((house) => { const occupants = planets.filter((planet) => planet.house === house.house); return <tr key={`${label}-${house.house}`} className="border-b border-white/[0.05] last:border-0 align-top text-[11px] text-slate-400"><td className="px-3 py-3 font-semibold text-white">H{house.house}</td><td className="py-3"><span className="font-medium text-slate-200">{displayValue(house.sign)}</span><span className="ml-2 text-slate-500">{Number(house.cuspLongitude).toFixed(2)}°</span></td><td className="py-3">{displayValue(house.starLord)} <span className="text-slate-700">→</span> {displayValue(house.subLord)}{house.subLordHouse ? <span className="ml-2 text-[10px] text-slate-600">H{house.subLordHouse}</span> : null}</td><td className="py-3">{occupants.length ? <div className="flex flex-wrap gap-1.5">{occupants.map((planet) => <span key={`${label}-${house.house}-${planet.planet}`} className="rounded-md border border-white/10 bg-black/10 px-2 py-1 text-[10px] text-slate-200"><strong>{planet.planet}</strong> {Number(planet.degreeInHouse).toFixed(2)}°{planet.isRetrograde ? <em className="ml-1 text-amber-200">R</em> : null}<span className="ml-1 text-slate-600">{planet.nakshatra} · {planet.manzil?.name ?? "Manzil unavailable"}</span></span>)}</div> : <span className="text-slate-600">No planets placed</span>}</td></tr>; })}</tbody></table></div></div>;
 }
 
 export function CalculationProofPanel({ result }: { result: any }) {
   const renderFrame = (frame: any, label: string, accent: "cyan" | "purple") => {
     const proof = frame.proof;
-    const winnerLabel = frame.synthesis.winner === "A" ? "Side A (Ascendant Vector)" : frame.synthesis.winner === "B" ? "Side B (Descendant Vector)" : "Balanced";
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-          <div>
-            <p className={`text-[10px] font-mono uppercase tracking-[0.2em] ${accent === "cyan" ? "text-cyan-300" : "text-purple-300"}`}>{label}</p>
-            <h3 className="text-sm font-semibold text-white">Mathematical Proof Breakdown</h3>
-          </div>
-          <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-mono font-bold text-cyan-200 uppercase">
-            {winnerLabel}
-          </span>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Side A Domain</span>
-            <strong className="mt-1 block text-xs font-semibold text-white">Ascendant / 1st House Axis</strong>
-            <span className="text-[10px] font-mono text-slate-400">Houses: {proof.roleAssignment.ascendantHouses.join(", ")}</span>
-          </div>
-          <div className="rounded-xl border border-purple-400/20 bg-purple-400/5 p-3.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300">Side B Domain</span>
-            <strong className="mt-1 block text-xs font-semibold text-white">Descendant / 7th House Axis</strong>
-            <span className="text-[10px] font-mono text-slate-400">Houses: {proof.roleAssignment.descendantHouses.join(", ")}</span>
-          </div>
-        </div>
-
-        <details className="mt-4 group">
-          <summary className="cursor-pointer list-none text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300 hover:text-cyan-200">
-            Show Decision Trace Steps <span className="text-slate-500 group-open:hidden">(Expand)</span>
-          </summary>
-          <div className="mt-3 space-y-2">
-            {proof.decisionTrace.map((step: string, index: number) => (
-              <div key={`${label}-${index}`} className="flex gap-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs leading-relaxed text-slate-300">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-[10px] font-bold text-cyan-300">
-                  {index + 1}
-                </span>
-                <p>{step}</p>
-              </div>
-            ))}
-          </div>
-        </details>
-      </div>
-    );
+    const winnerLabel = frame.synthesis.winner === "A" ? "Side A · Ascendant" : frame.synthesis.winner === "B" ? "Side B · Descendant" : "Tie";
+    return <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><div className="flex items-start justify-between gap-3"><div><p className={`eyebrow ${accent === "cyan" ? "text-cyan-200/80" : "text-violet-200/80"}`}>{label}</p><p className="mt-1 text-sm font-semibold text-white">How this frame reached its call</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-300">{winnerLabel}</span></div><div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-lg border border-cyan-300/10 bg-cyan-300/[0.04] p-3"><span className="block text-[9px] uppercase tracking-[0.13em] text-cyan-200/60">Side A role</span><strong className="mt-1 block text-xs text-cyan-100">Ascendant</strong><span className="mt-1 block text-[10px] text-slate-500">H{proof.roleAssignment.ascendantHouses.join(", H")}</span></div><div className="rounded-lg border border-violet-300/10 bg-violet-300/[0.04] p-3"><span className="block text-[9px] uppercase tracking-[0.13em] text-violet-200/60">Side B role</span><strong className="mt-1 block text-xs text-violet-100">Descendant</strong><span className="mt-1 block text-[10px] text-slate-500">H{proof.roleAssignment.descendantHouses.join(", H")}</span></div></div><div className="mt-3 rounded-lg border border-white/[0.06] bg-black/10 p-3"><p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-600">Frame assumptions</p><p className="mt-2 text-[11px] leading-5 text-slate-400">{frame.houseRule} · {frame.coordinateFrame} · {frame.ascendantModel}{frame.ascendantLongitude !== undefined ? ` · Ascendant ${Number(frame.ascendantLongitude).toFixed(3)}°` : ""}</p></div><details className="mt-3 group"><summary className="cursor-pointer list-none text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-200/80">Show score-by-score proof <span className="ml-2 text-slate-600 group-open:hidden">(expand)</span><span className="ml-2 hidden text-slate-600 group-open:inline">(collapse)</span></summary><div className="mt-3 space-y-2">{proof.decisionTrace.map((step: string, index: number) => <div key={`${label}-${index}`} className="flex gap-3 rounded-lg border border-white/[0.06] bg-black/10 p-3"><span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-bold text-slate-400">{index + 1}</span><p className="text-[11px] leading-5 text-slate-300">{step}</p></div>)}</div><p className="mt-3 text-[10px] leading-5 text-slate-500"><strong className="text-slate-400">Synthesis formula:</strong> {proof.scoreFormula}</p></details></div>;
   };
-
-  return (
-    <section className="obs-panel overflow-hidden">
-      <div className="obs-panel-header">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Astrometric Calculations</p>
-          <h2 className="font-serif text-xl font-bold text-white">Mathematical Proof & Synthesis Trace</h2>
-        </div>
-        <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300">
-          Zero Obfuscation
-        </span>
-      </div>
-      <div className="grid gap-6 p-6 xl:grid-cols-2">
-        {renderFrame(result.godView, "God View (Sidereal Invariant)", "cyan")}
-        {renderFrame(result.agentView, "AgentView (Topocentric Local)", "purple")}
-      </div>
-    </section>
-  );
+  return <section className="mt-6 panel overflow-hidden"><div className="panel-header"><div><p className="eyebrow text-amber-200/80">Calculation proof</p><h2 className="section-title">How each frame got its answer</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">This is the school-math-work section: it prints the Ascendant/Descendant role mapping, frame assumptions, every method’s raw A/B score, and the synthesis roll-up. It does not hide the choice behind a label.</p></div><span className="rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-100">Proof trace</span></div><div className="grid gap-4 p-5 xl:grid-cols-2">{renderFrame(result.godView, "God View · fixed background", "cyan")}{renderFrame(result.agentView, "AgentView · event-local", "purple")}</div></section>;
 }
 
 export function HousePlacementPanel({ result }: { result: any }) {
-  return (
-    <section className="obs-panel overflow-hidden">
-      <div className="obs-panel-header">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Geometric Horizon</p>
-          <h2 className="font-serif text-xl font-bold text-white">House Cusps & Planetary Distributions</h2>
-        </div>
-        <span className="rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-purple-300">
-          Dual Topology
-        </span>
-      </div>
-      <div className="grid gap-6 p-6 xl:grid-cols-2">
-        <FramePlacementTable label="God View Sidereal Framework" frame={result.chart.godView} accent="cyan" />
-        <FramePlacementTable label="AgentView Topocentric Framework" frame={result.chart.agentView} accent="purple" />
-      </div>
-    </section>
-  );
+  return <section className="mt-6 panel overflow-hidden"><div className="panel-header"><div><p className="eyebrow text-violet-200/80">Chart structure</p><h2 className="section-title">Houses in order & planetary placements</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Houses are listed H1 through H12 for each frame. Planet chips show the returned house assignment, degree within house, nakshatra, and retrograde state; an empty row means no body was assigned to that house.</p></div><span className="rounded-full border border-violet-300/20 bg-violet-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-violet-100">Ordered output</span></div><div className="grid gap-4 p-5 xl:grid-cols-2"><FramePlacementTable label="God View · fixed background" frame={result.chart.godView} accent="cyan" /><FramePlacementTable label="AgentView · event-local" frame={result.chart.agentView} accent="purple" /></div></section>;
 }
 
 export function MethodExplorer({ result, onExplain }: { result: any; onExplain?: (layer: ResultLayer) => void }) {
@@ -497,114 +254,21 @@ export function MethodExplorer({ result, onExplain }: { result: any; onExplain?:
   const [sort, setSort] = useState<"method" | "evidence">("evidence");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ "God View": true, AgentView: true });
-
   const layers = useMemo(() => resultLayers(result), [result]);
-  const visibleLayers = useMemo(() => {
-    return layers
-      .filter((layer) => frame === "all" || layer.frame === frame)
-      .filter((layer) => verdict === "all" || layer.verdict === verdict)
-      .sort((a, b) => (sort === "method" ? a.name.localeCompare(b.name) : (b.scoreA + b.scoreB) - (a.scoreA + a.scoreB) || a.name.localeCompare(b.name)));
-  }, [frame, layers, sort, verdict]);
-
-  const groups = ["God View", "AgentView"]
-    .map((group) => ({ group, layers: visibleLayers.filter((layer) => layer.frame === group) }))
-    .filter((item) => item.layers.length);
+  const visibleLayers = useMemo(() => layers
+    .filter((layer) => frame === "all" || layer.frame === frame)
+    .filter((layer) => verdict === "all" || layer.verdict === verdict)
+    .sort((a, b) => sort === "method" ? a.name.localeCompare(b.name) : (b.scoreA + b.scoreB) - (a.scoreA + a.scoreB) || a.name.localeCompare(b.name)), [frame, layers, sort, verdict]);
+  const groups = ["God View", "AgentView"].map((group) => ({ group, layers: visibleLayers.filter((layer) => layer.frame === group) })).filter((item) => item.layers.length);
 
   return (
-    <section className="obs-panel overflow-hidden">
-      <div className="obs-panel-header">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Methodological Dissection</p>
-          <h2 className="font-serif text-xl font-bold text-white">Granular Layer Verification</h2>
-        </div>
-        <button onClick={() => downloadResultBundle(result)} className="glass-button text-xs py-1.5 px-3">
-          <Download size={14} /> Export Audit Matrix
-        </button>
-      </div>
-
-      <div className="grid gap-4 border-b border-white/[0.08] p-5 sm:grid-cols-3 bg-white/[0.01]">
-        <div>
-          <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Framework</label>
-          <select value={frame} onChange={(e) => setFrame(e.target.value as typeof frame)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#08111f] px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/40 cursor-pointer">
-            <option value="all">All Frameworks</option>
-            <option value="God View">God View Only</option>
-            <option value="AgentView">AgentView Only</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Verdict Status</label>
-          <select value={verdict} onChange={(e) => setVerdict(e.target.value)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#08111f] px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/40 cursor-pointer">
-            <option value="all">Every Evaluation Status</option>
-            <option value="hit">Hits (Corroborated)</option>
-            <option value="miss">Misses (Divergent)</option>
-            <option value="tie">Ties</option>
-            <option value="unverified">Awaiting Validation</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Sorting Metric</label>
-          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#08111f] px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/40 cursor-pointer">
-            <option value="evidence">Score Differential</option>
-            <option value="method">Methodological Alphabetical</option>
-          </select>
-        </div>
-      </div>
-
+    <section className="mt-6 panel overflow-hidden">
+      <div className="panel-header gap-4"><div><p className="eyebrow">Evidence navigator</p><h2 className="section-title">Method-level inspection</h2><p className="mt-1 text-xs text-slate-500">Filter all {layers.length} frame-method evaluations and expand a row for its recorded explanation.</p><p className="mt-2 text-[10px] text-amber-200/80">Not evaluated means this method has no HIT/MISS score yet—usually because the actual outcome is unverified or the method returned no evaluable condition. It does not mean the method scored zero.</p></div><button onClick={() => downloadResultBundle(result)} className="button-secondary shrink-0"><Download size={14} /> Download audit</button></div>
+      <div className="grid gap-3 border-y border-white/[0.07] px-5 py-4 md:grid-cols-3"><label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Frame<select value={frame} onChange={(event) => setFrame(event.target.value as typeof frame)} className="mt-1.5 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs normal-case tracking-normal text-slate-200 outline-none"><option value="all">All frames</option><option value="God View">God View</option><option value="AgentView">AgentView</option></select></label><label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Result<select value={verdict} onChange={(event) => setVerdict(event.target.value)} className="mt-1.5 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs normal-case tracking-normal text-slate-200 outline-none"><option value="all">Every status</option><option value="hit">Hits</option><option value="miss">Misses</option><option value="tie">Ties</option><option value="unverified">Not evaluated</option></select></label><label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Sort<select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="mt-1.5 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs normal-case tracking-normal text-slate-200 outline-none"><option value="evidence">Evidence magnitude</option><option value="method">Method name</option></select></label></div>
+      <div className="grid gap-2 border-b border-white/[0.07] bg-black/10 px-5 py-3 sm:grid-cols-4"><div><span className="block text-[9px] uppercase tracking-[0.14em] text-slate-600">Showing</span><strong className="text-sm text-slate-200">{visibleLayers.length} / {layers.length}</strong></div><div><span className="block text-[9px] uppercase tracking-[0.14em] text-slate-600">Hits</span><strong className="text-sm text-emerald-200">{visibleLayers.filter((layer) => layer.verdict === "hit").length}</strong></div><div><span className="block text-[9px] uppercase tracking-[0.14em] text-slate-600">Conflicts</span><strong className="text-sm text-rose-200">{visibleLayers.filter((layer) => layer.verdict === "miss").length}</strong></div><div><span className="block text-[9px] uppercase tracking-[0.14em] text-slate-600">Not evaluated</span><strong className="text-sm text-amber-200">{visibleLayers.filter((layer) => layer.verdict === "unverified").length}</strong></div></div>
       <div className="divide-y divide-white/[0.06]">
-        {groups.map(({ group, layers: groupLayers }) => {
-          const open = expandedGroups[group] ?? true;
-          return (
-            <div key={group}>
-              <button onClick={() => setExpandedGroups((curr) => ({ ...curr, [group]: !open }))} className="flex w-full items-center justify-between p-5 text-left bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">{group}</h4>
-                  <p className="text-xs text-slate-400">{group === "God View" ? "Invariant Sidereal Horizon" : "Topocentric Observer Horizon"}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs text-cyan-300">{groupLayers.length} Methods Evaluated</span>
-                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-                </div>
-              </button>
-
-              {open && (
-                <div className="divide-y divide-white/[0.04]">
-                  {groupLayers.map((layer) => {
-                    const key = `${layer.frame}-${layer.name}`;
-                    const isExpanded = expanded === key;
-                    return (
-                      <div key={key} className="p-5 hover:bg-white/[0.01] transition-colors">
-                        <div className="flex items-start justify-between gap-4">
-                          <button onClick={() => setExpanded(isExpanded ? null : key)} className="flex flex-1 items-start gap-4 text-left">
-                            <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${verdictStyle[layer.verdict] ?? verdictStyle.unverified}`}>
-                              {layer.verdict === "unverified" ? "PENDING" : layer.verdict}
-                            </span>
-                            <div>
-                              <p className="text-xs font-semibold text-white">{layer.name}</p>
-                              <p className="mt-0.5 font-mono text-[11px] text-slate-400">
-                                Vector: Side {layer.winner} • Differential Score: A ({layer.scoreA.toFixed(1)}) vs B ({layer.scoreB.toFixed(1)})
-                              </p>
-                            </div>
-                          </button>
-                          {onExplain && (
-                            <button onClick={() => onExplain(layer)} className="glass-button text-[11px] py-1 px-2.5">
-                              Explain Layer
-                            </button>
-                          )}
-                        </div>
-                        {isExpanded && (
-                          <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4 text-xs leading-relaxed text-slate-300">
-                            <p>{layer.detail || "Mathematical conditions verified without additional remarks."}</p>
-                            {layer.source && <p className="mt-2 text-[10px] font-mono text-cyan-300/80">Source Axiom: {layer.source}</p>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {groups.map(({ group, layers: groupLayers }) => { const open = expandedGroups[group] ?? true; return <div key={group}><button onClick={() => setExpandedGroups((current) => ({ ...current, [group]: !open }))} className="flex w-full items-center justify-between gap-3 bg-white/[0.025] px-5 py-3 text-left hover:bg-white/[0.045]"><div><p className="text-xs font-semibold text-slate-200">{group}</p><p className="mt-0.5 text-[10px] text-slate-500">{group === "God View" ? "Permanent fixed-background frame" : "Local moving-Ascendant frame"}</p></div><div className="flex items-center gap-3"><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-slate-400">{groupLayers.length} methods</span><ChevronDown size={16} className={`text-slate-500 transition ${open ? "rotate-180" : ""}`} /></div></button>{open && groupLayers.map((layer) => { const key = `${layer.frame}-${layer.name}`; const isExpanded = expanded === key; return <div key={key} className="px-5 py-3.5"><div className="flex items-start gap-3"><button onClick={() => setExpanded(isExpanded ? null : key)} className="flex min-w-0 flex-1 items-start gap-3 text-left"><span className={`mt-0.5 min-w-[4.5rem] rounded-full border px-2 py-1 text-center text-[9px] font-bold uppercase tracking-[0.12em] ${verdictStyle[layer.verdict] ?? verdictStyle.unverified}`}>{layer.verdict === "unverified" ? "not evaluated" : layer.verdict}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-200">{layer.name}</p><p className="mt-0.5 text-[10px] text-slate-500">Side {layer.winner} · A {layer.scoreA.toFixed(1)} / B {layer.scoreB.toFixed(1)}</p></div><ChevronDown size={16} className={`mt-1 shrink-0 text-slate-500 transition ${isExpanded ? "rotate-180" : ""}`} /></button>{onExplain && <button onClick={() => onExplain(layer)} className="button-quiet shrink-0 text-[10px]" title="Ask the research assistant to explain this method">Explain this row</button>}</div>{isExpanded && <div className="ml-[5.25rem] mt-3 rounded-lg border border-white/[0.07] bg-white/[0.025] p-3 text-xs leading-5 text-slate-400"><p>{layer.detail || "The engine did not return a narrative explanation for this evaluation."}</p>{layer.source && <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-slate-600">Source · {layer.source}</p>}</div>}</div>;})}</div>})}
+        {!groups.length && <div className="px-5 py-10 text-center text-xs text-slate-500"><Filter className="mx-auto mb-2" size={18} />No methods match these filters.</div>}
       </div>
     </section>
   );
@@ -612,52 +276,10 @@ export function MethodExplorer({ result, onExplain }: { result: any; onExplain?:
 
 export function RunHistoryPanel({ runs, isLoading, onRefresh }: { runs: any[] | undefined; isLoading: boolean; onRefresh: () => void }) {
   return (
-    <section className="obs-panel overflow-hidden">
-      <div className="obs-panel-header">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300">Batch Processing Registry</p>
-          <h2 className="font-serif text-xl font-bold text-white">Persisted Telemetry Replays</h2>
-        </div>
-        <button onClick={onRefresh} className="glass-button text-xs py-1.5 px-3">
-          <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} /> Sync History
-        </button>
-      </div>
-
-      <div className="divide-y divide-white/[0.06]">
-        {isLoading && <div className="p-8 text-center text-xs font-mono text-slate-400">Reading batch run records...</div>}
-        {!isLoading && !runs?.length && (
-          <div className="p-10 text-center text-xs text-slate-500">
-            No batch runs executed yet. Import a historical season CSV to generate high-volume replay logs.
-          </div>
-        )}
-        {runs?.map((run) => {
-          const processed = run.completedEvents + run.failedEvents;
-          const percent = run.totalEvents ? Math.round((processed / run.totalEvents) * 100) : 0;
-          return (
-            <div key={run.id} className="p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between hover:bg-white/[0.01] transition-colors">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-xs font-bold text-white">RUN #{run.id}</span>
-                  <span className="text-xs text-slate-400 font-mono">Dataset #{run.datasetId}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider ${run.status === "complete" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200"}`}>
-                    {run.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500 font-mono">
-                  Initiated: {run.createdAt ? new Date(run.createdAt).toLocaleString() : "Unknown"}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4 min-w-[200px]">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${percent}%` }} />
-                </div>
-                <span className="text-xs font-mono text-slate-400">{processed} / {run.totalEvents}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    <section className="mt-6 panel overflow-hidden"><div className="panel-header"><div><p className="eyebrow">Persisted runs</p><h2 className="section-title">Recent batch history</h2><p className="mt-1 text-xs text-slate-500">Batch replay status is stored with the source data and refreshed independently of the active run.</p></div><button onClick={onRefresh} className="icon-button" aria-label="Refresh batch history"><RefreshCw size={15} className={isLoading ? "animate-spin" : ""} /></button></div><div className="divide-y divide-white/[0.06]">{isLoading && <div className="px-5 py-5 text-xs text-slate-500">Loading persisted runs…</div>}{!isLoading && !runs?.length && <div className="px-5 py-7 text-center"><CalendarClock className="mx-auto text-slate-600" size={20} /><p className="mt-2 text-xs text-slate-500">No persisted batch runs yet. Import a CSV and start a replay to create the first record.</p></div>}{runs?.map((run) => { const processed = run.completedEvents + run.failedEvents; const percent = run.totalEvents ? Math.round((processed / run.totalEvents) * 100) : 0; return <div key={run.id} className="px-5 py-3.5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-200">Run #{run.id} <span className="font-normal text-slate-500">· Dataset #{run.datasetId}</span></p><p className="mt-1 text-[10px] text-slate-500">{run.createdAt ? new Date(run.createdAt).toLocaleString() : "Timestamp unavailable"}</p></div><span className={`rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.13em] ${run.status === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200" : run.status === "failed" ? "border-rose-300/20 bg-rose-300/[0.08] text-rose-200" : "border-amber-300/20 bg-amber-300/[0.08] text-amber-200"}`}>{run.status}</span></div><div className="mt-3 flex items-center gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-violet-300" style={{ width: `${percent}%` }} /></div><span className="text-[10px] text-slate-500">{processed}/{run.totalEvents}</span></div></div>; })}</div></section>
   );
+}
+
+export function ResearchWorkspaceHeader({ onNewFixture }: { onNewFixture: () => void }) {
+  return <button onClick={onNewFixture} className="button-primary"><FileChartColumn size={15} /> New fixture</button>;
 }

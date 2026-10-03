@@ -1,4 +1,4 @@
-export type ScheduleSport = "MLB" | "NBA" | "NFL";
+export type ScheduleSport = "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB";
 
 export type ScheduledGame = {
   id: string;
@@ -19,6 +19,10 @@ export type ScheduledGame = {
   oddsProvider?: string;
   oddsStatus: "available" | "unavailable";
   oddsUpdatedAt?: string;
+  isLive?: boolean;
+  scoreA?: string;
+  scoreB?: string;
+  period?: string;
 };
 
 const venueCoordinates: Record<string, [number, number]> = {
@@ -68,6 +72,7 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
     const competition = oddsByMatchup.get(`${away}|${home}`);
     const odds = competition?.odds?.[0];
     const favoriteTeam = odds?.homeTeamOdds?.favorite ? home : odds?.awayTeamOdds?.favorite ? away : undefined;
+    const state = game.status?.abstractGameState;
     return {
       id: `mlb-${game.gamePk}`,
       sport: "MLB" as const,
@@ -86,12 +91,24 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
       oddsProvider: odds?.provider?.displayName ?? "ESPN odds feed",
       oddsStatus: favoriteTeam ? "available" : "unavailable",
       ...(favoriteTeam ? { oddsUpdatedAt: new Date().toISOString() } : {}),
+      isLive: state === "Live",
+      scoreA: String(game.teams.away.score ?? "0"),
+      scoreB: String(game.teams.home.score ?? "0"),
+      period: game.status?.detailedState ?? "Scheduled",
     };
   });
 }
 
-async function espnSchedule(sport: "MLB" | "NBA" | "NFL", date: string): Promise<ScheduledGame[]> {
-  const path = sport === "MLB" ? "baseball/mlb" : sport === "NBA" ? "basketball/nba" : "football/nfl";
+async function espnSchedule(sport: Exclude<ScheduleSport, "MLB">, date: string): Promise<ScheduledGame[]> {
+  const paths: Record<Exclude<ScheduleSport, "MLB">, string> = {
+    NBA: "basketball/nba",
+    NFL: "football/nfl",
+    NHL: "hockey/nhl",
+    MLS: "soccer/usa.1",
+    NCAAF: "football/college-football",
+    NCAAB: "basketball/mens-college-basketball",
+  };
+  const path = paths[sport];
   const payload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${dateKey(date)}`);
   return (payload.events ?? []).map((event: any) => {
     const competition = event.competitions?.[0];
@@ -100,6 +117,7 @@ async function espnSchedule(sport: "MLB" | "NBA" | "NFL", date: string): Promise
     const home = competitors.find((team: any) => team.homeAway === "home") ?? competitors[0];
     const venue = competition?.venue?.fullName ?? "Venue unavailable";
     const city = competition?.venue?.address?.city;
+    const state = event.status?.type?.state;
     return {
       id: `${sport.toLowerCase()}-${event.id}`,
       sport,
@@ -117,12 +135,30 @@ async function espnSchedule(sport: "MLB" | "NBA" | "NFL", date: string): Promise
       oddsProvider: competition?.odds?.[0]?.provider?.displayName ?? "ESPN odds feed",
       oddsStatus: competition?.odds?.[0]?.homeTeamOdds?.favorite || competition?.odds?.[0]?.awayTeamOdds?.favorite ? "available" : "unavailable",
       ...(competition?.odds?.[0] ? { oddsUpdatedAt: new Date().toISOString() } : {}),
+      isLive: state === "in",
+      scoreA: away?.score ?? "0",
+      scoreB: home?.score ?? "0",
+      period: event.status?.type?.shortDetail ?? event.status?.type?.detail ?? "Scheduled",
     };
   });
 }
 
 export async function listScheduledGames(date: string, sport: ScheduleSport | "ALL" = "ALL") {
-  const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL"] : [sport];
+  const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB"] : [sport];
   const results = await Promise.allSettled(sports.map((item) => item === "MLB" ? mlbSchedule(date) : espnSchedule(item, date)));
   return results.flatMap((result) => result.status === "fulfilled" ? result.value : []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+export async function listLiveGames(date: string) {
+  const currentDate = new Date(`${date}T12:00:00.000Z`);
+  currentDate.setUTCDate(currentDate.getUTCDate() - 1);
+  const previousDate = currentDate.toISOString().slice(0, 10);
+  const [games, previousGames] = await Promise.all([
+    listScheduledGames(date, "ALL"),
+    listScheduledGames(previousDate, "ALL"),
+  ]);
+  const liveGames = [...games, ...previousGames].filter((game) => game.isLive);
+  // Keep the rail useful during quiet windows. The UI labels these as Upcoming;
+  // they are never treated as live events by the calculation handoff.
+  return liveGames.length > 0 ? liveGames : games.slice(0, 12);
 }

@@ -45,13 +45,17 @@ function parseNumber(raw: string | undefined, label: string, min: number, max: n
 }
 
 function normalizeRow(row: Record<string, string>, rowNumber: number): SimulationEventInput {
-  const teamA = value(row, "teamA", "team_a", "home", "home_team");
-  const teamB = value(row, "teamB", "team_b", "away", "away_team");
+  const favoredTeam = value(row, "favoredTeam", "favored_team", "favorite", "favorite_team");
+  const underdogTeam = value(row, "underdogTeam", "underdog_team", "dog", "dog_team");
+  const homeTeam = value(row, "homeTeam", "home_team", "home");
+  const awayTeam = value(row, "awayTeam", "away_team", "away");
+  const teamA = favoredTeam ?? value(row, "teamA", "team_a", "home", "home_team");
+  const teamB = underdogTeam ?? value(row, "teamB", "team_b", "away", "away_team");
   const sportRaw = value(row, "sport", "gameType", "game_type")?.toUpperCase();
   const location = value(row, "location", "venue", "city");
   const startTime = value(row, "startTime", "start_time", "dateTime", "date_time", "datetime", "date");
   const actualRaw = value(row, "actualWinner", "actual_winner", "winner")?.toUpperCase();
-  if (!teamA || !teamB || !location || !startTime) throw new Error("teamA, teamB, location, and startTime are required");
+  if (!teamA || !teamB || !location || !startTime) throw new Error("favoredTeam, underdogTeam, location, and startTime are required");
   if (!sportRaw || !["MLB", "NBA", "NFL", "BOXING"].includes(sportRaw)) throw new Error("sport must be MLB, NBA, NFL, or boxing");
   const date = new Date(startTime);
   if (Number.isNaN(date.getTime())) throw new Error("startTime must be a valid date/time");
@@ -60,6 +64,11 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
     id: value(row, "id", "eventId", "event_id") ?? `row-${rowNumber}`,
     teamA,
     teamB,
+    ...(favoredTeam ? { favoredTeam } : {}),
+    ...(underdogTeam ? { underdogTeam } : {}),
+    ...(homeTeam ? { homeTeam } : {}),
+    ...(awayTeam ? { awayTeam } : {}),
+    roleAssignmentSource: favoredTeam && underdogTeam ? "market-odds" : "legacy-side-order",
     sport: sportRaw === "BOXING" ? "boxing" : sportRaw as SimulationEventInput["sport"],
     location,
     latitude: parseNumber(value(row, "latitude", "lat"), "latitude", -90, 90),

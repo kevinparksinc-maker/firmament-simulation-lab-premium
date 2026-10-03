@@ -1,5 +1,11 @@
 export type TerritorialSide = "A" | "B" | "neutral";
 
+export type CalculationTrace = {
+  formula: string;
+  inputs: string[];
+  steps: string[];
+};
+
 export type TerritorialPlanet = {
   planet: string;
   tropicalLongitude: number;
@@ -10,6 +16,7 @@ export type TerritorialPlanet = {
   altitude: number;
   isRetrograde: boolean;
   nakshatra: string;
+  manzil?: { index: number; name: string; startLongitude: number; endLongitude: number };
 };
 
 export type TerritorialHouseLordEvidence = {
@@ -39,10 +46,10 @@ export type DecanEvidence = {
 };
 
 export type TerritorialEvidence = {
-  layers: Array<{ name: string; scoreA: number; scoreB: number; detail: string }>;
+  layers: Array<{ name: string; scoreA: number; scoreB: number; detail: string; calculation?: CalculationTrace }>;
   houseLords: TerritorialHouseLordEvidence[];
   planetaryWars: Array<{ winner: string; loser: string; degreeDifference: number }>;
-  arabicLots: Array<{ name: string; longitude: number; sign: string; house: number; side: TerritorialSide; score: number }>;
+  arabicLots: Array<{ name: string; longitude: number; sign: string; house: number; side: TerritorialSide; score: number; meaning: string; source: string; work: string; formulaDay: string; formulaNight: string; reversal: string }>;
   ninePlanetInfluence: Array<{ planet: string; house: number; side: TerritorialSide; score: number }>;
   decans: DecanEvidence[];
 };
@@ -92,13 +99,13 @@ function signForLongitude(longitude: number) { return SIGNS[Math.floor(normalize
 /**
  * God View has no real ascendant — houses are the fixed natural-zodiac sequence
  * (house 1 = Aries, house 2 = Taurus, ...), so `HOUSE_LORDS[house - 1]` is correct as-is.
- * Agent Mode has a real ascendant, so house N is whatever sign falls N signs forward
- * (whole-sign) from the ascendant's own sign, and that sign's ruler is the house lord.
+ * Agent Mode has a real ascendant, so each equal-house cusp is calculated from
+ * the exact ascendant degree and the sign containing that cusp supplies the lord.
  */
 function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: number): string {
   if (mode === "god") return HOUSE_LORDS[house - 1]!;
-  const ascendantSignIndex = Math.floor(normalize(ascendantLongitude) / 30);
-  const houseSign = SIGNS[(ascendantSignIndex + house - 1) % 12]!;
+  const cuspLongitude = normalize(ascendantLongitude + (house - 1) * 30);
+  const houseSign = signForLongitude(cuspLongitude);
   return SIGN_RULERS[houseSign]!;
 }
 
@@ -144,19 +151,36 @@ function detectWars(planets: TerritorialPlanet[]) {
   return wars;
 }
 
+type LotDefinition = { name: string; meaning: string; source: string; work: string; day: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; night: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; formulaDay: string; formulaNight: string; reversal: string };
+
 function canonicalLots(planets: Map<string, TerritorialPlanet>, ascendant: number, night: boolean) {
   const longitude = (planet: string) => planets.get(planet)?.tropicalLongitude ?? 0;
   const sun = longitude("Sun"), moon = longitude("Moon"), mars = longitude("Mars"), venus = longitude("Venus"), jupiter = longitude("Jupiter"), saturn = longitude("Saturn");
-  // Each lot is ascendant + addend - subtrahend by day; at night the two terms swap,
-  // the same day/night reversal already applied to Fortune and Spirit.
-  const lot = (addend: number, subtrahend: number) => (night ? ascendant + subtrahend - addend : ascendant + addend - subtrahend);
-  return [
-    ["Lot of Fortune", lot(moon, sun)],
-    ["Lot of Spirit", lot(sun, moon)],
-    ["Lot of Victory", lot(mars, saturn)], ["Lot of Success", lot(jupiter, saturn)],
-    ["Lot of Courage", lot(mars, sun)], ["Lot of Triumph", lot(venus, saturn)],
-    ["Lot of Glory", lot(sun, saturn)], ["Lot of Nemesis", lot(saturn, sun)],
-  ] as const;
+  const direct = (a: number, b: number) => ascendant + a - b;
+  const reverse = (a: number, b: number) => ascendant + b - a;
+  const fortune = direct(moon, sun);
+  const spirit = direct(sun, moon);
+  const definitions: LotDefinition[] = [
+    { name: "Lot of Fortune", meaning: "Material circumstances, body, resources, and what happens to the side.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => fortune, night: () => reverse(moon, sun), formulaDay: "Asc + Moon − Sun", formulaNight: "Asc + Sun − Moon", reversal: "Reverse the luminary arc at night." },
+    { name: "Lot of Spirit", meaning: "Agency, intention, strategy, and what the side tries to do.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => spirit, night: () => reverse(sun, moon), formulaDay: "Asc + Sun − Moon", formulaNight: "Asc + Moon − Sun", reversal: "Reverse the luminary arc at night." },
+    { name: "Lot of Eros", meaning: "Desire, cohesion, attraction, alliance, and union.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: (_a, _p, _f, s) => direct(venus, s), night: (_a, _p, _f, s) => reverse(venus, s), formulaDay: "Asc + Venus − Spirit", formulaNight: "Asc + Spirit − Venus", reversal: "Reverse Venus ↔ Spirit at night." },
+    { name: "Lot of Victory", meaning: "Overcoming resistance, achievement, and competitive success.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: (_a, _p, _f, s) => direct(jupiter, s), night: (_a, _p, _f, s) => reverse(jupiter, s), formulaDay: "Asc + Jupiter − Spirit", formulaNight: "Asc + Spirit − Jupiter", reversal: "Reverse Jupiter ↔ Spirit at night." },
+    { name: "Lot of Necessity", meaning: "Constraint, pressure, disputes, enemies, and social obligation.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: (_a, p, f) => direct(f, p("Mercury")), night: (_a, p, f) => reverse(f, p("Mercury")), formulaDay: "Asc + Fortune − Mercury", formulaNight: "Asc + Mercury − Fortune", reversal: "Reverse Fortune ↔ Mercury at night." },
+    { name: "Lot of Courage", meaning: "Risk, initiative, competitive force, and willingness to confront opposition.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: (_a, _p, f) => direct(f, mars), night: (_a, _p, f) => reverse(f, mars), formulaDay: "Asc + Fortune − Mars", formulaNight: "Asc + Mars − Fortune", reversal: "Reverse Fortune ↔ Mars at night." },
+    { name: "Lot of Nemesis", meaning: "Defeat, danger, punishment, reversal, and consequences.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: (_a, _p, f) => direct(f, saturn), night: (_a, _p, f) => reverse(f, saturn), formulaDay: "Asc + Fortune − Saturn", formulaNight: "Asc + Saturn − Fortune", reversal: "Reverse Fortune ↔ Saturn at night; score is negative." },
+    { name: "Lot of Basis", meaning: "Foundation, stability, survival, and support of the side.", source: "Vettius Valens", work: "Anthology, principal lots", day: (_a, _p, f, s) => direct(s, f), night: (_a, _p, f, s) => reverse(s, f), formulaDay: "Asc + Spirit − Fortune", formulaNight: "Asc + Fortune − Spirit", reversal: "Reverse Spirit ↔ Fortune at night." },
+    { name: "Lot of Exaltation", meaning: "Elevation, honors, recognition, status, and public standing.", source: "Vettius Valens", work: "Hermetic/Exaltation lot tradition", day: (_a, _p) => direct(18, sun), night: (_a, _p) => direct(32, moon), formulaDay: "Asc + 18° Aries − Sun", formulaNight: "Asc + 2° Taurus − Moon", reversal: "Use the day fixed point 18° Aries or night fixed point 2° Taurus." },
+    { name: "Lot of Action", meaning: "Work, execution, public activity, and what the side does.", source: "Rhetorius the Egyptian", work: "Lot of Activity / Work tradition", day: (_a, p) => direct(p("Mars"), p("Mercury")), night: (_a, p) => reverse(p("Mars"), p("Mercury")), formulaDay: "Asc + Mars − Mercury", formulaNight: "Asc + Mercury − Mars", reversal: "Reverse Mars ↔ Mercury at night." },
+    { name: "Lot of Death", meaning: "Endings, loss, closure, and irreversible transition.", source: "Dorotheus of Sidon", work: "Carmen Astrologicum, Death lot", day: (_a, p) => p("Saturn") + (ascendant + 210) - p("Moon"), night: (_a, p) => p("Saturn") + (ascendant + 210) - p("Moon"), formulaDay: "Saturn + 8th-house cusp − Moon", formulaNight: "Saturn + 8th-house cusp − Moon", reversal: "No day/night reversal in the selected Dorothean variant." },
+    { name: "Lot of Property", meaning: "Land, venue, physical assets, and territorial advantage.", source: "Olympiodorus", work: "Property Disposition lot", day: (_a, p) => direct(jupiter, p("Mercury")), night: (_a, p) => reverse(jupiter, p("Mercury")), formulaDay: "Asc + Jupiter − Mercury", formulaNight: "Asc + Mercury − Jupiter", reversal: "Reverse Jupiter ↔ Mercury at night." },
+    { name: "Lot of Travel", meaning: "Movement, distance, relocation, and away conditions.", source: "Firmicus Maternus", work: "Mathesis, Travel lot", day: (_a, p) => direct(p("Mars"), p("Sun")), night: (_a, p) => reverse(p("Mars"), p("Sun")), formulaDay: "Asc + Mars − Sun", formulaNight: "Asc + Sun − Mars", reversal: "Reverse Mars ↔ Sun at night." },
+    { name: "Lot of Fame", meaning: "Glory, public momentum, recognition, and favorable reception.", source: "Olympiodorus", work: "Fame / Glory lot", day: (_a, p) => direct(p("Venus"), jupiter), night: (_a, p) => reverse(p("Venus"), jupiter), formulaDay: "Asc + Venus − Jupiter", formulaNight: "Asc + Jupiter − Venus", reversal: "Reverse Venus ↔ Jupiter at night." },
+    { name: "Lot of Enemies", meaning: "Open opponents, rivals, threats, and adversarial pressure.", source: "Ancients / Olympiodorus", work: "Enemies lot", day: (_a, p) => direct(p("Mars"), saturn), night: (_a, p) => reverse(p("Mars"), saturn), formulaDay: "Asc + Mars − Saturn", formulaNight: "Asc + Saturn − Mars", reversal: "Reverse Mars ↔ Saturn at night." },
+    { name: "Lot of Success", meaning: "Completion, favorable issue, and realized result.", source: "Abu Ma'shar", work: "Great Introduction, success tradition", day: (_a, p, f) => direct(jupiter, f), night: (_a, p, f) => reverse(jupiter, f), formulaDay: "Asc + Jupiter − Fortune", formulaNight: "Asc + Fortune − Jupiter", reversal: "Reverse Jupiter ↔ Fortune at night." },
+    { name: "Lot of Triumph", meaning: "Advantage, decisive momentum, and public victory display.", source: "Hermetic extension", work: "Recovered sports lot set", day: () => direct(venus, saturn), night: () => reverse(venus, saturn), formulaDay: "Asc + Venus − Saturn", formulaNight: "Asc + Saturn − Venus", reversal: "Reverse Venus ↔ Saturn at night." },
+    { name: "Lot of Glory", meaning: "Visibility, honor, and durable public distinction.", source: "Hermetic extension", work: "Recovered sports lot set", day: () => direct(sun, saturn), night: () => reverse(sun, saturn), formulaDay: "Asc + Sun − Saturn", formulaNight: "Asc + Saturn − Sun", reversal: "Reverse Sun ↔ Saturn at night." },
+  ];
+  return definitions.map((definition) => ({ definition, rawLongitude: night ? definition.night(ascendant, longitude, fortune, spirit) : definition.day(ascendant, longitude, fortune, spirit) }));
 }
 
 /**
@@ -196,13 +220,13 @@ export function calculateRestoredTerritorial(
   }
 
   const night = (planetsByName.get("Sun")?.altitude ?? 0) < 0;
-  const arabicLots = canonicalLots(planetsByName, ascendantLongitude, night).map(([name, rawLongitude]) => {
+  const arabicLots = canonicalLots(planetsByName, ascendantLongitude, night).map(({ definition, rawLongitude }) => {
     const longitude = normalize(rawLongitude);
     const house = lotHouseFromLongitude(longitude);
     const side = sideForHouse(house);
     const magnitude = [1, 4, 7, 10].includes(house) ? 2 : 1;
-    const score = side === "neutral" ? 0 : name === "Lot of Nemesis" ? -magnitude : magnitude;
-    return { name, longitude: round(longitude), sign: signForLongitude(longitude), house, side, score };
+    const score = side === "neutral" ? 0 : definition.name === "Lot of Nemesis" ? -magnitude : magnitude;
+    return { name: definition.name, longitude: round(longitude), sign: signForLongitude(longitude), house, side, score, meaning: definition.meaning, source: definition.source, work: definition.work, formulaDay: definition.formulaDay, formulaNight: definition.formulaNight, reversal: definition.reversal };
   });
   const lotA = arabicLots.filter((lot) => lot.side === "A").reduce((sum, lot) => sum + lot.score, 0);
   const lotB = arabicLots.filter((lot) => lot.side === "B").reduce((sum, lot) => sum + lot.score, 0);
@@ -230,13 +254,14 @@ export function calculateRestoredTerritorial(
   const scoreA = components.baseA + components.nakA + components.dignA + components.warA + lotA + influenceA + decanA;
   const scoreB = components.baseB + components.nakB + components.dignB + components.warB + lotB + influenceB + decanB;
   const layers = [
-    { name: "Cluster territory & house-lord placement", scoreA: round(components.baseA), scoreB: round(components.baseB), detail: "Own-cluster support and opponent-cluster displacement, including angular displacement penalties." },
-    { name: "Nakshatra influence", scoreA: round(components.nakA), scoreB: round(components.nakB), detail: "27-profile stellar influence using traits, Gana, Yoni, and dignity-linked lord synergy." },
-    { name: "Essential dignity", scoreA: round(components.dignA), scoreB: round(components.dignB), detail: "Exaltation +2, own sign +1, neutral 0, debilitation −2." },
-    { name: "Chaldean Decans", scoreA: round(decanA), scoreB: round(decanB), detail: "0°/10°/20° faces across all 12 signs: +1 own-face dignity and ±0.5 from the decan ruler’s cluster allegiance." },
-    { name: "Planetary war", scoreA: round(components.warA), scoreB: round(components.warB), detail: "Conjunctions within 3° award +1 to the priority winner and −1 to the loser." },
-    { name: "Arabic Lots", scoreA: round(lotA), scoreB: round(lotB), detail: "Fortune, Spirit, Victory, Success, Courage, Triumph, Glory, and Nemesis, applied once per side." },
-    { name: "Nine-planet influence", scoreA: round(influenceA), scoreB: round(influenceB), detail: "All nine planetary placements across the fixed cluster territories; Sun and Moon carry the established 1.4 signal." },
+    { name: "Cluster territory & house-lord placement", scoreA: round(components.baseA), scoreB: round(components.baseB), detail: "Own-cluster support and opponent-cluster displacement, including angular displacement penalties.", calculation: { formula: "Σ house-lord base points by ruled side", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord} placed H${entry.placementHouse}: base ${entry.base}`), steps: houseLords.map((entry) => `H${entry.house} (${entry.side}) → ${entry.base >= 0 ? "+" : ""}${entry.base} base`) } },
+    { name: "Nakshatra influence", scoreA: round(components.nakA), scoreB: round(components.nakB), detail: "27-profile stellar influence using traits, Gana, Yoni, and dignity-linked lord synergy.", calculation: { formula: "round((((average trait weight + Gana bonus) × Yoni multiplier × (1 + dignity × 0.05)) − 1) × 5)", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord}: ${entry.nakshatra.name}, dignity ${entry.dignity.score}, contribution ${entry.nakshatra.score}`), steps: houseLords.map((entry) => `H${entry.house} → ${entry.nakshatra.name}: ${entry.nakshatra.score >= 0 ? "+" : ""}${entry.nakshatra.score} to ${entry.side}`) } },
+    { name: "Essential dignity", scoreA: round(components.dignA), scoreB: round(components.dignB), detail: "Exaltation +2, own sign +1, neutral 0, debilitation −2.", calculation: { formula: "Σ dignity(lord, placement sign)", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord} in ${entry.placementSign}: ${entry.dignity.status} = ${entry.dignity.score}`), steps: houseLords.map((entry) => `H${entry.house} → ${entry.dignity.status}: ${entry.dignity.score >= 0 ? "+" : ""}${entry.dignity.score} to ${entry.side}`) } },
+    { name: "Chaldean Decans", scoreA: round(decanA), scoreB: round(decanB), detail: "0°/10°/20° faces across all 12 signs: +1 own-face dignity and ±0.5 from the decan ruler’s cluster allegiance.", calculation: { formula: "Σ (face dignity + ruler allegiance)", inputs: decans.map((entry) => `${entry.planet} ${entry.sign} ${entry.degreeInSign.toFixed(2)}° → decan ${entry.decan}, ruler ${entry.ruler} H${entry.rulerHouse}: ${entry.score}`), steps: decans.map((entry) => `${entry.planet}: face ${entry.faceDignity >= 0 ? "+" : ""}${entry.faceDignity} + allegiance ${entry.allegiance} = ${entry.score} to ${entry.targetSide}`) } },
+    { name: "Planetary war", scoreA: round(components.warA), scoreB: round(components.warB), detail: "Conjunctions within 3° award +1 to the priority winner and −1 to the loser.", calculation: { formula: "Σ (+1 winner, −1 loser) for conjunctions within 3°", inputs: wars.map((war) => `${war.winner} over ${war.loser}: ${war.degreeDifference.toFixed(2)}°`), steps: wars.map((war) => `${war.winner}: +1; ${war.loser}: −1`) } },
+    { name: "Arabic Lots", scoreA: round(lotA), scoreB: round(lotB), detail: `${arabicLots.length} source-tagged lots are calculated once per chart and scored by house side.`, calculation: { formula: "Σ lot score by house side; angular houses ×2; Nemesis is negative", inputs: arabicLots.map((lot) => `${lot.name}: ${lot.formulaDay} | night: ${lot.formulaNight}; ${lot.longitude.toFixed(2)}° ${lot.sign}, H${lot.house}, ${lot.side}, score ${lot.score}; source ${lot.source}, ${lot.work}`), steps: arabicLots.map((lot) => `${lot.name} → ${lot.side}: ${lot.score >= 0 ? "+" : ""}${lot.score}; ${lot.reversal}`) } },
+    { name: "Arabic mansion context", scoreA: 0, scoreB: 0, detail: "The 28 Arabic lunar mansions are recorded as positional evidence but do not currently create a side-specific score; no historical sports weighting rule is enabled.", calculation: { formula: "For each planet: manzil = floor(normalized longitude ÷ (360/28)); contribution = 0 / 0 until a documented side-specific weighting is selected.", inputs: planets.map((planet) => `${planet.planet}: ${planet.manzil?.name ?? "unavailable"}, H${planet.house}, ${sideForHouse(planet.house)}`), steps: ["Arabic mansion identifies the 28-part lunar sector.", "It is not labeled hit or miss by itself.", "Contribution remains A 0.00 vs B 0.00 to prevent invented weighting."] } },
+    { name: "Nine-planet influence", scoreA: round(influenceA), scoreB: round(influenceB), detail: "All nine planetary placements across the fixed cluster territories; Sun and Moon carry the established 1.4 signal.", calculation: { formula: "Σ planet weight by house side; Sun/Moon = 1.4, all others = 1.0", inputs: ninePlanetInfluence.map((planet) => `${planet.planet} H${planet.house}: ${planet.side}, weight ${planet.score}`), steps: ninePlanetInfluence.map((planet) => `${planet.planet} → ${planet.side}: ${planet.score >= 0 ? "+" : ""}${planet.score}`) } },
   ];
   return { scoreA: round(scoreA), scoreB: round(scoreB), evidence: { layers, houseLords, planetaryWars: wars, arabicLots, ninePlanetInfluence, decans } };
 }

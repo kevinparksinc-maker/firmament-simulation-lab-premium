@@ -5,14 +5,25 @@ import {
   fixedEclipticHouseFromLongitude,
   kpDetailsFromCanonicalLongitude,
   runFullPackageDualFrameChallenger,
+  buildCelestialGeometryEvidence,
   type AgentViewRotationMode,
   type GameInput,
+  equalHouseZonePlacement,
+  NAKSHATRAS,
+  NAKSHATRA_ARC_DEGREES,
 } from "./index";
+import { calculateExperimentalLayers } from "./experimentalLayers";
+import { runRegisteredMethods } from "./methodRegistry";
 
 export type SimulationEventInput = {
   id?: string;
   teamA: string;
   teamB: string;
+  favoredTeam?: string;
+  underdogTeam?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  roleAssignmentSource?: "market-odds" | "expert-consensus" | "manual" | "legacy-side-order";
   sport: GameInput["gameType"];
   location: string;
   latitude?: number;
@@ -35,6 +46,7 @@ type LayerResult = {
   verdict: "hit" | "miss" | "tie" | "unverified";
   detail: string;
   source: string;
+  calculation?: { formula: string; inputs: string[]; steps: string[] };
 };
 
 function winnerFor(scoreA: number, scoreB: number): Winner {
@@ -49,7 +61,7 @@ function verdictFor(winner: Winner, actualWinner?: Winner): LayerResult["verdict
 }
 
 function layerFromEvidence(
-  layer: { name: string; scoreA: number; scoreB: number; detail: string; source?: string },
+  layer: { name: string; scoreA: number; scoreB: number; detail: string; source?: string; calculation?: { formula: string; inputs: string[]; steps: string[] } },
   actualWinner?: Winner,
 ): LayerResult {
   const winner = winnerFor(layer.scoreA, layer.scoreB);
@@ -61,6 +73,18 @@ function layerFromEvidence(
     verdict: verdictFor(winner, actualWinner),
     detail: layer.detail,
     source: layer.source ?? "firmament-engine",
+    calculation: layer.calculation ? {
+      ...layer.calculation,
+      steps: [...layer.calculation.steps, `Final method output: A ${layer.scoreA.toFixed(3)} vs B ${layer.scoreB.toFixed(3)} → ${winner === "A" ? "Side A" : winner === "B" ? "Side B" : "Tie"}.`, actualWinner ? `Hit/miss test: ${winner === actualWinner ? "HIT" : "MISS"} because method call ${winner} ${winner === actualWinner ? "matches" : "does not match"} verified result ${actualWinner}.` : "Hit/miss test: UNVERIFIED because no actual winner was supplied."],
+    } : undefined,
+  };
+}
+
+function houseOverlays(planet: { manzil: { startLongitude: number; endLongitude: number }; nakshatra: string }, ascendantLongitude: number) {
+  const nakshatraIndex = NAKSHATRAS.indexOf(planet.nakshatra as typeof NAKSHATRAS[number]);
+  return {
+    manzil: equalHouseZonePlacement(planet.manzil.startLongitude, planet.manzil.endLongitude, ascendantLongitude),
+    nakshatra: nakshatraIndex >= 0 ? equalHouseZonePlacement(nakshatraIndex * NAKSHATRA_ARC_DEGREES, (nakshatraIndex + 1) * NAKSHATRA_ARC_DEGREES, ascendantLongitude) : null,
   };
 }
 
@@ -83,7 +107,7 @@ function chartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPredict
     planets: prediction.planets.map((planet) => ({
       planet: planet.planet,
       tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
-      fixedBackgroundLongitude: Number(planet.fixedJ2000EclipticLongitude.toFixed(4)),
+      backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.house,
       sign: planet.sign,
       degreeInHouse: Number(planet.degreeInHouse.toFixed(4)),
@@ -91,6 +115,8 @@ function chartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPredict
       pada: planet.pada,
       starLord: planet.starLord,
       subLord: planet.subLord,
+      manzil: planet.manzil,
+      houseOverlays: houseOverlays(planet, prediction.ascendantLongitude),
       isRetrograde: planet.isRetrograde,
     })),
   };
@@ -116,7 +142,7 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
     };
   });
   return {
-    domeModel: "fixed-j2000-kp",
+    domeModel: "fixed-zodiac-wheel",
     venue: "permanent fixed background",
     ascendantLongitude: 0,
     localSiderealTime: 0,
@@ -124,7 +150,7 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
     planets: planets.map((planet) => ({
       planet: planet.planet,
       tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
-      fixedBackgroundLongitude: Number(planet.fixedJ2000EclipticLongitude.toFixed(4)),
+      backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.firmamentHouse,
       sign: planet.sign,
       degreeInHouse: Number(planet.firmamentDegreeInHouse.toFixed(4)),
@@ -132,20 +158,21 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
       pada: planet.pada,
       starLord: planet.starLord,
       subLord: planet.subLord,
+      manzil: planet.manzil,
+      houseOverlays: houseOverlays(planet, 0),
       isRetrograde: planet.isRetrograde,
     })),
   };
 }
 
 function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>, ascendantLongitude: number, startTime: Date) {
-  const ascendantSignStart = Math.floor(ascendantLongitude / 30) * 30;
   const planets = prediction.planets.map((planet) => {
-    const local = fixedEclipticHouseFromLongitude(planet.ofDateEclipticLongitude - ascendantSignStart);
+    const local = fixedEclipticHouseFromLongitude(planet.ofDateEclipticLongitude - ascendantLongitude);
     return { ...planet, house: local.house, degreeInHouse: local.degreeInHouse, sign: planet.sign };
   });
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = (ascendantSignStart + index * 30) % 360;
+    const cuspLongitude = (ascendantLongitude + index * 30) % 360;
     const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, startTime, true);
     const subLordPlacement = planets.find((planet) => planet.planet === stellar.subLord);
     return {
@@ -168,7 +195,7 @@ function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000
     planets: planets.map((planet) => ({
       planet: planet.planet,
       tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
-      fixedBackgroundLongitude: Number(planet.fixedJ2000EclipticLongitude.toFixed(4)),
+      backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.house,
       sign: planet.sign,
       degreeInHouse: Number(planet.degreeInHouse.toFixed(4)),
@@ -176,6 +203,8 @@ function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000
       pada: planet.pada,
       starLord: planet.starLord,
       subLord: planet.subLord,
+      manzil: planet.manzil,
+      houseOverlays: houseOverlays(planet, ascendantLongitude),
       isRetrograde: planet.isRetrograde,
     })),
   };
@@ -233,9 +262,12 @@ function frameReport(
 export function runSimulationEvent(input: SimulationEventInput) {
   const startTime = new Date(input.startTime);
   if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
+  const favoredTeam = input.favoredTeam ?? input.teamA;
+  const underdogTeam = input.underdogTeam ?? input.teamB;
+  const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? "manual" : "legacy-side-order");
   const gameInput: GameInput = {
-    teamA: input.teamA,
-    teamB: input.teamB,
+    teamA: favoredTeam,
+    teamB: underdogTeam,
     gameType: input.sport,
     location: input.location,
     startTime,
@@ -250,24 +282,49 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
   const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
+  const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
+  const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
+  const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
+  const agentMethodResults = runRegisteredMethods({ prediction: agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, eventTime: startTime });
+  const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
 
   return {
-    id: input.id ?? `${input.teamA}-${input.teamB}-${input.startTime}`,
-    input: { ...input, startTime: startTime.toISOString() },
+    id: input.id ?? `${favoredTeam}-${underdogTeam}-${input.startTime}`,
+    input: { ...input, teamA: favoredTeam, teamB: underdogTeam, favoredTeam, underdogTeam, roleAssignmentSource, startTime: startTime.toISOString() },
+    evaluationFramework: {
+      sideA: "Ascendant / favored to win",
+      sideB: "Descendant / underdog",
+      actualWinnerMeaning: "A means favored won; B means underdog won; TIE means no decisive result.",
+      homeAwayIsMetadataOnly: true,
+      roleAssignmentSource,
+      primaryResearchEligible: roleAssignmentSource !== "legacy-side-order",
+    },
     engine: {
       source: "firmament-engine",
-      calculationPath: "generateFixedJ2000KPPrediction + runFullPackageDualFrameChallenger",
-      fixedBackground: "fixed-j2000-ecliptic compatibility frame",
+      calculationPath: "generateFixedJ2000KPPrediction + celestialGeometry + runFullPackageDualFrameChallenger",
+      fixedBackground: "fixed Aries-zero zodiac wheel",
       hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
     },
     chart: {
       godView: fixedGodChartSnapshot(activePrediction, startTime),
-      agentView: input.agentViewModel === "fixed-earth-dawn-anchored"
+    agentView: input.agentViewModel === "fixed-earth-dawn-anchored"
         ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
         : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>),
+      celestialGeometry,
+    },
+    experimentalLayers: {
+      status: "experimental-read-only" as const,
+      note: "These four evidence layers are calculated for audit/backtest inspection only and do not modify the existing live baseline or 21-method frame synthesis.",
+      godView: godExperimental,
+      agentView: agentExperimental,
+    },
+    methodResults: {
+      registryVersion: "METHOD_REGISTRY_V1",
+      godView: godMethodResults,
+      agentView: agentMethodResults,
     },
     baseline: {
       territorial: activePrediction.territorial,
@@ -278,6 +335,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     godView: frameReport(dualFrame.god, actualWinner),
     agentView: frameReport(dualFrame.agent, actualWinner),
+    frameParity: dualFrame.parity,
     comparison: {
       state: dualFrame.agreement.state,
       winner: dualFrame.agreement.winner,

@@ -4,9 +4,10 @@ import {
   generatePredictionForModel,
   runAgentGodFullLayerExperiment,
   type GameInput,
+  type ManzilReading,
   type PlanetReading,
 } from "./firmamentEngine";
-import { calculateRestoredTerritorial, type TerritorialPlanet } from "./territorialStack";
+import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
 import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
 
 type Side = "A" | "B" | "neutral";
@@ -67,6 +68,7 @@ export type FullPackageLayerEvidence = {
   detail: string;
   source: "recovered-archive-master" | "recovered-archive-horary" | "current-full-kp";
   limitation?: string;
+  calculation?: CalculationTrace;
 };
 
 export type FullPackageFoundationLayerEvidence = {
@@ -76,12 +78,13 @@ export type FullPackageFoundationLayerEvidence = {
   ruleClass: RuleClass;
   detail: string;
   source: "current-seven-layer-territorial";
+  calculation?: CalculationTrace;
 };
 
 export type FullPackageFrame = {
   name: FrameName;
-  coordinateFrame: "fixed-j2000-ecliptic" | "observer-local-ascendant-whole-sign" | "fixed-earth-dawn-anchored";
-  houseRule: "permanent-aries-zero-whole-sign" | "local-moving-ascendant-whole-sign";
+  coordinateFrame: "fixed-zodiac-wheel" | "observer-local-ascendant-equal-house" | "fixed-earth-dawn-anchored";
+  houseRule: "permanent-aries-zero-equal-house" | "local-moving-ascendant-equal-house";
   ascendantModel: "god-fixed" | "astronomical-local-horizon" | "fixed-earth-dawn-anchored";
   sunriseSource?: string;
   sunriseTime?: string;
@@ -100,11 +103,28 @@ export type FullPackageDualFrameChallenger = {
   god: FullPackageFrame;
   agent: FullPackageFrame;
   agreement: { state: "agree" | "split" | "no-call"; winner: Winner };
+  parity: FrameParityDiagnostic;
   boundary: string;
 };
 
-type FramePlanet = TerritorialPlanet & { longitude: number };
+export type FrameParityDiagnostic = {
+  valid: boolean;
+  methodParity: boolean;
+  formulaParity: boolean;
+  sourceParity: boolean;
+  ruleClassParity: boolean;
+  synthesisParity: boolean;
+  reason: string;
+  changedLayers: Array<{ name: string; godScoreA: number; godScoreB: number; agentScoreA: number; agentScoreB: number; differentialShift: number }>;
+};
+
+type FramePlanet = TerritorialPlanet & { longitude: number; backgroundWheelLongitude: number; fixedStarLongitude: number; manzil: ManzilReading };
 type HouseLordEntry = { house: number; ruledSide: Exclude<Side, "neutral">; lord: string; placement: FramePlanet };
+
+function calculation(formula: string, detail: string | string[]): CalculationTrace {
+  const lines = Array.isArray(detail) ? detail : [detail];
+  return { formula, inputs: lines, steps: lines };
+}
 
 export type AgentViewRotationMode = "none" | "ascendant-only" | "whole-chart";
 export type AgentViewModel = "astronomical" | "fixed-earth-dawn-anchored";
@@ -116,6 +136,36 @@ function angularDistance(first: number, second: number) { const diff = Math.abs(
 function sideForHouse(house: number): Side { return ASCENDANT_HOUSES.has(house) ? "A" : DESCENDANT_HOUSES.has(house) ? "B" : "neutral"; }
 function sideScore(side: Side, amount: number) { return side === "A" ? [amount, 0] as const : side === "B" ? [0, amount] as const : [0, 0] as const; }
 function layerWinner(scoreA: number, scoreB: number): Winner { return scoreA === scoreB ? "TIE" : scoreA > scoreB ? "A" : "B"; }
+
+function frameParity(god: FullPackageFrame, agent: FullPackageFrame): FrameParityDiagnostic {
+  const godLayers = [...god.foundation.layers, ...god.addedLayers];
+  const agentLayers = [...agent.foundation.layers, ...agent.addedLayers];
+  const agentByName = new Map(agentLayers.map((layer) => [layer.name, layer]));
+  const methodParity = godLayers.length === agentLayers.length && godLayers.every((layer, index) => layer.name === agentLayers[index]?.name);
+  const formulaParity = methodParity && godLayers.every((layer) => layer.calculation?.formula === agentByName.get(layer.name)?.calculation?.formula);
+  const sourceParity = methodParity && godLayers.every((layer) => layer.source === agentByName.get(layer.name)?.source);
+  const ruleClassParity = methodParity && godLayers.every((layer) => layer.ruleClass === agentByName.get(layer.name)?.ruleClass);
+  const synthesisParity = god.synthesis.formula === agent.synthesis.formula;
+  const changedLayers = godLayers.flatMap((layer) => {
+    const other = agentByName.get(layer.name);
+    if (!other) return [];
+    const godDifferential = layer.scoreA - layer.scoreB;
+    const agentDifferential = other.scoreA - other.scoreB;
+    const differentialShift = round(agentDifferential - godDifferential);
+    return differentialShift === 0 ? [] : [{ name: layer.name, godScoreA: layer.scoreA, godScoreB: layer.scoreB, agentScoreA: other.scoreA, agentScoreB: other.scoreB, differentialShift }];
+  });
+  const valid = methodParity && formulaParity && sourceParity && ruleClassParity && synthesisParity && !god.foundationError && !agent.foundationError;
+  return {
+    valid,
+    methodParity,
+    formulaParity,
+    sourceParity,
+    ruleClassParity,
+    synthesisParity,
+    reason: valid ? "God View and Agent View use the same method roster, formulas, sources, rule classes, and synthesis rule; score differences are attributable to frame-dependent placement inputs." : "Parity contract failed: inspect method roster, formulas, sources, rule classes, synthesis rule, or foundation errors before trusting the split.",
+    changedLayers,
+  };
+}
 function signAt(longitude: number) { return SIGNS[Math.floor(normalize(longitude) / 30)]!; }
 function aspectType(first: number, second: number) {
   const separation = angularDistance(first, second);
@@ -132,11 +182,16 @@ function planetsForGod(input: GameInput): { ascendantLongitude: number; planets:
   return {
     ascendantLongitude: 0,
     planets: source.planets.map((planet) => {
-      const position = fixedEclipticHouseFromLongitude(planet.fixedJ2000EclipticLongitude);
+      // God View is a permanent Aries-zero house wheel applied to the real
+      // of-date sky, not the frozen J2000 epoch — the wheel is fixed, the
+      // planets still move. fixedJ2000EclipticLongitude is not used here.
+      const backgroundWheelLongitude = planet.backgroundWheelLongitude;
+      const position = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
       return {
         planet: planet.planet,
-        longitude: planet.fixedJ2000EclipticLongitude,
-        tropicalLongitude: planet.fixedJ2000EclipticLongitude,
+        longitude: backgroundWheelLongitude,
+        backgroundWheelLongitude,
+        tropicalLongitude: backgroundWheelLongitude,
         house: position.house,
         sign: position.sign,
         degreeInHouse: position.degreeInHouse,
@@ -144,6 +199,10 @@ function planetsForGod(input: GameInput): { ascendantLongitude: number; planets:
         altitude: planet.altitude,
         isRetrograde: planet.isRetrograde,
         nakshatra: planet.nakshatra,
+        manzil: planet.manzil,
+        // Fixed-star, mansion, and decan overlays all read the same absolute
+        // 360-degree background wheel. House perspective never changes it.
+        fixedStarLongitude: backgroundWheelLongitude,
       };
     }),
   };
@@ -169,13 +228,15 @@ function planetsForAgent(input: GameInput, rotationMode: AgentViewRotationMode =
   return {
     ascendantLongitude,
     planets: source.planets.map((planet) => {
-      const longitude = rotationMode === "whole-chart" ? normalize(planet.ofDateEclipticLongitude + rotation) : planet.ofDateEclipticLongitude;
-      const local = fixedEclipticHouseFromLongitude(longitude - ascendantLongitude);
-      const sign = fixedEclipticHouseFromLongitude(longitude);
+      const backgroundWheelLongitude = planet.backgroundWheelLongitude;
+      const houseLongitude = rotationMode === "whole-chart" ? normalize(backgroundWheelLongitude + rotation) : backgroundWheelLongitude;
+      const local = fixedEclipticHouseFromLongitude(houseLongitude - ascendantLongitude);
+      const sign = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
       return {
         planet: planet.planet,
-        longitude,
-        tropicalLongitude: longitude,
+        longitude: houseLongitude,
+        backgroundWheelLongitude,
+        tropicalLongitude: backgroundWheelLongitude,
         house: local.house,
         sign: sign.sign,
         degreeInHouse: local.degreeInHouse,
@@ -183,6 +244,10 @@ function planetsForAgent(input: GameInput, rotationMode: AgentViewRotationMode =
         altitude: planet.altitude,
         isRetrograde: planet.isRetrograde,
         nakshatra: planet.nakshatra,
+        manzil: planet.manzil,
+        // The overlay longitude is shared and unrotated even when AgentView
+        // changes the exact ascendant-relative house assignment.
+        fixedStarLongitude: backgroundWheelLongitude,
       };
     }),
     ascendantModel,
@@ -213,7 +278,7 @@ function fixedStarLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
     const side = sideForHouse(entry.placement.house);
     if (side === "neutral") continue;
     for (const star of ARCHIVE_STARS) {
-      if (angularDistance(entry.placement.longitude, star.longitude) > 1) continue;
+      if (angularDistance(entry.placement.fixedStarLongitude, star.longitude) > 1) continue;
       const score = star.group === "royal" ? (star.nature === "benefic" ? 2 : -2.5) : star.group === "major" ? (star.nature === "benefic" ? 1 : -1.5) : -0.75;
       const [a, b] = sideScore(side, score);
       scoreA += a;
@@ -221,7 +286,7 @@ function fixedStarLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
       hits.push(`H${entry.house} ${entry.lord} / ${star.name} ${score > 0 ? "+" : ""}${score}`);
     }
   }
-  return { name: "Fixed-star amplifications", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: hits.length ? hits.join("; ") : "No recovered-archive fixed-star conjunctions within the stated 1° orb.", source: "recovered-archive-master" };
+  return { name: "Fixed-star amplifications", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: hits.length ? hits.join("; ") : "No recovered-archive fixed-star conjunctions within the stated 1° orb.", source: "recovered-archive-master", calculation: calculation("Σ star weight by house-lord side when angular distance ≤ 1°", hits.length ? hits : ["No star input met the 1° orb."]) };
 }
 
 const RETROGRADE_PENALTY = -1;
@@ -237,7 +302,7 @@ function retrogradeLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
     scoreB += b;
     if (side !== "neutral") details.push(`${planet.planet} H${planet.house}: ${RETROGRADE_PENALTY}`);
   }
-  return { name: "Retrograde condition", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No retrograde planets occupied a scoring cluster.", source: "recovered-archive-horary" };
+  return { name: "Retrograde condition", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No retrograde planets occupied a scoring cluster.", source: "recovered-archive-horary", calculation: calculation("For each retrograde planet: score −1 to its house side", details.length ? details : ["No retrograde planet contributed."]) };
 }
 
 function lunarLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -246,7 +311,7 @@ function lunarLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
   const side = sideForHouse(moon.house);
   const score = [1, 4, 7, 10].includes(moon.house) ? 8 : 5;
   const [scoreA, scoreB] = sideScore(side, score);
-  return { name: "Lunar flow", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: side === "neutral" ? `Moon in neutral H${moon.house}.` : `Moon in ${side} H${moon.house}: +${score}.`, source: "recovered-archive-master" };
+  return { name: "Lunar flow", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: side === "neutral" ? `Moon in neutral H${moon.house}.` : `Moon in ${side} H${moon.house}: +${score}.`, source: "recovered-archive-master", calculation: calculation("Moon house ∈ {1,4,7,10} ? +8 : +5; assign to Moon's house side", [`Moon longitude ${moon.longitude.toFixed(2)}°, house H${moon.house}, side ${side}`, `Selected weight = ${score}`]) };
 }
 
 function chartAspectLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -262,7 +327,7 @@ function chartAspectLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
       if (score !== 0) details.push(`${planets[left]!.planet}-${planets[right]!.planet} ${kind}: ${score > 0 ? "+" : ""}${score}`);
     }
   }
-  return { name: "Chart-wide aspects", scoreA: round(net / 2), scoreB: round(-net / 2), ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No scored major aspects.", source: "recovered-archive-master", limitation: "The archive halves separating aspects. Applying/separating is not present in the current event payload, so this sandbox conservatively applies that half-strength treatment." };
+  return { name: "Chart-wide aspects", scoreA: round(net / 2), scoreB: round(-net / 2), ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No scored major aspects.", source: "recovered-archive-master", calculation: calculation("For every major aspect: aspect weight × 0.5; A = net ÷ 2, B = −net ÷ 2", details.length ? details : ["No scored major aspects." ]), limitation: "The archive halves separating aspects. Applying/separating is not present in the current event payload, so this sandbox conservatively applies that half-strength treatment." };
 }
 
 function moonPhaseLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -278,6 +343,7 @@ function moonPhaseLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
     ruleClass: "SHARED",
     detail: `${phase} Moon at ${round(separation)}° solar separation; void-of-course remains false / 0 points. Recorded as chart-environment context only — no known rule ties this phase to one side specifically, so it does not count toward the winner.`,
     source: "recovered-archive-master",
+    calculation: calculation("Environment-only: phase and VOC are recorded, but scoreA = 0 and scoreB = 0 by rule", [`Sun longitude ${sun.longitude.toFixed(2)}°, Moon longitude ${moon.longitude.toFixed(2)}°`, `Separation = ${round(separation)}°, phase = ${phase}`, "isVoidOfCourse = false → 0 / 0"]),
     limitation: "The recovered archive adapter itself hard-coded isVoidOfCourse = false with a TODO to calculate it. No historical VOC rule can be reconstructed from the source currently available.",
   };
 }
@@ -294,7 +360,7 @@ function nodesLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
     scoreB += b;
     if (side !== "neutral") details.push(`${node.planet} H${node.house}: +${score} ${side}`);
   }
-  return { name: "Nodes (Rahu/Ketu)", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "Both nodes in neutral houses.", source: "recovered-archive-master" };
+  return { name: "Nodes (Rahu/Ketu)", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "Both nodes in neutral houses.", source: "recovered-archive-master", calculation: calculation("For each Rahu/Ketu: angular house ? +2 : +1; assign to node's house side", details.length ? details : ["Both nodes are neutral."]) };
 }
 
 const UPACHAYA_HOUSES = new Set([3, 6, 10, 11]);
@@ -310,7 +376,7 @@ function upachayaLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
     scoreB += b;
     if (side !== "neutral") details.push(`${planet.planet} H${planet.house}: +1 ${side}`);
   }
-  return { name: "Upachaya growth", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No malefic occupies an Upachaya house (3/6/10/11) in a scoring cluster.", source: "recovered-archive-master" };
+  return { name: "Upachaya growth", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No malefic occupies an Upachaya house (3/6/10/11) in a scoring cluster.", source: "recovered-archive-master", calculation: calculation("For each malefic in H3/H6/H10/H11: +1 to its house side", details.length ? details : ["No qualifying malefic input."]) };
 }
 
 function viaCombustaLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
@@ -324,7 +390,7 @@ function viaCombustaLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
     scoreB += b;
     details.push(`H${entry.house} ${entry.lord}: -3`);
   }
-  return { name: "Via Combusta", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No scoring house lord in 15° Libra–15° Scorpio.", source: "recovered-archive-master" };
+  return { name: "Via Combusta", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No scoring house lord in 15° Libra–15° Scorpio.", source: "recovered-archive-master", calculation: calculation("For each scoring house lord in [195°,225°): −3 to its ruled side", details.length ? details : ["No house lord input in the Via Combusta interval."]) };
 }
 
 function besiegementLayer(entries: HouseLordEntry[], planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -342,7 +408,7 @@ function besiegementLayer(entries: HouseLordEntry[], planets: FramePlanet[]): Fu
     scoreB += b;
     details.push(`H${entry.house} ${entry.lord}: -2`);
   }
-  return { name: "Besiegement", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No cluster lord lies within 8° of both Mars and Saturn.", source: "recovered-archive-master" };
+  return { name: "Besiegement", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No cluster lord lies within 8° of both Mars and Saturn.", source: "recovered-archive-master", calculation: calculation("If angularDistance(lord,Mars) ≤ 8° AND angularDistance(lord,Saturn) ≤ 8°: −2 to ruled side", details.length ? details : ["No house lord met both 8° tests."]) };
 }
 
 function mutualReceptionLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
@@ -353,7 +419,7 @@ function mutualReceptionLayer(entries: HouseLordEntry[]): FullPackageLayerEviden
     if (SIGN_RULERS[right.placement.sign as (typeof SIGNS)[number]] !== left.lord || SIGN_RULERS[left.placement.sign as (typeof SIGNS)[number]] !== right.lord) continue;
     details.push(`${left.lord} ↔ ${right.lord}: mutual reception (strengthens both, favors neither)`);
   }
-  return { name: "Mutual reception", scoreA: 0, scoreB: 0, ruleClass: "SHARED", detail: (details.length ? details.join("; ") : "No cross-cluster mutual reception.") + " Recorded as evidence only — mutual reception strengthens both placements equally by definition, so it does not count toward the winner.", source: "recovered-archive-master" };
+  return { name: "Mutual reception", scoreA: 0, scoreB: 0, ruleClass: "SHARED", detail: (details.length ? details.join("; ") : "No cross-cluster mutual reception.") + " Recorded as evidence only — mutual reception strengthens both placements equally by definition, so it does not count toward the winner.", source: "recovered-archive-master", calculation: calculation("Detect cross-cluster reciprocal rulership; contribution fixed at 0 / 0", details.length ? details : ["No cross-cluster mutual reception."]) };
 }
 
 function translationLayer(entries: HouseLordEntry[], planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -371,7 +437,7 @@ function translationLayer(entries: HouseLordEntry[], planets: FramePlanet[]): Fu
     if (closestA.distance < closestB.distance) { scoreA += 3; details.push(`${translator.planet} → A: +3`); }
     else { scoreB += 3; details.push(`${translator.planet} → B: +3`); }
   }
-  return { name: "Translation of light", scoreA, scoreB, ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No third planet connected to both clusters by a major aspect.", source: "recovered-archive-master", limitation: "The recovered archive called this a geometric approximation because exact separating/applying speed data was unavailable." };
+  return { name: "Translation of light", scoreA, scoreB, ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No third planet connected to both clusters by a major aspect.", source: "recovered-archive-master", calculation: calculation("For each non-lord translator connected to both clusters: +3 to the closer cluster", details.length ? details : ["No translator passed both-cluster aspect tests."]), limitation: "The recovered archive called this a geometric approximation because exact separating/applying speed data was unavailable." };
 }
 
 function frictionLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
@@ -383,11 +449,11 @@ function frictionLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
     if (kind === "trine" || kind === "sextile") details.push(`${left.lord}-${right.lord} ${kind}: harmonious (affects both, favors neither)`);
     if (kind === "square" || kind === "opposition") details.push(`${left.lord}-${right.lord} ${kind}: friction (affects both, favors neither)`);
   }
-  return { name: "Harmonious vs friction aspects", scoreA: 0, scoreB: 0, ruleClass: "SHARED", detail: (details.length ? details.join("; ") : "No cross-cluster harmonious or friction aspect.") + " Recorded as evidence only — without separating/applying data there's no rule to assign this to one side, so it does not count toward the winner.", source: "recovered-archive-master" };
+  return { name: "Harmonious vs friction aspects", scoreA: 0, scoreB: 0, ruleClass: "SHARED", detail: (details.length ? details.join("; ") : "No cross-cluster harmonious or friction aspect.") + " Recorded as evidence only — without separating/applying data there's no rule to assign this to one side, so it does not count toward the winner.", source: "recovered-archive-master", calculation: calculation("Record cross-cluster sextile/trine/square/opposition; contribution fixed at 0 / 0", details.length ? details : ["No cross-cluster major aspect."]) };
 }
 
 function kpLayer(kp: { ascendant: { finalKPWinFit: number }; descendant: { finalKPWinFit: number } }): FullPackageLayerEvidence {
-  return { name: "KP Star → Sub → Sub–Sub chain", scoreA: round(kp.ascendant.finalKPWinFit), scoreB: round(kp.descendant.finalKPWinFit), ruleClass: "OUTCOME", detail: "Current complete KP family/resonance audit contributes its unmodified A/B final win-fit values to the sandbox synthesis.", source: "current-full-kp" };
+  return { name: "KP Star → Sub → Sub–Sub chain", scoreA: round(kp.ascendant.finalKPWinFit), scoreB: round(kp.descendant.finalKPWinFit), ruleClass: "OUTCOME", detail: "Current complete KP family/resonance audit contributes its unmodified A/B final win-fit values to the sandbox synthesis.", source: "current-full-kp", calculation: calculation("Final KP win-fit = family score + sub-lord score + sub-sub-lord adjustment + resonance modifiers", [`Ascendant final win-fit = ${kp.ascendant.finalKPWinFit.toFixed(2)}`, `Descendant final win-fit = ${kp.descendant.finalKPWinFit.toFixed(2)}`]) };
 }
 
 function buildFrame(
@@ -415,8 +481,8 @@ function buildFrame(
   const winner = margin < 1.5 ? "TIE" : layerWinner(scoreA, scoreB);
   return {
     name,
-    coordinateFrame: name === "God View" ? "fixed-j2000-ecliptic" : raw.ascendantModel === "fixed-earth-dawn-anchored" ? "fixed-earth-dawn-anchored" : "observer-local-ascendant-whole-sign",
-    houseRule: name === "God View" ? "permanent-aries-zero-whole-sign" : "local-moving-ascendant-whole-sign",
+    coordinateFrame: name === "God View" ? "fixed-zodiac-wheel" : raw.ascendantModel === "fixed-earth-dawn-anchored" ? "fixed-earth-dawn-anchored" : "observer-local-ascendant-equal-house",
+    houseRule: name === "God View" ? "permanent-aries-zero-equal-house" : "local-moving-ascendant-equal-house",
     ascendantModel: name === "God View" ? "god-fixed" : raw.ascendantModel ?? "astronomical-local-horizon",
     sunriseSource: raw.sunriseSource,
     sunriseTime: raw.sunriseTime,
@@ -449,6 +515,7 @@ export function runFullPackageDualFrameChallenger(input: GameInput, options: Dua
     : god.synthesis.winner === agent.synthesis.winner
       ? { state: "agree" as const, winner: god.synthesis.winner }
       : { state: "split" as const, winner: "TIE" as const };
+  const parity = frameParity(god, agent);
   return {
     status: "experimental-read-only",
     method: "sandbox-current-foundation-plus-recovered-extensions-v1",
@@ -457,6 +524,7 @@ export function runFullPackageDualFrameChallenger(input: GameInput, options: Dua
     god,
     agent,
     agreement,
+    parity,
     boundary: `Sandbox-only current-foundation-plus-archive-extensions challenger (${rotationMode} AgentView rotation). It combines the current seven-layer Territorial foundation and full KP chain with recovered archive additions under each frame’s own house rule. The recovered master source uses a distinct canonical territorial foundation, so this is not an exact master-engine replay. No live winner, live weight, validation model version, frozen run, or outcome is changed. It is not claimed to be the missing Tyson–Douglas or 70–78% method.`,
   };
 }

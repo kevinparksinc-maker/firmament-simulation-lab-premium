@@ -8,14 +8,16 @@ import { createSimulationDataset, createSimulationRun, getSimulationEvents, getS
 import { parseSimulationCsv } from "./simulationData";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { listScheduledGames } from "./schedules";
+import { listLiveGames, listScheduledGames } from "./schedules";
 import { invokeLLM } from "./_core/llm";
+import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
+import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
 
 const eventInput = z.object({
   id: z.string().optional(),
   teamA: z.string().min(1),
   teamB: z.string().min(1),
-  sport: z.enum(["MLB", "NBA", "NFL", "boxing"]),
+  sport: z.enum(["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "boxing"]),
   location: z.string().min(1),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
@@ -25,6 +27,17 @@ const eventInput = z.object({
   sunriseTime: z.string().datetime().optional(),
   sunriseSource: z.string().max(180).optional(),
 }) satisfies z.ZodType<SimulationEventInput>;
+
+const personalChartInput = z.object({
+  birthDateTime: z.string().datetime(),
+  birthLocation: z.string().min(1).max(180),
+  birthLatitude: z.number().min(-90).max(90),
+  birthLongitude: z.number().min(-180).max(180),
+  transitDateTime: z.string().datetime(),
+  transitLocation: z.string().min(1).max(180),
+  transitLatitude: z.number().min(-90).max(90),
+  transitLongitude: z.number().min(-180).max(180),
+}) satisfies z.ZodType<PersonalChartInput>;
 
 export const appRouter = router({
   system: systemRouter,
@@ -78,9 +91,31 @@ export const appRouter = router({
       const content = response.choices?.[0]?.message?.content;
       return { content: typeof content === "string" ? content : "I could not produce a response from the available research record." };
     }),
+    chartChat: publicProcedure.input(z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(6000) })).min(1).max(20), chartContext: z.string().min(1).max(30000) })).mutation(async ({ input }) => {
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: `You are the Firmament personal astrology guide. Answer ordinary questions using only the provided natal/transit chart evidence. Explain zodiac, houses, decans, Arabic Manzils, Vedic Nakshatras, fixed-star contacts, and geometric relationships in clear language. Distinguish calculated evidence from interpretation. Never invent a placement, never claim certainty, and do not give medical, legal, financial, or guaranteed prediction advice. When discussing sports or outcomes, frame it as experimental research, not betting advice.\n\nNatal and transit chart evidence:\n${input.chartContext}` },
+          ...input.messages,
+        ],
+      });
+      const content = response.choices?.[0]?.message?.content;
+      return { content: typeof content === "string" ? content : "I could not produce a chart-based response from the available evidence." };
+    }),
+    personalReading: publicProcedure.input(personalChartInput).mutation(async ({ input }) => {
+      const chart = buildPersonalChart(input);
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are the Firmament synthesis engine. Write a detailed but grounded personal reading from the supplied chart evidence. Cover natal identity, current transit themes, houses, Arabic Manzils, Vedic Nakshatras, decans, exact aspects, orbs, and cross-layer convergences. Clearly separate calculated placements from interpretive language. Do not invent missing information or make guaranteed claims. Do not provide medical, legal, financial, or betting advice." },
+          { role: "user", content: `Generate the personal synthesis for this exact evidence:\n${JSON.stringify(chart)}` },
+        ],
+      });
+      const content = response.choices?.[0]?.message?.content;
+      return { chart, interpretation: typeof content === "string" ? content : "The chart was calculated, but the interpretation layer did not return text." };
+    }),
   }),
   schedules: router({
-    list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
+    list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
+    live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),
   }),
   runs: router({
     list: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(50).default(8) }).optional()).query(({ input }) => listSimulationRuns(input?.limit ?? 8)),
@@ -107,6 +142,12 @@ export const appRouter = router({
   simulate: router({
     event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
+  }),
+  personal: router({
+    chart: publicProcedure.input(personalChartInput).mutation(({ input }) => buildPersonalChart(input)),
+  }),
+  experiments: router({
+    sportsFeatures: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(1000) })).mutation(({ input }) => runSportsFeatureExperiment(input.events)),
   }),
 });
 
