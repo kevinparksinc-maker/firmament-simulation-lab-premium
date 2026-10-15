@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap');
+/* SINGLE DESIGN SYSTEM: applied to every lab surface, chart, studio and evidence panel.
+   The research engine's coordinates, weights and methods are untouched. */
+:root{
+ --lab-obsidian:#050b19;--lab-navy:#101c35;--lab-navy-light:#1a2a49;
+ --lab-ivory:#f5f0e7;--lab-gold:#efce92;--lab-mist:#b9cadd;--lab-azure:#9cdeef;
+ --lab-stroke:rgba(226,201,155,.3);--lab-shadow:0 23px 70px rgba(0,0,0,.35);
+ --cyan:var(--lab-azure);--violet:#c4b4ef;--line:var(--lab-stroke);
+ --void:var(--lab-obsidian);--panel:rgba(15,27,49,.88);--ink:var(--lab-ivory);
+}
+html,body,#root{min-height:100%;background:var(--lab-obsidian);color:var(--lab-ivory)}
+body{font-family:'DM Sans',sans-serif}
+.observatory-shell,.broadcast-shell{
+ background:radial-gradient(ellipse 65% 42% at 82% 0%,rgba(54,91,151,.31),transparent 75%),
+ radial-gradient(ellipse 46% 35% at 4% 31%,rgba(93,60,147,.17),transparent 74%),
+ linear-gradient(180deg,#050b19,#090e21 58%,#040915);
+ color:var(--lab-ivory);
+}
+.observatory-shell:before,.broadcast-shell:after{
+ content:"";pointer-events:none;position:fixed;inset:0;opacity:.18;z-index:0;
+ background-image:radial-gradient(1px 1px at 17% 19%,#fff4d7 95%,transparent),
+ radial-gradient(1px 1px at 68% 60%,#cbe9ff 95%,transparent),
+ radial-gradient(1px 1px at 91% 8%,#ffefd6 95%,transparent);
+ background-size:307px 273px,437px 331px,559px 453px;
+}
+.obs-sidebar.lab-shared-sidebar{
+ border-right:1px solid var(--lab-stroke);
+ background:linear-gradient(180deg,rgba(6,13,30,.98),rgba(12,19,43,.94));
+ padding:28px 15px 20px;backdrop-filter:blur(18px);
+}
+.lab-brand-link{text-decoration:none;color:var(--lab-ivory);border:1px solid transparent;border-radius:14px;padding:7px!important;margin:-7px 0 0}
+.lab-brand-link:hover{border-color:var(--lab-stroke);background:#ffffff08}
+.lab-brand-link strong{font-family:'Playfair Display',Georgia,serif;font-size:15px;letter-spacing:.17em;color:#f3e5bd}
+.lab-brand-link .brand-seal{border-radius:50%;color:var(--lab-gold);border-color:#ecd09b66;background:radial-gradient(circle at 35% 28%,#daba7555,#101c35)}
+.lab-navigation{display:flex;flex-direction:column;gap:5px;margin-top:37px}
+.lab-navigation>span,.lab-system-channels>span{color:var(--lab-gold);font-size:10px;letter-spacing:.16em;padding:0 8px 10px;font-weight:800}
+.lab-navigation a{
+ display:flex;align-items:center;gap:11px;min-height:45px;padding:10px 12px;color:#bdcfe1;
+ background:transparent;text-decoration:none;font-size:12px;font-weight:700;border-radius:12px;
+ border:1px solid transparent;transition:background .2s,border-color .2s
+}
+.lab-navigation a svg{color:#a6dced;flex-shrink:0}
+.lab-navigation a:hover,.lab-navigation a.lab-nav-active,.lab-navigation a:focus-visible{
+ border-color:rgba(234,201,139,.46);color:#fceacc;
+ background:linear-gradient(90deg,rgba(70,91,167,.35),rgba(19,37,70,.3));
+ box-shadow:inset 3px 0 0 var(--lab-gold)
+}
+.lab-navigation a.lab-nav-active svg{color:var(--lab-gold)}
+.lab-system-channels{margin-top:25px}
+.lab-shared-sidebar .sidebar-rule{margin-top:auto;border-color:var(--lab-stroke);background:#d8b9790a;border-radius:14px;padding:12px}
+.lab-mobile-nav{display:none;gap:8px;overflow-x:auto;scrollbar-width:thin;padding:12px 0;max-width:100%;margin-bottom:12px}
+.lab-mobile-nav a{
+ display:flex;align-items:center;gap:7px;min-height:44px;flex:0 0 auto;
+ border:1px solid var(--lab-stroke);background:#101d34;white-space:nowrap;
+ text-decoration:none;color:#c8dcec;font-size:12px;border-radius:11px;padding:9px 13px
+}
+.lab-mobile-nav a[aria-current=page]{background:#edcf9555;color:#ffecbe;border-color:#edd39c}
+.obs-main{max-width:none}
+.obs-header,.broadcast-top{border-bottom:1px solid var(--lab-stroke);background:rgba(7,14,30,.74);backdrop-filter:blur(22px)}
+.obs-header .header-path strong,.broadcast-wordmark{color:var(--lab-gold)}
+.hero-copy h1,.broadcast-hero h1{font-family:'Playfair Display',Georgia,serif;font-weight:500;letter-spacing:-.045em}
+.hero-copy h1 em,.broadcast-hero h1 em{color:var(--lab-gold)}
+.live-kicker,.broadcast-eyebrow,.eyebrow{color:var(--lab-gold)}
+:is(.panel,.frame-explanation,.decision-breakdown,.research-notes,.live-now-rail,.stats-ribbon,.config-dock,
+.broadcast-panel,.broadcast-controls,.broadcast-metrics>div,.broadcast-export,.broadcast-detail){
+ border-color:var(--lab-stroke);
+ background:linear-gradient(141deg,rgba(25,40,75,.82),rgba(8,17,35,.91));
+ box-shadow:var(--lab-shadow);backdrop-filter:blur(14px);
+}
+:is(.panel,.frame-explanation,.decision-breakdown,.research-notes,.config-dock,.broadcast-panel){
+ border-radius:20px
+}
+:is(.panel-heading,.panel-header,.broadcast-panel-head) h2,
+:is(.section-intro,.section-title,.broadcast-panel-head,.research-notes) h2{
+ font-family:'Playfair Display',Georgia,serif;letter-spacing:-.025em;color:var(--lab-ivory)
+}
+:is(.frame-card,.explanation-card,.breakdown-card,.method-audit-detail,.evidence-focus,.stats-ribbon>div,
+.broadcast-fixture,.broadcast-game,.broadcast-metrics>div){
+ border-color:rgba(204,191,158,.26);background-color:rgba(15,28,52,.75)
+}
+:is(.frame-card,.explanation-card,.breakdown-card,.evidence-focus,.broadcast-metrics>div){border-radius:15px}
+:is(button,a,input,textarea,select):focus-visible{outline:2px solid var(--lab-gold);outline-offset:3px}
+:is(input,textarea,select){color-scheme:dark}
+:is(.broadcast-shell,.observatory-shell) :is(input,textarea,select){min-height:43px}
+:is(.broadcast-shell,.observatory-shell) button{touch-action:manipulation}
+:is(.broadcast-shell,.observatory-shell) :is(button,a){transition:background .18s,border-color .18s,color .18s}
+:is(.constellation-node,.ledger-row,.method-audit-trigger,.broadcast-game):hover{border-color:#ebd29b88}
+:is(.frame-card,.astrolabe,.constellation-panel,.ledger-panel,.broadcast-panel){min-width:0}
+:is(.evidence-focus,.method-audit-detail,.breakdown-card,.explanation-card,.broadcast-detail){overflow-wrap:anywhere}
+.lab-broadcast-layout .broadcast-top,.lab-broadcast-layout .broadcast-content{margin-left:254px}
+.lab-broadcast-layout .broadcast-content{max-width:none}
+.lab-broadcast-layout .broadcast-hero h1{font-family:'Playfair Display',Georgia,serif}
+.lab-broadcast-layout .broadcast-panel h2{font-family:'Playfair Display',Georgia,serif}
+.lab-broadcast-layout .broadcast-wordmark{font-family:'Playfair Display',Georgia,serif;letter-spacing:.12em}
+.lab-broadcast-layout .broadcast-controls{position:relative;z-index:1}
+.lab-broadcast-layout .broadcast-hero{position:relative;z-index:1}
+@media(max-width:1200px){
+ .lab-broadcast-layout .broadcast-top,.lab-broadcast-layout .broadcast-content{margin-left:220px}
+}
+@media(max-width:980px){
+ .lab-broadcast-layout .broadcast-top,.lab-broadcast-layout .broadcast-content{margin-left:0}
+ .lab-mobile-nav{display:flex}
+}
+@media(max-width:700px){
+ .obs-main{padding-left:16px;padding-right:16px}
+ .lab-broadcast-layout .broadcast-content{padding-left:16px;padding-right:16px}
+ .lab-broadcast-layout .broadcast-top{padding-left:16px;padding-right:16px}
+ .lab-broadcast-layout .broadcast-panel{padding:16px}
+ .lab-navigation a{min-height:44px}
+ .broadcast-hero h1{font-size:clamp(34px,10vw,54px)}
+}
+@media(prefers-reduced-motion:reduce){.lab-navigation a,.lab-mobile-nav a{transition:none}}
+
+/* Secondary research tools share the same surfaces as the flagship command deck. */
+.lab-celestial-modal-panel{
+ background:radial-gradient(circle at 86% 0%,rgba(92,72,145,.2),transparent 55%),
+ linear-gradient(135deg,#182944,#0b152a 75%);
+ border:1px solid rgba(235,205,150,.45);
+ box-shadow:0 35px 95px rgba(0,0,0,.67);
+}
+.lab-celestial-modal-panel h2{font:500 29px/1.3 'Playfair Display',Georgia,serif;color:#f4e6c8}
+.lab-celestial-modal-panel .eyebrow{color:var(--lab-gold)}
+.lab-celestial-modal-panel :is(input,select,textarea){
+ border-color:rgba(198,184,158,.37);
+ background:#071327;color:var(--lab-ivory);min-height:44px;font-size:16px
+}
+.lab-celestial-modal-panel details{border:1px solid rgba(210,190,156,.23);border-radius:12px;padding:12px}
+.lab-celestial-modal-panel summary{color:var(--lab-gold)}
+.observatory-shell :is(.panel,.ledger-panel,.evidence-focus) :is(input,select,textarea){
+ background:rgba(5,14,31,.87);border-color:rgba(217,192,147,.37)
+}
+.observatory-shell :is(.panel,.ledger-panel,.evidence-focus) :is(button,[role=button]):focus-visible,
+.broadcast-shell :is(button,[role=button]):focus-visible{outline:2px solid var(--lab-gold);outline-offset:3px}
+.observatory-shell :is(.ledger-panel,.decision-breakdown,.frame-explanation,.research-notes){scroll-margin-top:24px}
+.observatory-shell :is(#frames,#method-constellation,#method-ledger,#calculation-proof,#provenance){scroll-margin-top:24px}
+@media(max-width:700px){
+ .lab-celestial-modal-panel{border-radius:17px}
+ .lab-celestial-modal-panel h2{font-size:25px}
+}

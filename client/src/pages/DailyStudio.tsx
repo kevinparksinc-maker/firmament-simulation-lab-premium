@@ -1,3 +1,4 @@
+import { LabSidebar, LabMobileNav } from "@/components/LabNavigation";
 import { useMemo, useState } from "react";
 
 import { ArrowLeft, Download, Orbit, Play, RefreshCw, ShieldAlert, Sparkles, Video } from "lucide-react";
@@ -124,10 +125,11 @@ export default function DailyStudio() {
     return winner(e)===actual?"HIT":"MISS";
   };
   const selectedEntry=record?.entries.find(e=>e.fixture.id===selected);
-  return <div className="broadcast-shell">
+  return <div className="broadcast-shell lab-broadcast-layout">
+    <LabSidebar active="daily" />
     <div className="broadcast-aurora" aria-hidden="true" />
     <header className="broadcast-top"><a className="broadcast-back" href="/"><ArrowLeft size={17}/> Command deck</a><span className="broadcast-wordmark"><Orbit size={19}/> FIRMAMENT <b>/ BROADCAST STUDIO</b></span><span className="broadcast-live"><i/> EXPERIMENTAL · PRE-GAME</span></header>
-    <main className="broadcast-content">
+    <main className="broadcast-content"><LabMobileNav active="daily" />
       <section className="broadcast-hero"><div><p className="broadcast-eyebrow">CELESTIAL OBSERVATORY / DAILY EXPERIMENTS</p><h1>Tomorrow's results.<br/><em>Today's recorded calls.</em></h1><p>One research slate across the sports calendar. Independent God View and Agent View, complete method testimony, and downloadable YouTube presentation materials.</p></div><div className="broadcast-orbit"><div className="broadcast-orbit-mid"><Orbit size={42}/><strong>2050</strong><span>TRANSPARENT FUTURES</span></div></div></section>
       <section className="broadcast-controls"><label>Event date <input type="date" value={date} disabled={working} onChange={e=>{setDate(e.target.value);setRecord(null);}}/></label><label>Sport <select value={sport} disabled={working} onChange={e=>{setSport(e.target.value as Sport);setRecord(null);}}>{(["ALL","MLB","NBA","NFL","NHL","MLS","NCAAF","NCAAB"] as Sport[]).map(s=><option key={s} value={s}>{s==="ALL"?"ALL SPORTS":s}</option>)}</select></label><button className="broadcast-subtle" disabled={working} onClick={()=>void list.refetch()}><RefreshCw size={16}/> Refresh</button><button className="broadcast-primary" disabled={working||list.isLoading||games.length===0} onClick={()=>void create()}><Play size={16}/>{working?"Calculating…":"Generate pregame slate"}</button></section>
       {progress&&<p className="broadcast-progress" role="status">{progress}</p>}

@@ -111,8 +111,8 @@ export function ManualFixtureDialog({ open, onClose, onRun, isRunning }: ManualF
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#020711]/80 p-4 backdrop-blur-sm sm:items-center">
-      <div className="my-6 w-full max-w-3xl overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#0b1628] shadow-2xl">
+    <div className="lab-celestial-modal fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#020711]/80 p-4 backdrop-blur-sm sm:items-center">
+      <div className="lab-celestial-modal-panel my-6 w-full max-w-3xl overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#0b1628] shadow-2xl">
         <div className="flex items-start justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6">
           <div>
             <p className="eyebrow text-cyan-200/80">New research fixture</p>
