@@ -18,9 +18,10 @@ jobs:
           node-version: '22'
           cache: npm
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-        # Existing Builder JSX-location plugin targets Vite 4/5 while this project uses Vite 7.
-        # Temporary compatibility workaround; replace or upgrade the plugin separately.
+        run: npm install --legacy-peer-deps --no-save --package-lock=false
+        # Temporary CI-only workaround: existing npm lockfile is out of sync and
+        # Builder JSX-location plugin declares older Vite peer dependencies.
+        # Regenerate and commit a valid lockfile before switching back to npm ci.
       - name: Typecheck
         run: npm run check
       - name: Unit and integration tests
