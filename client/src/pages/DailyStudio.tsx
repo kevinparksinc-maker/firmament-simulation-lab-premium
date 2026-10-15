@@ -87,7 +87,8 @@ export default function DailyStudio() {
     const now=new Date();
     const entries:Entry[]=[];
     try {
-      for(const [index,fixture] of games.entries()){
+      for(let index=0;index<games.length;index++){
+        const fixture=games[index];
         setProgress(`Analyzing ${index+1} of ${games.length}: ${fixture.teamA} / ${fixture.teamB}`);
         const startMs=new Date(fixture.startTime).getTime();
         const favorite=fixture.favoriteTeam;
