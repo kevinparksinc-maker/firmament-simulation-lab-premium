@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
-import { ArrowLeft, CalendarDays, Download, Orbit, Play, RefreshCw, ShieldAlert, Sparkles, Video, CheckCircle2, XCircle } from "lucide-react";
+
+import { ArrowLeft, Download, Orbit, Play, RefreshCw, ShieldAlert, Sparkles, Video } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import "./DailyStudio.css";
 
@@ -98,7 +98,7 @@ export default function DailyStudio() {
         if(!recognized){entry.reason="No verified favorite/underdog roles in the available pregame feed. Excluded from published accuracy.";entries.push(entry);continue;}
         try {
           const result=await simulate.mutateAsync({
-            id:fixture.id,teamA:favorite!,teamB:underdog!,sport:fixture.sport,
+            id:fixture.id,teamA:fixture.teamA,teamB:fixture.teamB,favoredTeam:favorite!,underdogTeam:underdog!,roleAssignmentSource:"market-odds",sport:fixture.sport,
             location:fixture.location||"Venue not supplied",startTime:fixture.startTime,
             ...(Number.isFinite(fixture.latitude)&&Number.isFinite(fixture.longitude)?{latitude:fixture.latitude,longitude:fixture.longitude}:{}),
           });
@@ -125,10 +125,10 @@ export default function DailyStudio() {
   const selectedEntry=record?.entries.find(e=>e.fixture.id===selected);
   return <div className="broadcast-shell">
     <div className="broadcast-aurora" aria-hidden="true" />
-    <header className="broadcast-top"><Link href="/"><a className="broadcast-back"><ArrowLeft size={17}/> Command deck</a></Link><span className="broadcast-wordmark"><Orbit size={19}/> FIRMAMENT <b>/ BROADCAST STUDIO</b></span><span className="broadcast-live"><i/> EXPERIMENTAL · PRE-GAME</span></header>
+    <header className="broadcast-top"><a className="broadcast-back" href="/"><ArrowLeft size={17}/> Command deck</a><span className="broadcast-wordmark"><Orbit size={19}/> FIRMAMENT <b>/ BROADCAST STUDIO</b></span><span className="broadcast-live"><i/> EXPERIMENTAL · PRE-GAME</span></header>
     <main className="broadcast-content">
       <section className="broadcast-hero"><div><p className="broadcast-eyebrow">CELESTIAL OBSERVATORY / DAILY EXPERIMENTS</p><h1>Tomorrow's results.<br/><em>Today's recorded calls.</em></h1><p>One research slate across the sports calendar. Independent God View and Agent View, complete method testimony, and downloadable YouTube presentation materials.</p></div><div className="broadcast-orbit"><div className="broadcast-orbit-mid"><Orbit size={42}/><strong>2050</strong><span>TRANSPARENT FUTURES</span></div></div></section>
-      <section className="broadcast-controls"><label><CalendarDays size={16}/> Event date <input type="date" value={date} disabled={working} onChange={e=>{setDate(e.target.value);setRecord(null);}}/></label><label>Sport <select value={sport} disabled={working} onChange={e=>{setSport(e.target.value as Sport);setRecord(null);}}>{(["ALL","MLB","NBA","NFL","NHL","MLS","NCAAF","NCAAB"] as Sport[]).map(s=><option key={s} value={s}>{s==="ALL"?"ALL SPORTS":s}</option>)}</select></label><button className="broadcast-subtle" disabled={working} onClick={()=>void list.refetch()}><RefreshCw size={16}/> Refresh</button><button className="broadcast-primary" disabled={working||list.isLoading||games.length===0} onClick={()=>void create()}><Play size={16}/>{working?"Calculating…":"Generate pregame slate"}</button></section>
+      <section className="broadcast-controls"><label>Event date <input type="date" value={date} disabled={working} onChange={e=>{setDate(e.target.value);setRecord(null);}}/></label><label>Sport <select value={sport} disabled={working} onChange={e=>{setSport(e.target.value as Sport);setRecord(null);}}>{(["ALL","MLB","NBA","NFL","NHL","MLS","NCAAF","NCAAB"] as Sport[]).map(s=><option key={s} value={s}>{s==="ALL"?"ALL SPORTS":s}</option>)}</select></label><button className="broadcast-subtle" disabled={working} onClick={()=>void list.refetch()}><RefreshCw size={16}/> Refresh</button><button className="broadcast-primary" disabled={working||list.isLoading||games.length===0} onClick={()=>void create()}><Play size={16}/>{working?"Calculating…":"Generate pregame slate"}</button></section>
       {progress&&<p className="broadcast-progress" role="status">{progress}</p>}
       {list.isError&&<p className="broadcast-warning">Schedules unavailable: {list.error.message}</p>}
       <div className="broadcast-metrics"><div><span>Scheduled fixtures</span><strong>{games.length}</strong></div><div><span>Eligible predictions</span><strong>{scored}</strong></div><div><span>Abstentions / unscored</span><strong>{record?record.entries.length-scored:"—"}</strong></div><div><span>Publication status</span><strong>{record?"LOCAL DRAFT":"NOT GENERATED"}</strong></div></div>
