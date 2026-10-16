@@ -359,7 +359,7 @@ export default function Home() {
   const conflictCount = layers.filter((layer) => layer.verdict === "miss").length;
   const agreement = simulation ? (simulation.godView.synthesis.winner === simulation.agentView.synthesis.winner ? "Convergent" : "Split signal") : "Awaiting trace";
 
-  return <div className="observatory-shell">
+  return <div className="observatory-shell premium-lab">
     <div className="cosmic-noise" /><div className="aurora aurora-one" /><div className="aurora aurora-two" /><div className="grid-horizon" />
     <LabSidebar active="command" />
 
