@@ -56,7 +56,7 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
   const startTime = value(row, "startTime", "start_time", "dateTime", "date_time", "datetime", "date");
   const actualRaw = value(row, "actualWinner", "actual_winner", "winner")?.toUpperCase();
   if (!teamA || !teamB || !location || !startTime) throw new Error("favoredTeam, underdogTeam, location, and startTime are required");
-  if (!sportRaw || !["MLB", "NBA", "NFL", "BOXING"].includes(sportRaw)) throw new Error("sport must be MLB, NBA, NFL, or boxing");
+  if (!sportRaw || !["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "BOXING"].includes(sportRaw)) throw new Error("sport must be MLB, NBA, NFL, NHL, MLS, NCAAF, NCAAB, or boxing");
   const date = new Date(startTime);
   if (Number.isNaN(date.getTime())) throw new Error("startTime must be a valid date/time");
   if (actualRaw && !["A", "B", "TIE"].includes(actualRaw)) throw new Error("actualWinner must be A, B, or TIE");
