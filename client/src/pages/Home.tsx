@@ -320,10 +320,10 @@ export default function Home() {
       const live = selectedLiveGame;
       const result = await simulate.mutateAsync({
         id: live ? `live-${live.id}` : "observatory-synthetic-mlb-001",
-        teamA: live?.teamA ?? "New York Yankees",
-        teamB: live?.teamB ?? "Houston Astros",
+        teamA: live?.teamA ?? "Sample Team A",
+        teamB: live?.teamB ?? "Sample Team B",
         sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" ? live.sport : "MLB",
-        location: live?.location ?? "Houston, Texas",
+        location: live?.location ?? "Houston, Texas (synthetic example)",
         latitude: live ? undefined : 29.7604,
         longitude: live ? undefined : -95.3698,
         startTime: live?.startTime ?? "2024-04-02T00:10:00.000Z",
