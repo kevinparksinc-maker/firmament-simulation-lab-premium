@@ -149,6 +149,11 @@ type LiveGame = {
   scoreA?: string;
   scoreB?: string;
   period?: string;
+  favoriteTeam?: string;
+  underdogTeam?: string;
+  oddsStatus?: "available" | "unavailable";
+  latitude?: number;
+  longitude?: number;
 };
 
 function LiveNowRail({ games, isLoading, selectedId, onRefresh, onSelect }: { games: LiveGame[]; isLoading: boolean; selectedId?: string; onRefresh: () => void; onSelect: (game: LiveGame) => void }) {
@@ -299,8 +304,10 @@ export default function Home() {
   const [showConfig, setShowConfig] = useState(false);
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
   const simulate = trpc.simulate.event.useMutation();
-  const liveDate = new Date().toISOString().slice(0, 10);
-  const liveGames = trpc.schedules.live.useQuery({ date: liveDate }, { refetchInterval: 30_000, staleTime: 15_000 });
+  const [scheduleDate, setScheduleDate] = useState(() => { const local = new Date(); return `${local.getFullYear()}-${String(local.getMonth()+1).padStart(2,"0")}-${String(local.getDate()).padStart(2,"0")}`; });
+  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NCAAF">("NCAAF");
+  const liveDate = scheduleDate;
+  const liveGames = trpc.schedules.list.useQuery({ date: liveDate, sport: scheduleSport }, { refetchInterval: 60_000, staleTime: 30_000 });
 
   const layers = useMemo<OverlayLayer[]>(() => {
     if (simulation) return [
@@ -321,6 +328,8 @@ export default function Home() {
       const result = await simulate.mutateAsync({
         id: live ? `live-${live.id}` : "observatory-synthetic-mlb-001",
         teamA: live?.teamA ?? "Sample Team A",
+        ...(live?.favoriteTeam && live?.underdogTeam ? { favoredTeam: live.favoriteTeam, underdogTeam: live.underdogTeam, roleAssignmentSource: "market-odds" as const } : { roleAssignmentSource: "legacy-side-order" as const }),
+        ...(live?.latitude !== undefined && live?.longitude !== undefined ? { latitude: live.latitude, longitude: live.longitude } : {}),
         teamB: live?.teamB ?? "Sample Team B",
         sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" ? live.sport : "MLB",
         location: live?.location ?? "Houston, Texas (synthetic example)",
@@ -374,6 +383,7 @@ export default function Home() {
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
 
+      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF")}><option value="NCAAF">College football</option><option value="ALL">All sports</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
       <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
 
       <section className="stats-ribbon"><div><span><Activity size={14} />Baseline status</span><strong>{simulation ? verdictCopy(simulation.baseline.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.baseline.winner, simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Pinned sample"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Yankees vs Astros · 02 Apr 2024"}</small></div></section>
