@@ -14,6 +14,13 @@ describe("simulation CSV validation", () => {
     expect(parsed.valid[0]?.latitude).toBe(34.0522);
   });
 
+  it("accepts college football research fixtures without inventing outcomes", () => {
+    const parsed = parseSimulationCsv(["favoredTeam,underdogTeam,sport,location,startTime", "Ohio State,Indiana,NCAAF,Bloomington IN,2026-10-17T16:00:00Z"].join("\n"));
+    expect(parsed.invalid).toHaveLength(0);
+    expect(parsed.valid[0]).toMatchObject({ sport: "NCAAF", teamA: "Ohio State", teamB: "Indiana", roleAssignmentSource: "market-odds" });
+    expect(parsed.valid[0]?.actualWinner).toBeUndefined();
+  });
+
   it("keeps invalid rows and their source row numbers instead of inventing data", () => {
     const parsed = parseSimulationCsv([
       "teamA,teamB,sport,location,startTime,actualWinner",
