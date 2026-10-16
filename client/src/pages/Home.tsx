@@ -308,10 +308,8 @@ export default function Home() {
       ...simulation.godView.allLayers.map((layer, index) => ({ ...layer, frame: "God View" as const, index })),
       ...simulation.agentView.allLayers.map((layer, index) => ({ ...layer, frame: "Agent View" as const, index: index + simulation.godView.allLayers.length })),
     ];
-    return METHOD_NAMES.flatMap((name, index) => ([
-      { name, scoreA: 0, scoreB: 0, winner: "TIE" as Side, verdict: "unverified" as Verdict, detail: "This method is staged for calculation when an event fixture is run.", frame: "God View" as FrameName, index },
-      { name, scoreA: 0, scoreB: 0, winner: "TIE" as Side, verdict: "unverified" as Verdict, detail: "This method is staged for calculation when an event fixture is run.", frame: "Agent View" as FrameName, index: index + METHOD_NAMES.length },
-    ]));
+    // Await real engine evidence rather than displaying fabricated zero-score ties.
+    return [];
   }, [simulation]);
 
   const activeFrameData = activeFrame === "god" ? simulation?.godView ?? null : simulation?.agentView ?? null;
@@ -337,7 +335,7 @@ export default function Home() {
       setSimulation(result as Simulation);
       setSelected(null);
       setFilter("all");
-      toast.success("Observatory trace complete", { description: live ? `${live.teamA} vs ${live.teamB} loaded as an unverified live research event.` : "Forty frame-method signals are now resolved against the verified fixture." });
+      toast.success("Observatory trace complete", { description: live ? `${live.teamA} vs ${live.teamB} loaded as an unverified live research event.` : "The frame-method signals have been calculated for the selected fixture." });
     } catch (error) {
       toast.error("Calculation could not complete", { description: error instanceof Error ? error.message : "The engine did not return a usable trace." });
     }
@@ -355,6 +353,7 @@ export default function Home() {
     window.setTimeout(() => document.getElementById("evidence-inspector")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
   };
 
+  const methodCount = layers.length;
   const supportCount = layers.filter((layer) => layer.verdict === "hit").length;
   const conflictCount = layers.filter((layer) => layer.verdict === "miss").length;
   const agreement = simulation ? (simulation.godView.synthesis.winner === simulation.agentView.synthesis.winner ? "Convergent" : "Split signal") : "Awaiting trace";
@@ -367,8 +366,8 @@ export default function Home() {
       <header className="obs-header"><div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>FIRMAMENT</span></div><div className="header-path"><span>Research environment</span><ChevronRight size={13} /><strong>Sports prediction simulation lab</strong></div><div className="header-actions"><a className="broadcast-launch" href="/daily"><Sparkles size={15} /> Daily predictions</a><div className="engine-live"><i />Engine linked</div><button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}><Settings2 size={15} />Run profile</button><button className="run-button" onClick={runFixture} disabled={simulate.isPending}><Play size={14} fill="currentColor" />{simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : simulation ? "Rerun verified fixture" : "Run verified fixture"}</button></div></header>
 
       <LabMobileNav active="command"/>
-      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Method topology</span><strong>21 methods × 2 frames</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified fixture" : "Trace-ready"}</strong></div></div></div>
-        <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "40"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run the fixture and chart logic resolves into a 40-point evidence field."}</span></div></div></section>
+      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Method topology</span><strong>Method count from engine</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified fixture" : "Trace-ready"}</strong></div></div></div>
+        <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run the fixture and chart logic resolves into an evidence field."}</span></div></div></section>
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
 
