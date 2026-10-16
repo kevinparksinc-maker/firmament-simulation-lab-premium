@@ -165,10 +165,145 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 /* Formula transparency inside expanded method rows */
 .calculation-formula,.calculation-list { grid-column: 1 / -1; }.calculation-formula { padding-bottom: 5px; }.calculation-formula span,.calculation-list > span { display: block; color: #8ddcea; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }.calculation-formula code { display: block; margin-top: 5px; color: #e0f7f9; font-family: "IBM Plex Mono", monospace; font-size: 9px; line-height: 1.5; white-space: normal; }.calculation-list { display: grid; gap: 3px; }.calculation-list small { display: block; color: #9ab1be; font-family: "IBM Plex Mono", monospace; font-size: 8px; line-height: 1.5; }.calculation-list small::before { content: "→ "; color: #608797; }
 
-/* Broadcast studio launch */
-.sidebar-section .daily-nav-link{display:flex;align-items:center;gap:11px;margin-top:7px;padding:10px;border:1px solid rgba(234,203,143,.3);border-radius:10px;color:#eed6a2;background:linear-gradient(95deg,rgba(207,159,92,.15),rgba(107,91,225,.12));font-size:12px;font-weight:700;text-decoration:none}
-.sidebar-section .daily-nav-link:hover{background:rgba(234,203,143,.2);color:#fff}
-.sidebar-section .daily-nav-link span{margin-left:auto}
-.broadcast-launch{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(234,203,143,.45);padding:10px 13px;border-radius:9px;background:linear-gradient(115deg,rgba(234,203,143,.17),rgba(173,153,255,.1));color:#f5d39b;font-size:12px;font-weight:700;text-decoration:none}
-.broadcast-launch:hover{background:rgba(234,203,143,.26)}
-@media(max-width:700px){.broadcast-launch{font-size:10px;padding:8px}}
+
+/* ==========================================================================
+   PREMIUM CELESTIAL DESIGN SYSTEM — unified across the simulation surface
+   A restrained brass-and-starlight observatory treatment for every panel.
+   ========================================================================== */
+.premium-lab {
+  --celestial-gold: #e4c58b;
+  --celestial-gold-soft: rgba(228,197,139,.25);
+  --celestial-silver: #dce7f0;
+  --celestial-glass: rgba(9,20,36,.82);
+  --celestial-edge: rgba(216,191,148,.18);
+  --celestial-glow: 0 18px 65px rgba(0,0,0,.28), inset 0 1px rgba(247,224,181,.045);
+  background:
+    radial-gradient(ellipse 65% 42% at 88% 4%, rgba(78,72,131,.17), transparent 80%),
+    radial-gradient(ellipse 55% 48% at 0% 55%, rgba(15,101,121,.12), transparent 78%),
+    #060b15;
+  color: var(--celestial-silver);
+}
+.premium-lab .obs-sidebar {
+  background: linear-gradient(180deg, rgba(11,21,37,.98), rgba(7,13,26,.97));
+  border-right: 1px solid var(--celestial-edge);
+}
+.premium-lab .obs-brand .brand-seal,
+.premium-lab .mobile-brand .brand-seal {
+  border-color: rgba(228,197,139,.42);
+  background: radial-gradient(circle at 30% 25%, rgba(228,197,139,.2), rgba(228,197,139,.035));
+  color: var(--celestial-gold);
+  box-shadow: 0 0 28px rgba(228,197,139,.09);
+}
+.premium-lab .sidebar-section a {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 12px;
+  border: 1px solid transparent; border-radius: 11px;
+  color: #91a5b8; text-decoration: none;
+  font-size: 12px; font-weight: 650;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.premium-lab .sidebar-section a:hover,
+.premium-lab .sidebar-section a:focus-visible,
+.premium-lab .sidebar-section a.nav-current {
+  color: #f0d7a8;
+  border-color: rgba(228,197,139,.21);
+  background: linear-gradient(90deg, rgba(228,197,139,.1), rgba(228,197,139,.015));
+}
+.premium-lab .obs-header {
+  border-bottom-color: var(--celestial-edge);
+  backdrop-filter: blur(18px);
+}
+.premium-lab .hero-copy h1,
+.premium-lab .section-intro h2,
+.premium-lab .panel-heading h2,
+.premium-lab .research-notes h2 {
+  color: #f5f1e9;
+  text-shadow: 0 3px 32px rgba(228,197,139,.055);
+}
+.premium-lab .hero-copy h1 em { color: var(--celestial-gold); }
+.premium-lab .eyebrow,
+.premium-lab .live-kicker { color: var(--celestial-gold); }
+.premium-lab .panel,
+.premium-lab .frame-card,
+.premium-lab .stats-ribbon,
+.premium-lab .frame-explanation,
+.premium-lab .decision-breakdown,
+.premium-lab .live-now-rail {
+  border-color: var(--celestial-edge);
+  background: linear-gradient(142deg, rgba(17,30,49,.9), rgba(7,15,29,.88) 75%);
+  box-shadow: var(--celestial-glow);
+  backdrop-filter: blur(16px);
+}
+.premium-lab .panel,
+.premium-lab .frame-card,
+.premium-lab .frame-explanation,
+.premium-lab .decision-breakdown { border-radius: 20px; }
+.premium-lab .frame-card { position: relative; overflow: hidden; }
+.premium-lab .frame-card::before,
+.premium-lab .panel::before {
+  content: ""; display: block; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(228,197,139,.35), transparent);
+  pointer-events: none;
+}
+.premium-lab .frame-card-active {
+  border-color: rgba(228,197,139,.5);
+  box-shadow: 0 0 0 1px rgba(228,197,139,.07), 0 22px 65px rgba(0,0,0,.34), inset 0 0 44px rgba(228,197,139,.035);
+}
+.premium-lab .frame-agent.frame-card-active {
+  border-color: rgba(190,164,255,.5);
+  box-shadow: 0 22px 65px rgba(0,0,0,.34), inset 0 0 44px rgba(190,164,255,.055);
+}
+.premium-lab .hero-meta > div,
+.premium-lab .explanation-card,
+.premium-lab .breakdown-card,
+.premium-lab .note-list > div {
+  border-color: rgba(228,197,139,.15);
+  background: linear-gradient(135deg, rgba(245,226,189,.04), rgba(255,255,255,.012));
+}
+.premium-lab .signal-dial {
+  background: radial-gradient(circle, rgba(228,197,139,.09) 0 18%, transparent 30%),
+    radial-gradient(circle, rgba(86,94,174,.13), transparent 72%);
+}
+.premium-lab .signal-dial::before { border-color: rgba(228,197,139,.35); }
+.premium-lab .signal-dial::after { border-color: rgba(228,197,139,.2); }
+.premium-lab .dial-center {
+  border-color: rgba(228,197,139,.38);
+  box-shadow: 0 0 60px rgba(228,197,139,.12), inset 0 0 30px rgba(228,197,139,.07);
+}
+.premium-lab .dial-center > svg { color: var(--celestial-gold); }
+.premium-lab .constellation-stage {
+  border-color: rgba(228,197,139,.19);
+  background: radial-gradient(ellipse at center, rgba(82,85,129,.18), rgba(6,14,29,.95) 68%);
+}
+.premium-lab .constellation-rings { border-color: rgba(228,197,139,.23); }
+.premium-lab .constellation-center { border-color: rgba(228,197,139,.45); }
+.premium-lab .run-button {
+  border: 1px solid rgba(255,234,190,.48);
+  background: linear-gradient(125deg, #e4c58b, #b99661);
+  color: #172033; font-weight: 800;
+  box-shadow: 0 10px 28px rgba(177,134,70,.2);
+}
+.premium-lab .run-button:hover:not(:disabled) {
+  filter: brightness(1.09);
+  box-shadow: 0 13px 34px rgba(177,134,70,.3);
+}
+.premium-lab .ledger-row:hover,
+.premium-lab .method-audit-trigger:hover { background: rgba(228,197,139,.045); }
+.premium-lab .ledger-row-selected { border-color: rgba(228,197,139,.33); background: rgba(228,197,139,.06); }
+.premium-lab .filter-tabs .filter-active { border-color: rgba(228,197,139,.3); background: rgba(228,197,139,.1); color: #f4ddb0; }
+.premium-lab .research-notes { border-top-color: var(--celestial-edge); }
+.premium-lab #command-deck,
+.premium-lab #frame-overlays,
+.premium-lab #method-laboratory,
+.premium-lab #evidence-archive { scroll-margin-top: 95px; }
+@media (max-width: 800px) {
+  .premium-lab .sidebar-section a { padding: 10px; }
+  .premium-lab .frame-card, .premium-lab .panel { border-radius: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .premium-lab *, .premium-lab *::before, .premium-lab *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
