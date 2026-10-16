@@ -12,9 +12,11 @@ export type DomeModel = (typeof DOME_MODELS)[number];
 export type Side = "ascendant" | "descendant" | "neutral";
 export type Allegiance = "supports" | "opposes" | "neutral";
 
-export const ASCENDANT_CLUSTER = [1, 3, 6, 10, 11] as const;
-export const DESCENDANT_CLUSTER = [7, 9, 12, 4, 5] as const;
-export const NEUTRAL_HOUSES = [2, 8] as const;
+export const ASCENDANT_CLUSTER = [1, 2, 3, 6, 10, 11] as const;
+export const DESCENDANT_CLUSTER = [4, 5, 7, 8, 9, 12] as const;
+// All twelve houses belong to a competitive side. Keep the empty legacy
+// collection for compatibility with existing KP evidence/report types.
+export const NEUTRAL_HOUSES: readonly number[] = [];
 export const NAKSHATRA_ARC_MINUTES = 800;
 
 const SIGNS = [
