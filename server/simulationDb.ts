@@ -21,20 +21,24 @@ export async function createSimulationDataset(input: {
 export async function insertSimulationEvents(datasetId: number, events: SimulationEventInput[]) {
   const db = await getDb();
   if (!db || events.length === 0) return;
-  await db.insert(simulationEvents).values(events.map((event, index) => ({
+  const rows = events.map((event, index) => ({
     datasetId,
     rowNumber: index + 2,
     eventId: event.id ?? `row-${index + 2}`,
     teamA: event.teamA,
     teamB: event.teamB,
     sport: event.sport,
+    roleAssignmentSource: event.roleAssignmentSource ?? "legacy-side-order",
     location: event.location,
     latitude: event.latitude?.toString(),
     longitude: event.longitude?.toString(),
     startTime: new Date(event.startTime),
     actualWinner: event.actualWinner,
     validationStatus: "valid" as const,
-  })));
+  }));
+  for (let start = 0; start < rows.length; start += 250) {
+    await db.insert(simulationEvents).values(rows.slice(start, start + 250));
+  }
 }
 
 export async function getSimulationEvents(datasetId: number) {
@@ -48,6 +52,7 @@ export async function getSimulationEvents(datasetId: number) {
       teamA: row.teamA,
       teamB: row.teamB,
       sport: row.sport as SimulationEventInput["sport"],
+      roleAssignmentSource: row.roleAssignmentSource as SimulationEventInput["roleAssignmentSource"],
       location: row.location,
       latitude: row.latitude === null ? undefined : Number(row.latitude),
       longitude: row.longitude === null ? undefined : Number(row.longitude),

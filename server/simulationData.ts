@@ -55,8 +55,11 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
   const location = value(row, "location", "venue", "city");
   const startTime = value(row, "startTime", "start_time", "dateTime", "date_time", "datetime", "date");
   const actualRaw = value(row, "actualWinner", "actual_winner", "winner")?.toUpperCase();
+  const roleSource = value(row, "roleAssignmentSource", "role_assignment_source");
   if (!teamA || !teamB || !location || !startTime) throw new Error("favoredTeam, underdogTeam, location, and startTime are required");
   if (!sportRaw || !["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "BOXING"].includes(sportRaw)) throw new Error("sport must be MLB, NBA, NFL, NHL, MLS, NCAAF, NCAAB, or boxing");
+  if (!/T\\d{2}:\\d{2}(?::\\d{2})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(startTime)) throw new Error("startTime must include venue-local timezone offset or UTC Z; minute precision is sufficient");
+  if (roleSource && !["market-odds", "expert-consensus", "manual", "legacy-side-order"].includes(roleSource)) throw new Error("invalid roleAssignmentSource");
   const date = new Date(startTime);
   if (Number.isNaN(date.getTime())) throw new Error("startTime must be a valid date/time");
   if (actualRaw && !["A", "B", "TIE"].includes(actualRaw)) throw new Error("actualWinner must be A, B, or TIE");
@@ -68,7 +71,7 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
     ...(underdogTeam ? { underdogTeam } : {}),
     ...(homeTeam ? { homeTeam } : {}),
     ...(awayTeam ? { awayTeam } : {}),
-    roleAssignmentSource: favoredTeam && underdogTeam ? "market-odds" : "legacy-side-order",
+    roleAssignmentSource: (roleSource ?? (favoredTeam && underdogTeam ? "manual" : "legacy-side-order")) as SimulationEventInput["roleAssignmentSource"],
     sport: sportRaw === "BOXING" ? "boxing" : sportRaw as SimulationEventInput["sport"],
     location,
     latitude: parseNumber(value(row, "latitude", "lat"), "latitude", -90, 90),

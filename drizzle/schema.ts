@@ -33,6 +33,7 @@ export const simulationEvents = mysqlTable("simulation_events", {
   teamA: varchar("teamA", { length: 180 }).notNull(),
   teamB: varchar("teamB", { length: 180 }).notNull(),
   sport: varchar("sport", { length: 24 }).notNull(),
+  roleAssignmentSource: varchar("roleAssignmentSource", { length: 32 }).notNull().default("legacy-side-order"),
   location: varchar("location", { length: 255 }).notNull(),
   latitude: varchar("latitude", { length: 32 }),
   longitude: varchar("longitude", { length: 32 }),
