@@ -1,3 +1,4 @@
+import { opposite } from "./oppositionShadow";
 import {
   fixedEclipticHouseFromLongitude,
   generateFixedJ2000KPPrediction,
@@ -128,7 +129,7 @@ function calculation(formula: string, detail: string | string[]): CalculationTra
 
 export type AgentViewRotationMode = "none" | "ascendant-only" | "whole-chart";
 export type AgentViewModel = "astronomical" | "fixed-earth-dawn-anchored";
-export type DualFrameRunOptions = { agentViewRotation?: AgentViewRotationMode; agentViewModel?: AgentViewModel };
+export type DualFrameRunOptions = { agentViewRotation?: AgentViewRotationMode; agentViewModel?: AgentViewModel; oppositionShadow?: boolean };
 
 function normalize(value: number) { return ((value % 360) + 360) % 360; }
 function round(value: number) { return Number(value.toFixed(2)); }
@@ -505,11 +506,41 @@ function buildFrame(
  * a live prediction path. Its foundation is the current Territorial stack, not
  * a claimed byte-for-byte execution of the separately recovered master engine.
  */
+/** Recompute all placement-based foundation and archive layers in an inverted reference context.
+ * The transformed 'longitude' is interpretive, never a replacement for tropicalLongitude.
+ * Original event and ephemeris are not changed.
+ */
+function invertFrameReference<T extends { ascendantLongitude: number; planets: FramePlanet[] }>(raw: T): T {
+  return {
+    ...raw,
+    ascendantLongitude: opposite(raw.ascendantLongitude),
+    planets: raw.planets.map(planet => {
+      const reference = opposite(planet.backgroundWheelLongitude);
+      const local = fixedEclipticHouseFromLongitude(planet.backgroundWheelLongitude - opposite(raw.ascendantLongitude));
+      const sign = fixedEclipticHouseFromLongitude(reference);
+      return {
+        ...planet,
+        longitude: reference,
+        fixedStarLongitude: reference,
+        // Retain true ephemeris and original background position for audit.
+        tropicalLongitude: planet.tropicalLongitude,
+        backgroundWheelLongitude: planet.backgroundWheelLongitude,
+        house: local.house,
+        sign: sign.sign,
+        degreeInSign: sign.degreeInHouse,
+        degreeInHouse: local.degreeInHouse,
+      };
+    }),
+  };
+}
+
 export function runFullPackageDualFrameChallenger(input: GameInput, options: DualFrameRunOptions = {}): FullPackageDualFrameChallenger {
   const existing = runAgentGodFullLayerExperiment(input);
-  const god = buildFrame("God View", input, planetsForGod(input), existing.god.kp);
+  const godSource = planetsForGod(input);
+  const god = buildFrame("God View", input, options.oppositionShadow ? invertFrameReference(godSource) : godSource, existing.god.kp);
   const rotationMode = options.agentViewRotation ?? "none";
-  const agent = buildFrame("Agent’s View", input, planetsForAgent(input, rotationMode), existing.agent.kp);
+  const agentSource = planetsForAgent(input, rotationMode, options.agentViewModel);
+  const agent = buildFrame("Agent’s View", input, options.oppositionShadow ? invertFrameReference(agentSource) : agentSource, existing.agent.kp);
   const agreement = god.synthesis.winner === "TIE" || agent.synthesis.winner === "TIE"
     ? { state: "no-call" as const, winner: "TIE" as const }
     : god.synthesis.winner === agent.synthesis.winner
