@@ -12,6 +12,7 @@ import { listLiveGames, listScheduledGames } from "./schedules";
 import { invokeLLM } from "./_core/llm";
 import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
 import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
+import { extractPattern, discoverPatterns, matchHistoricalPattern, evaluatePatternHoldout } from "./engine/patternRecognition";
 
 const eventInput = z.object({
   id: z.string().optional(),
@@ -145,6 +146,17 @@ export const appRouter = router({
   simulate: router({
     event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
+  }),
+  patterns: router({
+    analyze: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000), minSupport: z.number().int().min(2).max(1000).default(5) })).mutation(({ input }) => {
+      const rows = input.events.map(event => extractPattern(runSimulationEvent(event)));
+      return { discovery: discoverPatterns(rows, { minSupport: input.minSupport }), holdout: evaluatePatternHoldout(rows, 0.2, input.minSupport), total: rows.length };
+    }),
+    match: publicProcedure.input(z.object({ target: eventInput, history: z.array(eventInput).max(10000) })).mutation(({ input }) => {
+      const query = extractPattern(runSimulationEvent(input.target));
+      const history = input.history.map(event => extractPattern(runSimulationEvent(event)));
+      return { queryId: query.id, matches: matchHistoricalPattern(query, history) };
+    }),
   }),
   personal: router({
     chart: publicProcedure.input(personalChartInput).mutation(({ input }) => buildPersonalChart(input)),
