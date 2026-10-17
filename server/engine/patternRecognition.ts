@@ -37,6 +37,12 @@ export function extractPattern(result: Simulation): PatternRow {
       add(frame + ":HOUSE:" + house.house + ":STAR_LORD:" + house.starLord);
     }
   }
+  for (const [frame, chart] of [["GOD", result.oppositionShadow.godView], ["AGENT", result.oppositionShadow.agentView]] as const) {
+    for (const planet of chart.planets) {
+      add(frame + ":SHADOW:PLANET:" + planet.planet + ":HOUSE:" + planet.house);
+      add(frame + ":SHADOW:PLANET:" + planet.planet + ":SIDE:" + family(planet.house));
+    }
+  }
   for (const [frame, report] of [["GOD", result.godView], ["AGENT", result.agentView]] as const) {
     for (const layer of report.allLayers) {
       add(frame + ":METHOD:" + layer.name + ":" + signal(layer.scoreA, layer.scoreB));
