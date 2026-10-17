@@ -12,6 +12,8 @@ import {
   NAKSHATRAS,
   NAKSHATRA_ARC_DEGREES,
 } from "./index";
+import { scoreOppositionShadow } from "./shadowScoring";
+import { buildOppositionShadow, shadowSide } from "./oppositionShadow";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 import { runRegisteredMethods } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
@@ -285,11 +287,16 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
   const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
+  const shadowDualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical", oppositionShadow: true });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
   const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
   const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
   const agentMethodResults = runRegisteredMethods({ prediction: agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, eventTime: startTime });
   const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
+  const shadowGodChart = buildOppositionShadow(fixedGodChartSnapshot(activePrediction, startTime));
+  const shadowAgentChart = buildOppositionShadow(input.agentViewModel === "fixed-earth-dawn-anchored"
+    ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
+    : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>));
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
@@ -317,6 +324,25 @@ export function runSimulationEvent(input: SimulationEventInput) {
         ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
         : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>),
       celestialGeometry,
+    },
+    oppositionShadow: {
+      status: "experimental-reference-transform" as const,
+      rule: "Rotate reference wheel, houses and ASC/DSC by 180 degrees; preserve all actual tropical planetary longitudes. Favorite remains new ASC / Side A.",
+      caveat: "Counterfactual reference experiment, not physical star motion. The 7-layer territorial and recovered archive layers are recalculated; legacy original-wheel KP win-fit is quarantined at zero, not falsely treated as a shadow recomputation. Method registry and other non-shadow-aware calculations remain excluded.",
+      fullPackage: { godView: frameReport(shadowDualFrame.god, actualWinner), agentView: frameReport(shadowDualFrame.agent, actualWinner), parity: shadowDualFrame.parity, agreement: shadowDualFrame.agreement },
+      godView: shadowGodChart,
+      agentView: shadowAgentChart,
+      sideAssignments: { favorite: "A / new ASC", underdog: "B / new DSC" },
+      independentDiagnostics: {
+        godView: scoreOppositionShadow(fixedGodChartSnapshot(activePrediction, startTime)),
+        agentView: scoreOppositionShadow(input.agentViewModel === "fixed-earth-dawn-anchored"
+          ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
+          : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>)),
+      },
+      planetHouseSides: {
+        godView: shadowGodChart.planets.map(p => ({ planet: p.planet, originalHouse: p.originalHouse, shadowHouse: p.house, shadowSide: shadowSide(p.house) })),
+        agentView: shadowAgentChart.planets.map(p => ({ planet: p.planet, originalHouse: p.originalHouse, shadowHouse: p.house, shadowSide: shadowSide(p.house) })),
+      },
     },
     experimentalLayers: {
       status: "experimental-read-only" as const,
