@@ -1,3 +1,4 @@
+import { shadowReferenceIdentities } from "./shadowCoordinates";
 /** Counterfactual 180-degree celestial reference wheel. Never changes the real ephemeris. */
 export const SHADOW_ROTATION = 180;
 export const ASC_HOUSES = [1, 2, 3, 6, 10, 11] as const;
@@ -31,6 +32,7 @@ export function buildOppositionShadow<T extends { ascendantLongitude: number; ho
       originalBackgroundWheelLongitude: planet.backgroundWheelLongitude,
       shadowReferenceLongitude: opposite(planet.backgroundWheelLongitude),
       house: shadowHouse(planet.house),
+      shadowIdentities: shadowReferenceIdentities(planet.backgroundWheelLongitude),
       // Actual tropical and original stellar identifiers are retained as audit evidence.
       // Shadow-specific mansion, decan, stellar rulership must be derived from shadowReferenceLongitude by their respective calculators.
     })),
