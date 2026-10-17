@@ -21,7 +21,7 @@ export async function createSimulationDataset(input: {
 export async function insertSimulationEvents(datasetId: number, events: SimulationEventInput[]) {
   const db = await getDb();
   if (!db || events.length === 0) return;
-  await db.insert(simulationEvents).values(events.map((event, index) => ({
+  const rows = events.map((event, index) => ({
     datasetId,
     rowNumber: index + 2,
     eventId: event.id ?? `row-${index + 2}`,
@@ -35,7 +35,10 @@ export async function insertSimulationEvents(datasetId: number, events: Simulati
     startTime: new Date(event.startTime),
     actualWinner: event.actualWinner,
     validationStatus: "valid" as const,
-  })));
+  }));
+  for (let start = 0; start < rows.length; start += 250) {
+    await db.insert(simulationEvents).values(rows.slice(start, start + 250));
+  }
 }
 
 export async function getSimulationEvents(datasetId: number) {
