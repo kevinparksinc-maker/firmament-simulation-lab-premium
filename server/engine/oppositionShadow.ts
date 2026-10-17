@@ -6,7 +6,7 @@ export const normalize360 = (degrees: number) => ((degrees % 360) + 360) % 360;
 export const opposite = (degrees: number) => normalize360(degrees + SHADOW_ROTATION);
 export const shadowHouse = (house: number) => ((house + 5) % 12) + 1;
 export type ShadowPlanet = { planet: string; tropicalLongitude: number; backgroundWheelLongitude: number; house: number; nakshatra: string; [key: string]: unknown };
-export type ShadowChart<T extends { ascendantLongitude: number; houses: Array<{ house: number; cuspLongitude: number; [key: string]: unknown }>; planets: ShadowPlanet[] }> = T & {
+export type ShadowChart<T extends { ascendantLongitude: number; houses: Array<{ house: number; cuspLongitude: number; [key: string]: unknown }>; planets: ShadowPlanet[] }> = Omit<T, "planets"> & {
   shadowMode: "reference-wheel-180";
   referenceRotationDegrees: 180;
   originalAscendantLongitude: number;
