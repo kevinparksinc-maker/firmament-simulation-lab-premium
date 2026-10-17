@@ -520,7 +520,7 @@ function invertFrameReference<T extends { ascendantLongitude: number; planets: F
       const sign = fixedEclipticHouseFromLongitude(reference);
       return {
         ...planet,
-        longitude: reference,
+        longitude: planet.backgroundWheelLongitude,
         fixedStarLongitude: reference,
         // Retain true ephemeris and original background position for audit.
         tropicalLongitude: planet.tropicalLongitude,
@@ -536,11 +536,13 @@ function invertFrameReference<T extends { ascendantLongitude: number; planets: F
 
 export function runFullPackageDualFrameChallenger(input: GameInput, options: DualFrameRunOptions = {}): FullPackageDualFrameChallenger {
   const existing = runAgentGodFullLayerExperiment(input);
+  // The legacy KP fit is computed against the original wheel and cannot be reused as a shadow score.
+  const shadowKp = { ascendant: { finalKPWinFit: 0 }, descendant: { finalKPWinFit: 0 } };
   const godSource = planetsForGod(input);
-  const god = buildFrame("God View", input, options.oppositionShadow ? invertFrameReference(godSource) : godSource, existing.god.kp);
+  const god = buildFrame("God View", input, options.oppositionShadow ? invertFrameReference(godSource) : godSource, options.oppositionShadow ? shadowKp : existing.god.kp);
   const rotationMode = options.agentViewRotation ?? "none";
   const agentSource = planetsForAgent(input, rotationMode, options.agentViewModel);
-  const agent = buildFrame("Agent’s View", input, options.oppositionShadow ? invertFrameReference(agentSource) : agentSource, existing.agent.kp);
+  const agent = buildFrame("Agent’s View", input, options.oppositionShadow ? invertFrameReference(agentSource) : agentSource, options.oppositionShadow ? shadowKp : existing.agent.kp);
   const agreement = god.synthesis.winner === "TIE" || agent.synthesis.winner === "TIE"
     ? { state: "no-call" as const, winner: "TIE" as const }
     : god.synthesis.winner === agent.synthesis.winner
