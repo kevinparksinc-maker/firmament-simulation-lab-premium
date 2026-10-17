@@ -17,7 +17,7 @@ describe("simulation CSV validation", () => {
   it("accepts college football research fixtures without inventing outcomes", () => {
     const parsed = parseSimulationCsv(["favoredTeam,underdogTeam,sport,location,startTime", "Ohio State,Indiana,NCAAF,Bloomington IN,2026-10-17T16:00:00Z"].join("\n"));
     expect(parsed.invalid).toHaveLength(0);
-    expect(parsed.valid[0]).toMatchObject({ sport: "NCAAF", teamA: "Ohio State", teamB: "Indiana", roleAssignmentSource: "market-odds" });
+    expect(parsed.valid[0]).toMatchObject({ sport: "NCAAF", teamA: "Ohio State", teamB: "Indiana", roleAssignmentSource: "manual" });
     expect(parsed.valid[0]?.actualWinner).toBeUndefined();
   });
 
