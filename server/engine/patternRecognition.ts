@@ -47,7 +47,7 @@ export function extractPattern(result: Simulation): PatternRow {
     roleVerified: result.evaluationFramework.roleAssignmentSource === "market-odds",
     actualWinner: result.comparison.actualWinner,
     baselineWinner: result.baseline.winner,
-    tokens: [...tokens].sort(),
+    tokens: Array.from(tokens).sort(),
   };
 }
 function combinations(tokens: string[], maxPairs: number): string[][] {
@@ -78,7 +78,7 @@ export function discoverPatterns(rows: PatternRow[], options: { minSupport?: num
     }
   }
   const rules: PatternRule[] = [];
-  for (const group of groups.values()) {
+  for (const group of Array.from(groups.values())) {
     if (group.rows.length < minSupport) continue;
     const a = group.rows.filter(r => r.actualWinner === "A").length;
     const b = group.rows.filter(r => r.actualWinner === "B").length;
