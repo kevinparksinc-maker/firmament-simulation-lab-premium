@@ -287,6 +287,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
   const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
+  const shadowDualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical", oppositionShadow: true });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
   const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
   const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
@@ -327,7 +328,8 @@ export function runSimulationEvent(input: SimulationEventInput) {
     oppositionShadow: {
       status: "experimental-reference-transform" as const,
       rule: "Rotate reference wheel, houses and ASC/DSC by 180 degrees; preserve all actual tropical planetary longitudes. Favorite remains new ASC / Side A.",
-      caveat: "This is a coordinate-reference experiment, not an astronomical relocation of stars. Shadow-specific mansion, decan, stellar and full method scores require dedicated recomputation and are not asserted here.",
+      caveat: "Counterfactual reference experiment, not physical star motion. The 7-layer territorial and recovered archive layers are recalculated; legacy original-wheel KP win-fit is quarantined at zero, not falsely treated as a shadow recomputation. Method registry and other non-shadow-aware calculations remain excluded.",
+      fullPackage: { godView: frameReport(shadowDualFrame.god, actualWinner), agentView: frameReport(shadowDualFrame.agent, actualWinner), parity: shadowDualFrame.parity, agreement: shadowDualFrame.agreement },
       godView: shadowGodChart,
       agentView: shadowAgentChart,
       sideAssignments: { favorite: "A / new ASC", underdog: "B / new DSC" },
