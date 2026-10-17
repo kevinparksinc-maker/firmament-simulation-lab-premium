@@ -65,7 +65,7 @@ function combinations(tokens: string[], maxPairs: number): string[][] {
 /** Mine recurring signatures using only eligible historical results. Never learns from future games. */
 export function discoverPatterns(rows: PatternRow[], options: { minSupport?: number; maxPairsPerGame?: number; maxRules?: number } = {}) {
   const minSupport = options.minSupport ?? 5;
-  const maxPairs = options.maxPairsPerGame ?? 1000;
+  const maxPairs = options.maxPairsPerGame ?? 60;
   const maxRules = options.maxRules ?? 100;
   const verified = rows.filter(r => r.roleVerified && r.actualWinner !== null && r.actualWinner !== "TIE");
   const groups = new Map<string, { tokens: string[]; rows: PatternRow[] }>();
