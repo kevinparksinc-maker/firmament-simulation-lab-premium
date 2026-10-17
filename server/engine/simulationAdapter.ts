@@ -12,6 +12,7 @@ import {
   NAKSHATRAS,
   NAKSHATRA_ARC_DEGREES,
 } from "./index";
+import { scoreOppositionShadow } from "./shadowScoring";
 import { buildOppositionShadow, shadowSide } from "./oppositionShadow";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 import { runRegisteredMethods } from "./methodRegistry";
@@ -330,6 +331,12 @@ export function runSimulationEvent(input: SimulationEventInput) {
       godView: shadowGodChart,
       agentView: shadowAgentChart,
       sideAssignments: { favorite: "A / new ASC", underdog: "B / new DSC" },
+      independentDiagnostics: {
+        godView: scoreOppositionShadow(fixedGodChartSnapshot(activePrediction, startTime)),
+        agentView: scoreOppositionShadow(input.agentViewModel === "fixed-earth-dawn-anchored"
+          ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
+          : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>)),
+      },
       planetHouseSides: {
         godView: shadowGodChart.planets.map(p => ({ planet: p.planet, originalHouse: p.originalHouse, shadowHouse: p.house, shadowSide: shadowSide(p.house) })),
         agentView: shadowAgentChart.planets.map(p => ({ planet: p.planet, originalHouse: p.originalHouse, shadowHouse: p.house, shadowSide: shadowSide(p.house) })),
