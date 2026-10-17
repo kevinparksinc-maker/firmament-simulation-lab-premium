@@ -1,0 +1,7 @@
+{
+  "name": "Firmament Sports Prediction Simulation Lab",
+  "description": "A dual-frame sports experiment research surface comparing classical Astrological Frame and modern Agentic Harmonic Frame predictions with celestial telemetry, real-time game monitoring, and transparent method auditing.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

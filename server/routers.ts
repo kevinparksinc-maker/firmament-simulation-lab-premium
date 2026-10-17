@@ -12,6 +12,7 @@ import { listLiveGames, listScheduledGames } from "./schedules";
 import { invokeLLM } from "./_core/llm";
 import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
 import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
+import { extractPattern, discoverPatterns, matchHistoricalPattern, evaluatePatternHoldout, analyzeGameForensic, matchGamePatterns, getDefaultHistoricalMemory } from "./engine/patternRecognition";
 
 const eventInput = z.object({
   id: z.string().optional(),
@@ -85,35 +86,50 @@ export const appRouter = router({
   }),
   ai: router({
     chat: publicProcedure.input(z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant", "system"]), content: z.string().min(1).max(6000) })).min(1).max(20), context: z.string().max(12000).optional() })).mutation(async ({ input }) => {
-      const response = await invokeLLM({
-        messages: [
-          { role: "system", content: `You are the Firmament research assistant. Explain the app's recorded inputs, market data, chart frames, and audit statuses clearly. Never invent missing data. Distinguish unverified (no confirmed actual result) from not evaluable (a method could not be scored). Do not present astrology calculations as guaranteed predictions or betting advice.${input.context ? `\n\nCurrent result context:\n${input.context}` : ""}` },
-          ...input.messages,
-        ],
-      });
-      const content = response.choices?.[0]?.message?.content;
-      return { content: typeof content === "string" ? content : "I could not produce a response from the available research record." };
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: `You are the Firmament research assistant. Explain the app's recorded inputs, market data, chart frames, and audit statuses clearly. Never invent missing data. Distinguish unverified (no confirmed actual result) from not evaluable (a method could not be scored). Do not present astrology calculations as guaranteed predictions or betting advice.${input.context ? `\n\nCurrent result context:\n${input.context}` : ""}` },
+            ...input.messages,
+          ],
+        });
+        const content = response.choices?.[0]?.message?.content;
+        return { content: typeof content === "string" ? content : "I could not produce a response from the available research record." };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "LLM service unavailable";
+        return { content: `AI Assistant unavailable: ${msg}. You can continue reviewing the mathematical calculations, astronomical wheel placements, and audit ledger directly.` };
+      }
     }),
     chartChat: publicProcedure.input(z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(6000) })).min(1).max(20), chartContext: z.string().min(1).max(30000) })).mutation(async ({ input }) => {
-      const response = await invokeLLM({
-        messages: [
-          { role: "system", content: `You are the Firmament personal astrology guide. Answer ordinary questions using only the provided natal/transit chart evidence. Explain zodiac, houses, decans, Arabic Manzils, Vedic Nakshatras, fixed-star contacts, and geometric relationships in clear language. Distinguish calculated evidence from interpretation. Never invent a placement, never claim certainty, and do not give medical, legal, financial, or guaranteed prediction advice. When discussing sports or outcomes, frame it as experimental research, not betting advice.\n\nNatal and transit chart evidence:\n${input.chartContext}` },
-          ...input.messages,
-        ],
-      });
-      const content = response.choices?.[0]?.message?.content;
-      return { content: typeof content === "string" ? content : "I could not produce a chart-based response from the available evidence." };
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: `You are the Firmament personal astrology guide. Answer ordinary questions using only the provided natal/transit chart evidence. Explain zodiac, houses, decans, Arabic Manzils, Vedic Nakshatras, fixed-star contacts, and geometric relationships in clear language. Distinguish calculated evidence from interpretation. Never invent a placement, never claim certainty, and do not give medical, legal, financial, or guaranteed prediction advice. When discussing sports or outcomes, frame it as experimental research, not betting advice.\n\nNatal and transit chart evidence:\n${input.chartContext}` },
+            ...input.messages,
+          ],
+        });
+        const content = response.choices?.[0]?.message?.content;
+        return { content: typeof content === "string" ? content : "I could not produce a chart-based response from the available evidence." };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "LLM service unavailable";
+        return { content: `Chart consultation unavailable: ${msg}. You can inspect all placements, aspects, and house alignments in the calculated tables below.` };
+      }
     }),
     personalReading: publicProcedure.input(personalChartInput).mutation(async ({ input }) => {
       const chart = buildPersonalChart(input);
-      const response = await invokeLLM({
-        messages: [
-          { role: "system", content: "You are the Firmament synthesis engine. Write a detailed but grounded personal reading from the supplied chart evidence. Cover natal identity, current transit themes, houses, Arabic Manzils, Vedic Nakshatras, decans, exact aspects, orbs, and cross-layer convergences. Clearly separate calculated placements from interpretive language. Do not invent missing information or make guaranteed claims. Do not provide medical, legal, financial, or betting advice." },
-          { role: "user", content: `Generate the personal synthesis for this exact evidence:\n${JSON.stringify(chart)}` },
-        ],
-      });
-      const content = response.choices?.[0]?.message?.content;
-      return { chart, interpretation: typeof content === "string" ? content : "The chart was calculated, but the interpretation layer did not return text." };
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: "You are the Firmament synthesis engine. Write a detailed but grounded personal reading from the supplied chart evidence. Cover natal identity, current transit themes, houses, Arabic Manzils, Vedic Nakshatras, decans, exact aspects, orbs, and cross-layer convergences. Clearly separate calculated placements from interpretive language. Do not invent missing information or make guaranteed claims. Do not provide medical, legal, financial, or betting advice." },
+            { role: "user", content: `Generate the personal synthesis for this exact evidence:\n${JSON.stringify(chart)}` },
+          ],
+        });
+        const content = response.choices?.[0]?.message?.content;
+        return { chart, interpretation: typeof content === "string" ? content : "The chart was calculated, but the interpretation layer did not return text." };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "LLM service unavailable";
+        return { chart, interpretation: `Chart calculated successfully. AI synthesis text unavailable (${msg}). Refer to the calculated natal and transit telemetry.` };
+      }
     }),
   }),
   schedules: router({
@@ -145,6 +161,33 @@ export const appRouter = router({
   simulate: router({
     event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
+  }),
+  patterns: router({
+    analyze: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000), minSupport: z.number().int().min(2).max(1000).default(5) })).mutation(({ input }) => {
+      const rows = input.events.map(event => extractPattern(runSimulationEvent(event)));
+      return { discovery: discoverPatterns(rows, { minSupport: input.minSupport }), holdout: evaluatePatternHoldout(rows, 0.2, input.minSupport), total: rows.length };
+    }),
+    match: publicProcedure.input(z.object({ target: eventInput, history: z.array(eventInput).max(10000) })).mutation(({ input }) => {
+      const query = extractPattern(runSimulationEvent(input.target));
+      const history = input.history.map(event => extractPattern(runSimulationEvent(event)));
+      return { queryId: query.id, matches: matchHistoricalPattern(query, history) };
+    }),
+    forensic: publicProcedure.input(eventInput).mutation(({ input }) => {
+      const simulation = runSimulationEvent(input);
+      return analyzeGameForensic(simulation);
+    }),
+    liveIntelligence: publicProcedure.input(z.object({
+      target: eventInput,
+      customHistory: z.array(eventInput).optional(),
+    })).mutation(({ input }) => {
+      const simulation = runSimulationEvent(input.target);
+      const historyRows = getDefaultHistoricalMemory(input.customHistory);
+      return matchGamePatterns(simulation, historyRows);
+    }),
+    catalog: publicProcedure.input(z.object({ minSupport: z.number().int().min(2).max(100).default(2) }).optional()).query(({ input }) => {
+      const historyRows = getDefaultHistoricalMemory();
+      return discoverPatterns(historyRows, { minSupport: input?.minSupport ?? 2, maxRules: 80 });
+    }),
   }),
   personal: router({
     chart: publicProcedure.input(personalChartInput).mutation(({ input }) => buildPersonalChart(input)),

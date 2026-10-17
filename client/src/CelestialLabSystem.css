@@ -131,8 +131,8 @@ body{font-family:'DM Sans',sans-serif}
 }
 .observatory-shell :is(.panel,.ledger-panel,.evidence-focus) :is(button,[role=button]):focus-visible,
 .broadcast-shell :is(button,[role=button]):focus-visible{outline:2px solid var(--lab-gold);outline-offset:3px}
-.observatory-shell :is(.ledger-panel,.decision-breakdown,.frame-explanation,.research-notes){scroll-margin-top:24px}
-.observatory-shell :is(#frames,#method-constellation,#method-ledger,#calculation-proof,#provenance){scroll-margin-top:24px}
+.observatory-shell :is(.ledger-panel,.decision-breakdown,.frame-explanation,.research-notes,.pattern-intelligence-panel){scroll-margin-top:24px}
+.observatory-shell :is(#frames,#pattern-intelligence,#method-constellation,#method-ledger,#calculation-proof,#provenance){scroll-margin-top:24px}
 @media(max-width:700px){
  .lab-celestial-modal-panel{border-radius:17px}
  .lab-celestial-modal-panel h2{font-size:25px}

@@ -1,4 +1,5 @@
 import { runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
+import { extractPattern, discoverPatterns, evaluatePatternHoldout } from "./engine/patternRecognition";
 import { getSimulationEvents, insertSimulationResult, updateSimulationRun } from "./simulationDb";
 
 export async function executeSimulationRun(runId: number, datasetId: number) {
@@ -23,7 +24,11 @@ export async function executeSimulationRun(runId: number, datasetId: number) {
 
   const verified = results.filter((result) => result.comparison.verified);
   const baselineHits = verified.filter((result) => result.baseline.verdict === "hit").length;
+  const patternRows = results.map(extractPattern);
+  const patternDiscovery = discoverPatterns(patternRows, { minSupport: 5, maxRules: 50 });
+  const patternHoldout = evaluatePatternHoldout(patternRows, 0.2, 5);
   const summary = {
+    patternRecognition: { discovery: patternDiscovery, holdout: patternHoldout },
     total: results.length,
     verified: verified.length,
     unverified: results.length - verified.length,

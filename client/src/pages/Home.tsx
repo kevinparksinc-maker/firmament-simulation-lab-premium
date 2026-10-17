@@ -4,6 +4,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Beaker,
+  Brain,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { PatternIntelligenceConsole } from "@/components/PatternIntelligenceConsole";
 
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
@@ -369,15 +371,15 @@ export default function Home() {
     <div className="cosmic-noise" /><div className="aurora aurora-one" /><div className="aurora aurora-two" /><div className="grid-horizon" />
     <aside className="obs-sidebar">
       <div className="obs-brand"><div className="brand-seal"><Orbit size={22} /></div><div><strong>FIRMAMENT</strong><span>Sports Lab / 01</span></div></div>
-      <div className="sidebar-section"><span>Lab navigation</span><a className="nav-current" href="#command-deck"><Radar size={17} />Command deck</a><a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a><a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a><a href="#evidence-archive"><Database size={17} />Evidence archive</a></div>
-      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · measured methods</small></div></div><div className="system-line muted"><i /><div><b>Pattern lab</b><small>Scheduled next</small></div></div></div>
+      <div className="sidebar-section"><span>Lab navigation</span><a className="nav-current" href="#command-deck"><Radar size={17} />Command deck</a><a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a><a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a><a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a><a href="#evidence-archive"><Database size={17} />Evidence archive</a></div>
+      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · measured methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
       <div className="sidebar-rule"><ShieldCheck size={16} /><p>Research interface. Calls remain visibly separated from verified results and should not be treated as wagering advice.</p></div>
     </aside>
 
     <main className="obs-main" id="command-deck">
       <header className="obs-header"><div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>FIRMAMENT</span></div><div className="header-path"><span>Research environment</span><ChevronRight size={13} /><strong>Sports prediction simulation lab</strong></div><div className="header-actions"><div className="engine-live"><i />Engine linked</div><button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}><Settings2 size={15} />Run profile</button><button className="run-button" onClick={runFixture} disabled={simulate.isPending}><Play size={14} fill="currentColor" />{simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : simulation ? "Rerun sample fixture" : "Run sample fixture"}</button></div></header>
 
-      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Method topology</span><strong>Method count from engine</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
+      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
         <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run a fixture to populate the evidence field with actual calculations."}</span></div></div></section>
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
@@ -390,6 +392,8 @@ export default function Home() {
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
       <DecisionBreakdown simulation={simulation} />
+
+      <PatternIntelligenceConsole activeSimulation={simulation} />
 
       <section className="visual-grid" id="method-laboratory"><MethodConstellation layers={layers} simulation={simulation} selected={selected} onSelect={selectLayer} /><div className="visual-side"><div className="astrolabe-switch"><button className={activeFrame === "god" ? "wheel-active" : ""} onClick={() => setActiveFrame("god")}>God View wheel</button><button className={activeFrame === "agent" ? "wheel-active" : ""} onClick={() => setActiveFrame("agent")}>Agent View wheel</button></div><Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} /><EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} /></div></section>
 
