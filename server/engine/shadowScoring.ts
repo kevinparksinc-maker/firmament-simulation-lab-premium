@@ -26,12 +26,21 @@ export function scoreOppositionShadow(chart: Chart) {
     houseCuspAspects: { A: 0, B: 0 },
     planetaryFlow: { A: 0, B: 0 },
     planetaryFriction: { A: 0, B: 0 },
+    mansionTerritory: { A: 0, B: 0 },
+    decanTerritory: { A: 0, B: 0 },
+    kpStellarTerritory: { A: 0, B: 0 },
   };
   const planets = chart.planets.map(p => ({ ...p, shadowHouse: ((p.house + 5) % 12) + 1, identities: shadowReferenceIdentities(p.backgroundWheelLongitude) }));
   const evidence: Array<{ method: string; planet: string; side: "A" | "B"; detail: string; weight: number }> = [];
   for (const p of planets) {
     const side = shadowSide(p.shadowHouse);
     methods.houseTerritory[side] += 1;
+    methods.mansionTerritory[side] += 1;
+    methods.decanTerritory[side] += 1;
+    methods.kpStellarTerritory[side] += 1;
+    evidence.push({ method: "mansionTerritory", planet: p.planet, side, detail: p.identities.manzil + " / " + p.identities.nakshatra, weight: 1 });
+    evidence.push({ method: "decanTerritory", planet: p.planet, side, detail: p.identities.sign + " decan " + p.identities.decan, weight: 1 });
+    evidence.push({ method: "kpStellarTerritory", planet: p.planet, side, detail: p.identities.starLord + " / " + p.identities.subLord, weight: 1 });
     evidence.push({ method: "houseTerritory", planet: p.planet, side, detail: "Shadow house " + p.shadowHouse, weight: 1 });
     for (const [star, longitude] of STARS) {
       const orb = distance(p.backgroundWheelLongitude, opposite(longitude));
@@ -64,6 +73,7 @@ export function scoreOppositionShadow(chart: Chart) {
     methods,
     evidence,
     planets: planets.map(p => ({ planet: p.planet, tropicalLongitude: p.tropicalLongitude, originalHouse: p.house, shadowHouse: p.shadowHouse, ...p.identities })),
+    nonIndependentSignals: ["mansionTerritory", "decanTerritory", "kpStellarTerritory"],
     caveat: "Counterfactual reference transform. These independent shadow diagnostics do not represent a full rerun of the legacy 21-method package.",
   };
 }
