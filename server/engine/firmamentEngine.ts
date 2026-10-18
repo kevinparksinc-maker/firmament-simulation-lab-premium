@@ -1,3 +1,4 @@
+import { houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { createRequire } from "node:module";
 import type { Body } from "astronomy-engine";
 import { calculateRestoredTerritorial, type TerritorialEvidence } from "./territorialStack";
@@ -644,9 +645,8 @@ export function fixedFirmamentHouseFromRA(firmamentRA: number) {
  * This function deliberately does not use azimuth, LST, or venue coordinates.
  */
 export function fixedEclipticHouseFromLongitude(longitude: number) {
-  const normalizedLongitude = normalize(longitude);
-  const house = Math.floor(normalizedLongitude / 30) + 1;
-  return { house, degreeInHouse: normalizedLongitude % 30, sign: SIGNS[house - 1] };
+  const { house, degreeInHouse } = locateInHouse(longitude, "god", 0);
+  return { house, degreeInHouse, sign: SIGNS[house - 1] };
 }
 
 export type EqualHouseZonePlacement = {
@@ -778,7 +778,7 @@ function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: n
     void usesFixedJ2000KP;
     // The background wheel is absolute and shared by both views. AgentView
     // uses exact-degree equal houses; God View keeps the fixed Aries-zero wheel.
-    const localHouse = fixedEclipticHouseFromLongitude(backgroundWheelLongitude - ascendantLongitude);
+    const localHouse = locateInHouse(backgroundWheelLongitude, "agent", ascendantLongitude);
     const dome = domeModel === "fixed-zodiac-wheel"
       ? eclipticDome
       : { ...eclipticDome, house: localHouse.house, degreeInHouse: localHouse.degreeInHouse };
@@ -1016,7 +1016,7 @@ function resolveKPResonanceConfig(override?: Partial<KPResonanceConfig>): KPReso
 function resonanceAuditForSide(planets: PlanetReading[], targetSide: "A" | "B", config: KPResonanceConfig, cuspOffset = 0, applyKpShift = false) {
   const cluster = targetSide === "A" ? ASCENDANT_CLUSTER : DESCENDANT_CLUSTER;
   const auditChain = cluster.map((house) => {
-    const cuspLongitude = normalize(cuspOffset + (house - 1) * 30);
+    const cuspLongitude = houseCusp(house, "agent", cuspOffset);
     const details = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), applyKpShift);
     const subPlacement = planets.find((planet) => planet.planet === details.subLord) ?? planets[0]!;
     const subSubPlacement = planets.find((planet) => planet.planet === details.subSubLord) ?? planets[0]!;
@@ -1078,9 +1078,7 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
   const planetsByName = new Map(planets.map((planet) => [planet.planet, planet]));
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = domeModel === "fixed-zodiac-wheel"
-      ? index * 30
-      : normalize(ascendantLongitude + index * 30);
+    const cuspLongitude = houseCusp(house, domeModel === "fixed-zodiac-wheel" ? "god" : "agent", ascendantLongitude);
     const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, input.startTime, domeModel !== "unified-ephemeris");
     const subLordPlacement = planetsByName.get(stellar.subLord) ?? planets[0];
     const cluster = clusterForHouse(house);
@@ -1097,7 +1095,7 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
     };
   });
   const houseAnchor = domeModel === "fixed-zodiac-wheel" ? 0 : ascendantLongitude;
-  const lotHouseFromLongitude = (longitude: number) => fixedEclipticHouseFromLongitude(longitude - houseAnchor).house;
+  const lotHouseFromLongitude = (longitude: number) => locateInHouse(longitude, domeModel === "fixed-zodiac-wheel" ? "god" : "agent", houseAnchor).house;
   const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude);
   const kpStellar = kpVerdict(houses, planets, domeModel);
   const territorialWeight = 0.4;
@@ -1197,7 +1195,7 @@ export function runGodViewMovingKPMatrixExperiment(input: GameInput): GodViewMov
   const noCallThreshold = 0.5;
   const rows = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = index * 30;
+    const cuspLongitude = houseCusp(house, "god", 0);
     const cusp = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), false);
     const anchor = activePrediction.planets.find((planet) => planet.planet === cusp.subLord) ?? activePrediction.planets[0]!;
     const moving = kpSubSubDetailsFromCanonicalLongitude(anchor.fixedJ2000EclipticLongitude, input.startTime, false);
@@ -1251,7 +1249,7 @@ export function runGodViewFullKPFamilyExperiment(input: GameInput): GodViewFullK
   const activePrediction = generateFixedJ2000KPPrediction(input);
   const rows = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = index * 30;
+    const cuspLongitude = houseCusp(house, "god", 0);
     const fixed = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), false);
     const cuspSign = signForLongitude(cuspLongitude);
     const signLord = FIXED_SIGN_RULERS[cuspSign]!;
@@ -1496,8 +1494,8 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
   const source = generatePredictionForModel(input, "azimuth");
   const ascendantLongitude = source.ascendantLongitude;
   const localPlanets = source.planets.map((planet) => {
-    const localPosition = fixedEclipticHouseFromLongitude(planet.ofDateEclipticLongitude - ascendantLongitude);
-    const signPosition = fixedEclipticHouseFromLongitude(planet.ofDateEclipticLongitude);
+    const localPosition = locateInHouse(planet.backgroundWheelLongitude, "agent", ascendantLongitude);
+    const signPosition = fixedEclipticHouseFromLongitude(planet.backgroundWheelLongitude);
     return {
       ...planet,
       tropicalLongitude: planet.ofDateEclipticLongitude,
@@ -1507,7 +1505,7 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
       degreeInSign: signPosition.degreeInHouse,
     };
   });
-  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => fixedEclipticHouseFromLongitude(longitude - ascendantLongitude).house);
+  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => locateInHouse(longitude, "agent", ascendantLongitude).house);
   const ascendant = resonanceAuditForSide(localPlanets, "A", config, ascendantLongitude, true);
   const descendant = resonanceAuditForSide(localPlanets, "B", config, ascendantLongitude, true);
   const margin = Number(Math.abs(territorial.scoreA - territorial.scoreB).toFixed(2));
