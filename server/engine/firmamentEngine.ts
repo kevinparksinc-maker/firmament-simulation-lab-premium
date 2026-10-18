@@ -52,9 +52,12 @@ const BODY_BY_PLANET: Record<string, Body> = {
   Mars: Astronomy.Body.Mars,
   Jupiter: Astronomy.Body.Jupiter,
   Saturn: Astronomy.Body.Saturn,
+  Uranus: Astronomy.Body.Uranus,
+  Neptune: Astronomy.Body.Neptune,
+  Pluto: Astronomy.Body.Pluto,
 };
 
-const PLANETS = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Rahu", "Ketu"] as const;
+const PLANETS = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Rahu", "Ketu"] as const;
 
 /**
  * Permanent Pure Clock configuration. The Royal Star rotation is calibrated once
