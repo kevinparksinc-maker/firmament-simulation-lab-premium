@@ -41,6 +41,29 @@ describe("simulation adapter", () => {
     expect(result.godView.allLayers).toHaveLength(21);
   });
 
+  it("aligns every God and Agent diamond placement with the original 360 degree longitudes", () => {
+    const result = runSimulationEvent(fixture);
+    const normalize = (degree: number) => ((degree % 360) + 360) % 360;
+    const expectedHouse = (degree: number, anchor: number) =>
+      Math.floor(normalize(degree - anchor) / 30) + 1;
+
+    // God View uses fixed 0° Aries ecliptic houses, not equatorial RA houses.
+    for (const planet of result.chart.godView.planets) {
+      expect(planet.house, planet.planet + " God house").toBe(expectedHouse(planet.backgroundWheelLongitude, 0));
+      expect(planet.degreeInHouse).toBeCloseTo(normalize(planet.backgroundWheelLongitude) % 30, 2);
+    }
+
+    // Agent View uses the exact observer-local Ascendant as its equal-house anchor.
+    for (const planet of result.chart.agentView.planets) {
+      expect(planet.house, planet.planet + " Agent house").toBe(expectedHouse(planet.tropicalLongitude, result.chart.agentView.ascendantLongitude));
+    }
+
+    expect(result.godView.allLayers).toHaveLength(21);
+    expect(result.agentView.allLayers).toHaveLength(21);
+    expect(result.godView.allLayers.every(layer => layer.calculation && layer.detail)).toBe(true);
+    expect(result.agentView.allLayers.every(layer => layer.calculation && layer.detail)).toBe(true);
+  });
+
   it("uses explicit favored and underdog teams instead of home-away order", () => {
     const result = runSimulationEvent({ ...fixture, teamA: "Home Team", teamB: "Away Team", favoredTeam: "Away Team", underdogTeam: "Home Team", homeTeam: "Home Team", awayTeam: "Away Team", roleAssignmentSource: "market-odds" });
     expect(result.input.teamA).toBe("Away Team");
