@@ -22,7 +22,8 @@ export function extractReferencedHouses(lines:string[]):number[]{
  for(const line of lines){
   // H7, H12, House 7, house #7. Avoid matching shorthand like H120.
   const regex=/\b(?:H\s*|house\s*#?\s*)(1[0-2]|[1-9])(?!\d)/gi;
-  for(const match of line.matchAll(regex))found.add(Number(match[1]));
+  let match:RegExpExecArray|null;
+  while((match=regex.exec(line))!==null)found.add(Number(match[1]));
  }
  return Array.from(found).sort((a,b)=>a-b);
 }
