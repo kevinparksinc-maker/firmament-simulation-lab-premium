@@ -1,3 +1,5 @@
+import { NorthIndianChart } from "@/components/NorthIndianChart";
+import { wheelPoint, equalHouseCenter } from "@/lib/celestialWheelGeometry";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -238,25 +240,23 @@ function HouseKey() {
 }
 
 function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kind: "god" | "agent"; active: boolean; onSelect: () => void }) {
-  const planets = frame ? (frame as Frame & { planets?: Planet[] }).planets : undefined;
-  const displayPlanets = planets ?? [];
-  const hue = kind === "god" ? "cyan" : "violet";
-  const houseZero = kind === "god" ? 0 : frame?.ascendantLongitude ?? 0;
-  return <div className="astrolabe-stack"><button className={`astrolabe astrolabe-${hue} ${active ? "astrolabe-active" : ""}`} onClick={onSelect}>
-    <div className="astrolabe-header"><div><span>{kind === "god" ? "Fixed coordinate wheel" : "Local event wheel"}</span><h3>{kind === "god" ? "God View astrolabe" : "Agent View astrolabe"}</h3></div><FrameGlyph kind={kind} /></div>
-    <div className="wheel-wrap">
-      <svg viewBox="0 0 220 220" aria-hidden="true">
-        <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
-        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
-        {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
-        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero + index * 30 - 90) * Math.PI / 180; const center = (houseZero + index * 30 + 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
-        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
-        <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
-      </svg>
-      {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
-    </div>
-    <p className="astrolabe-caption">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "Overlay-ready; spatial readings appear after calculation."}</p>
-  </button><HouseKey /></div>;
+  const planets = frame ? (frame as Frame & { planets?: Planet[] }).planets ?? [] : [];
+  const anchor = kind === "god" ? 0 : frame?.ascendantLongitude ?? 0;
+  return <div className={`astrolabe-stack ${active ? "astrolabe-stack-active" : ""}`}>
+    <NorthIndianChart
+      label={kind === "god" ? "God View · Fixed Background" : "Agent View · Event Horizon"}
+      mode={kind}
+      ascendantLongitude={anchor}
+      planets={planets}
+      compact
+    />
+    {!frame && <p className="mt-2 text-center text-xs text-slate-400">Run a fixture to populate the North Indian chart with measured positions.</p>}
+    <button type="button" className="mt-3 w-full rounded-xl border border-amber-200/35 bg-amber-200/10 px-4 py-3 text-xs font-semibold text-amber-100 hover:bg-amber-200/20" onClick={onSelect}>
+      {kind === "god" ? "Switch to Agent View" : "Switch to God View"}
+    </button>
+    <p className="astrolabe-caption mt-2">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "House positions remain fixed. The frame supplies the chart data."}</p>
+    <HouseKey />
+  </div>;
 }
 
 function EvidenceCard({ selected, simulation, onClear }: { selected: OverlayLayer | null; simulation: Simulation | null; onClear: () => void }) {
