@@ -10,7 +10,7 @@ describe("all-planet and lunar-node celestial territory coverage", () => {
       const longitude = ((index * 31 + 7) % 360);
       const mansion = manzilFromLongitude(longitude);
       const nakshatraIndex = Math.floor(longitude / NAKSHATRA_ARC_DEGREES);
-      expect(mansion.name, planet).toBe(ARABIC_LUNAR_MANSIONS[mansion.index - 1] ?? ARABIC_LUNAR_MANSIONS[mansion.index]);
+      expect(mansion.name, planet).toBe(ARABIC_LUNAR_MANSIONS[mansion.index - 1]);
       expect(NAKSHATRAS[nakshatraIndex], planet).toBeDefined();
       expect(locateInHouse(longitude, "god", 0).house).toBeGreaterThanOrEqual(1);
       expect(locateInHouse(longitude, "agent", 47).house).toBeLessThanOrEqual(12);
