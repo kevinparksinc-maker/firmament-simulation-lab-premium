@@ -1,3 +1,5 @@
+import { HouseStrengthPanel } from "@/components/HouseStrengthPanel";
+import type { HouseStrengthAudit } from "../../../server/engine/houseStrengthAudit";
 import { NorthIndianChart } from "@/components/NorthIndianChart";
 import { wheelPoint, equalHouseCenter } from "@/lib/celestialWheelGeometry";
 import { useMemo, useState } from "react";
@@ -69,6 +71,7 @@ type Planet = {
 };
 
 type Simulation = {
+  houseStrengthAudit?: {status:"experimental-read-only";godView:HouseStrengthAudit;agentView:HouseStrengthAudit;note:string};
   input: { teamA: string; teamB: string; sport: string; location: string; startTime: string; actualWinner?: Side };
   engine: { source: string; calculationPath: string; fixedBackground: string; hamalAnchor: string };
   baseline: { winner: Side; verdict: Verdict; combined: { scoreA: number; scoreB: number } };
@@ -392,6 +395,13 @@ export default function Home() {
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
       <DecisionBreakdown simulation={simulation} />
+
+      {simulation?.houseStrengthAudit && <HouseStrengthPanel
+        god={simulation.houseStrengthAudit.godView}
+        agent={simulation.houseStrengthAudit.agentView}
+        teamA={simulation.input.teamA}
+        teamB={simulation.input.teamB}
+      />}
 
       <PatternIntelligenceConsole activeSimulation={simulation} />
 
