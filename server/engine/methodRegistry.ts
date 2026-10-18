@@ -10,6 +10,7 @@ import {
   type HarmonicConfig,
 } from "./experimentalLayers";
 import type { Prediction } from "./firmamentEngine";
+import { buildMethodChartSnapshot, type MethodChartSnapshot } from "./methodChartSnapshot";
 
 export type MethodMode = "PREDICTIVE" | "EVIDENCE_ONLY";
 export type MethodPrediction = "A" | "B" | "TIE" | "NONE";
@@ -146,6 +147,14 @@ export function runMethod(methodId: string, input: MethodInput): MethodResult {
   }
   return method.run(input);
 }
+export function runRegisteredMethodsFromSnapshot(snapshot: MethodChartSnapshot, methodIds = METHOD_REGISTRY.map((method) => method.id)) {
+  const input: MethodInput = { prediction: snapshot.prediction, eventTime: snapshot.eventTime };
+  return methodIds.map((methodId) => runMethod(methodId, input));
+}
+
+/** Backward-compatible entry point; new simulations build each frame once. */
 export function runRegisteredMethods(input: MethodInput, methodIds = METHOD_REGISTRY.map((method) => method.id)) {
   return methodIds.map((methodId) => runMethod(methodId, input));
 }
+
+export { buildMethodChartSnapshot };
