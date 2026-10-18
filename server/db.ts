@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, type User } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+const inMemoryUsers = new Map<string, User>();
+let nextUserId = 1;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -25,7 +27,22 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
+    // In-memory fallback
+    const now = new Date();
+    const existing = inMemoryUsers.get(user.openId);
+    const role = user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : (existing?.role ?? "user"));
+    const updatedUser: User = {
+      id: existing?.id ?? nextUserId++,
+      openId: user.openId,
+      name: user.name ?? existing?.name ?? null,
+      email: user.email ?? existing?.email ?? null,
+      loginMethod: user.loginMethod ?? existing?.loginMethod ?? null,
+      role,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      lastSignedIn: user.lastSignedIn ?? now,
+    };
+    inMemoryUsers.set(user.openId, updatedUser);
     return;
   }
 
@@ -77,11 +94,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 }
 
-export async function getUserByOpenId(openId: string) {
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
+    return inMemoryUsers.get(openId);
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);

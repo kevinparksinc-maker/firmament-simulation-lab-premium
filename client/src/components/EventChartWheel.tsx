@@ -1,4 +1,3 @@
-import { NorthIndianChart } from "./NorthIndianChart";
 import { useMemo } from "react";
 
 type Planet = {
@@ -42,14 +41,14 @@ const COLORS: Record<string, string> = { Sun: "#f3c878", Moon: "#d9e8ff", Mercur
 const ASPECTS = [0, 30, 45, 60, 72, 90, 108, 120, 135, 144, 150, 180];
 const normalize = (value: number) => ((value % 360) + 360) % 360;
 const polar = (cx: number, cy: number, radius: number, longitude: number) => {
-  const angle = ((-longitude - 90) * Math.PI) / 180;
+  const angle = ((longitude - 90) * Math.PI) / 180;
   return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
 };
 const arcPath = (cx: number, cy: number, radius: number, start: number, end: number) => {
   const a = polar(cx, cy, radius, start);
   const b = polar(cx, cy, radius, end);
   const large = end - start > 180 ? 1 : 0;
-  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 0 ${b.x} ${b.y}`;
+  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 1 ${b.x} ${b.y}`;
 };
 const separation = (a: number, b: number) => {
   const d = Math.abs(normalize(a) - normalize(b));
@@ -68,10 +67,10 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
   const accent = mode === "god" ? "#52e2ff" : "#c2a0ff";
   const houseStart = mode === "god" ? 0 : ascendantLongitude;
   const planetPositions = useMemo(() => planets.map((planet, index) => {
-    const longitude = normalize((mode === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude) ?? 0);
-    const collisions = planets.slice(0, index).filter((other) => separation(longitude, normalize((mode === "god" ? other.backgroundWheelLongitude : other.tropicalLongitude) ?? 0)) < 7).length;
+    const longitude = normalize(planet.backgroundWheelLongitude ?? planet.tropicalLongitude ?? 0);
+    const collisions = planets.slice(0, index).filter((other) => separation(longitude, normalize(other.backgroundWheelLongitude ?? other.tropicalLongitude ?? 0)) < 7).length;
     return { ...planet, longitude, visualLongitude: longitude + collisions * 3.5 };
-  }), [planets, mode]);
+  }), [planets]);
   const aspects = useMemo(() => {
     const lines: Array<{ a: Planet & { longitude: number }; b: Planet & { longitude: number }; color: string }> = [];
     for (let i = 0; i < planetPositions.length; i += 1) {
@@ -90,18 +89,13 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
         <div>
           <p className={`eyebrow ${mode === "god" ? "text-cyan-200/80" : "text-violet-200/80"}`}>Visual event chart</p>
           <h2 className="section-title mt-1">{label}</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">North Indian fixed-house chart first. Optional 360° overlay provides the 28 Manzils, 27 Nakshatras, decan boundaries and aspect geometry.</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Fixed 360° zodiac background with 28 Manzils, 27 Nakshatras, decan boundaries, fixed stars, and the selected house perspective.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em]">
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2.5 py-1 text-cyan-200">{mode === "god" ? "God fixed houses" : "Exact-degree equal houses"}</span>
+          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-2.5 py-1 text-cyan-200">{mode === "god" ? "Fixed wheel houses" : "Exact-degree equal houses"}</span>
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-slate-400">{planets.length} bodies</span>
         </div>
       </div>
-      <div className="p-4 lg:p-6">
-        <NorthIndianChart label={label} mode={mode} ascendantLongitude={ascendantLongitude} planets={planets}/>
-      </div>
-      <details className="border-t border-amber-200/20">
-        <summary className="cursor-pointer px-5 py-4 text-xs font-semibold text-amber-100 hover:bg-amber-200/10">Optional research overlay · 360° aspect / nakshatra / manzil / decan rings</summary>
       <div className="grid items-center gap-5 p-4 lg:grid-cols-[minmax(420px,560px)_1fr] lg:p-6">
         <div className="mx-auto w-full max-w-[560px]">
           <svg viewBox="0 0 520 520" className="h-auto w-full" role="img" aria-label={`${label} visual event chart`}>
@@ -138,11 +132,34 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               return <line key={`decan-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,.35)" strokeWidth={index % 3 === 0 ? 1 : .45} />;
             })}
             {houses.map((house) => {
-              const longitude = mode === "god" ? house.house * 30 - 30 : house.cuspLongitude;
-              const a = polar(cx, cy, 12, longitude);
-              const b = polar(cx, cy, nakshatraInner - 7, longitude);
-              const labelPoint = polar(cx, cy, 92, longitude + 15);
-              return <g key={`house-${house.house}`}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={house.house === 1 ? accent : "rgba(255,255,255,.14)"} strokeWidth={house.house === 1 ? 2 : .8} /><text x={labelPoint.x} y={labelPoint.y + 3} textAnchor="middle" fill={house.house === 1 ? accent : "rgba(148,163,184,.55)"} fontSize="8">H{house.house}</text></g>;
+              // Houses advance counterclockwise from the frame anchor (0° for God View, ascendantLongitude for Agent View)
+              // while constellations, signs, and planets orbit clockwise.
+              const houseAnchor = mode === "god" ? 0 : ascendantLongitude;
+              const cuspAngle = houseAnchor - (house.house - 1) * 30;
+              const a = polar(cx, cy, 12, cuspAngle);
+              const b = polar(cx, cy, nakshatraInner - 7, cuspAngle);
+              const labelPoint = polar(cx, cy, 92, cuspAngle - 15);
+              return (
+                <g key={`house-${house.house}`}>
+                  <line
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    stroke={house.house === 1 ? accent : "rgba(255,255,255,.14)"}
+                    strokeWidth={house.house === 1 ? 2 : 0.8}
+                  />
+                  <text
+                    x={labelPoint.x}
+                    y={labelPoint.y + 3}
+                    textAnchor="middle"
+                    fill={house.house === 1 ? accent : "rgba(148,163,184,.55)"}
+                    fontSize="8"
+                  >
+                    H{house.house}
+                  </text>
+                </g>
+              );
             })}
             {showAspects && aspects.map(({ a, b, color }, index) => { const p1 = polar(cx, cy, planetRadius, a.longitude); const p2 = polar(cx, cy, planetRadius, b.longitude); return <line key={`aspect-${index}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={color} strokeOpacity=".42" strokeWidth=".8" />; })}
             {showStars && Array.from({ length: 12 }, (_, index) => { const point = polar(cx, cy, outer - 16, index * 30 + 7); return <circle key={`star-${index}`} cx={point.x} cy={point.y} r="1.5" fill="#f4d58a" opacity=".9" />; })}
@@ -163,7 +180,6 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
           <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4"><p className="eyebrow">Planet key</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">{planetPositions.map((planet) => <div key={`key-${planet.planet}`} className="flex items-center gap-2 text-xs text-slate-300"><span style={{ color: COLORS[planet.planet] ?? accent }} className="w-4 text-center font-serif text-base">{GLYPHS[planet.planet] ?? "•"}</span><span>{planet.planet}</span><span className="ml-auto text-slate-600">H{planet.house}</span></div>)}</div></div>
         </div>
       </div>
-      </details>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Beaker,
@@ -70,11 +70,11 @@ export function PatternIntelligenceConsole({ activeSimulation, onSelectGame }: P
   };
 
   // Re-run whenever a new simulation is produced
-  useMemo(() => {
+  useEffect(() => {
     if (activeSimulation) {
       void runLiveIntelligence();
     }
-  }, [activeSimulation?.id, activeSimulation?.input?.teamA, activeSimulation?.input?.teamB]);
+  }, [activeSimulation?.id, activeSimulation?.input?.teamA, activeSimulation?.input?.teamB, activeSimulation?.input?.startTime]);
 
   const forensic = liveData?.forensic;
   const activeAlerts = liveData?.activeAlerts ?? [];

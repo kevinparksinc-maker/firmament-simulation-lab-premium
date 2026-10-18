@@ -1,7 +1,3 @@
-import { HouseStrengthPanel } from "@/components/HouseStrengthPanel";
-import type { HouseStrengthAudit } from "../../../server/engine/houseStrengthAudit";
-import { NorthIndianChart } from "@/components/NorthIndianChart";
-import { wheelPoint, equalHouseCenter } from "@/lib/celestialWheelGeometry";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -15,6 +11,8 @@ import {
   Compass,
   Crosshair,
   Database,
+  Download,
+  Flame,
   Gauge,
   Layers3,
   LoaderCircle,
@@ -34,6 +32,10 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { PatternIntelligenceConsole } from "@/components/PatternIntelligenceConsole";
+import { QuickGameSimBar, type QuickGameInput } from "@/components/QuickGameSimBar";
+import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
+import { downloadResultBundle } from "@/components/ResearchWorkbench";
+import { VedicDiamondChart } from "@/components/VedicDiamondChart";
 
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
@@ -71,7 +73,6 @@ type Planet = {
 };
 
 type Simulation = {
-  houseStrengthAudit?: {status:"experimental-read-only";godView:HouseStrengthAudit;agentView:HouseStrengthAudit;note:string};
   input: { teamA: string; teamB: string; sport: string; location: string; startTime: string; actualWinner?: Side };
   engine: { source: string; calculationPath: string; fixedBackground: string; hamalAnchor: string };
   baseline: { winner: Side; verdict: Verdict; combined: { scoreA: number; scoreB: number } };
@@ -242,27 +243,26 @@ function HouseKey() {
   return <div className="house-key" aria-label="House meanings">{HOUSE_LABELS.map(([house, label]) => <div key={house}><b>{house}</b><span>{label}</span></div>)}</div>;
 }
 
-function Astrolabe({ frame, kind, active, onSelect, activeMethod, onMethodSelect }: { frame: (Frame & {planets:Planet[]}) | null; kind: "god" | "agent"; active: boolean; onSelect: () => void; activeMethod?:string|null; onMethodSelect?:(name:string)=>void }) {
-  const planets = frame ? (frame as Frame & { planets?: Planet[] }).planets ?? [] : [];
-  const anchor = kind === "god" ? 0 : frame?.ascendantLongitude ?? 0;
-  return <div className={`astrolabe-stack ${active ? "astrolabe-stack-active" : ""}`}>
-    <NorthIndianChart
-      label={kind === "god" ? "God View · Fixed Background" : "Agent View · Event Horizon"}
-      mode={kind}
-      ascendantLongitude={anchor}
-      planets={planets}
-      methods={frame?.allLayers??[]}
-      activeMethod={activeMethod}
-      onMethodSelect={onMethodSelect}
-      compact
-    />
-    {!frame && <p className="mt-2 text-center text-xs text-slate-400">Run a fixture to populate the North Indian chart with measured positions.</p>}
-    <button type="button" className="mt-3 w-full rounded-xl border border-amber-200/35 bg-amber-200/10 px-4 py-3 text-xs font-semibold text-amber-100 hover:bg-amber-200/20" onClick={onSelect}>
-      {kind === "god" ? "Switch to Agent View" : "Switch to God View"}
-    </button>
-    <p className="astrolabe-caption mt-2">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "House positions remain fixed. The frame supplies the chart data."}</p>
-    <HouseKey />
-  </div>;
+function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kind: "god" | "agent"; active: boolean; onSelect: () => void }) {
+  const planets = frame ? (frame as Frame & { planets?: Planet[] }).planets : undefined;
+  const displayPlanets = planets ?? [];
+  const hue = kind === "god" ? "cyan" : "violet";
+  const houseZero = kind === "god" ? 0 : frame?.ascendantLongitude ?? 0;
+  return <div className="astrolabe-stack"><button className={`astrolabe astrolabe-${hue} ${active ? "astrolabe-active" : ""}`} onClick={onSelect}>
+    <div className="astrolabe-header"><div><span>{kind === "god" ? "Fixed coordinate wheel" : "Local event wheel"}</span><h3>{kind === "god" ? "God View astrolabe" : "Agent View astrolabe"}</h3></div><FrameGlyph kind={kind} /></div>
+    <div className="wheel-wrap">
+      <svg viewBox="0 0 220 220" aria-hidden="true">
+        <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
+        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
+        {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
+        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero - index * 30 - 90) * Math.PI / 180; const center = (houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
+        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
+        <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
+      </svg>
+      {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
+    </div>
+    <p className="astrolabe-caption">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "Overlay-ready; spatial readings appear after calculation."}</p>
+  </button><HouseKey /></div>;
 }
 
 function EvidenceCard({ selected, simulation, onClear }: { selected: OverlayLayer | null; simulation: Simulation | null; onClear: () => void }) {
@@ -308,6 +308,7 @@ export default function Home() {
   const [activeFrame, setActiveFrame] = useState<"god" | "agent">("god");
   const [selected, setSelected] = useState<OverlayLayer | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [chartStyle, setChartStyle] = useState<"diamond" | "circular">("diamond");
   const [model, setModel] = useState<"astronomical" | "fixed-earth-dawn-anchored">("astronomical");
   const [showConfig, setShowConfig] = useState(false);
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
@@ -329,6 +330,40 @@ export default function Home() {
   const activeFrameData = activeFrame === "god" ? simulation?.godView ?? null : simulation?.agentView ?? null;
   const activeChart = activeFrame === "god" ? simulation?.chart.godView : simulation?.chart.agentView;
   const frameForWheel = activeFrameData && activeChart ? { ...activeFrameData, planets: activeChart.planets } : null;
+
+  const handleQuickSimulate = async (input: QuickGameInput) => {
+    try {
+      setSelectedLiveGame(null);
+      const result = await simulate.mutateAsync({
+        id: `custom-${input.sport.toLowerCase()}-${Date.now()}`,
+        teamA: input.teamA,
+        teamB: input.teamB,
+        favoredTeam: input.favoredTeam,
+        underdogTeam: input.underdogTeam,
+        roleAssignmentSource: "manual",
+        sport: input.sport,
+        location: input.location,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        startTime: input.startTime,
+        actualWinner: input.actualWinner,
+        agentViewModel: model,
+      });
+      setSimulation(result as Simulation);
+      setSelected(null);
+      setFilter("all");
+      toast.success("Matchup simulated successfully", {
+        description: `${input.favoredTeam} vs ${input.underdogTeam} evaluated across 40 methods in God View and Agent View.`,
+      });
+      window.setTimeout(() => {
+        document.getElementById("sportsbook-call-banner")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } catch (error) {
+      toast.error("Simulation failed", {
+        description: error instanceof Error ? error.message : "Calculation failed",
+      });
+    }
+  };
 
   const runFixture = async () => {
     try {
@@ -377,43 +412,159 @@ export default function Home() {
     <div className="cosmic-noise" /><div className="aurora aurora-one" /><div className="aurora aurora-two" /><div className="grid-horizon" />
     <aside className="obs-sidebar">
       <div className="obs-brand"><div className="brand-seal"><Orbit size={22} /></div><div><strong>FIRMAMENT</strong><span>Sports Lab / 01</span></div></div>
-      <div className="sidebar-section"><span>Lab navigation</span><a className="nav-current" href="#command-deck"><Radar size={17} />Command deck</a><a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a><a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a><a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a><a href="#evidence-archive"><Database size={17} />Evidence archive</a></div>
-      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · measured methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
+      <div className="sidebar-section">
+        <span>Sportsbook Lab</span>
+        <a className="nav-current" href="#command-deck"><Radar size={17} />Command deck</a>
+        <a href="#quick-game-sim"><Zap size={17} />Quick game setup</a>
+        {simulation && <a href="#sportsbook-call-banner"><Trophy size={17} />Sportsbook call</a>}
+        <a href="#live-scoreboard"><CircleDot size={17} />Live scoreboard</a>
+        <a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a>
+        <a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a>
+        <a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a>
+        <a href="#chart-telemetry"><Compass size={17} />Diamond chart wheel</a>
+        <a href="#audit-ledger"><Activity size={17} />Decision ledger</a>
+        <a href="/daily"><Flame size={17} />Daily slate studio</a>
+      </div>
+      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · 40 methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
       <div className="sidebar-rule"><ShieldCheck size={16} /><p>Research interface. Calls remain visibly separated from verified results and should not be treated as wagering advice.</p></div>
     </aside>
 
     <main className="obs-main" id="command-deck">
-      <header className="obs-header"><div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>FIRMAMENT</span></div><div className="header-path"><span>Research environment</span><ChevronRight size={13} /><strong>Sports prediction simulation lab</strong></div><div className="header-actions"><div className="engine-live"><i />Engine linked</div><button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}><Settings2 size={15} />Run profile</button><button className="run-button" onClick={runFixture} disabled={simulate.isPending}><Play size={14} fill="currentColor" />{simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : simulation ? "Rerun sample fixture" : "Run sample fixture"}</button></div></header>
+      <header className="obs-header">
+        <div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>FIRMAMENT</span></div>
+        <div className="header-path"><span>Sportsbook research</span><ChevronRight size={13} /><strong>Simulation Lab</strong></div>
+        <div className="header-actions">
+          <div className="engine-live"><i />Engine linked</div>
+          <button
+            className="config-button text-cyan-300 border-cyan-400/30 hover:bg-cyan-400/10"
+            onClick={() => document.getElementById("quick-game-sim")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <Zap size={14} /> Quick Game
+          </button>
+          <a
+            href="/daily"
+            className="config-button text-amber-300 border-amber-400/30 hover:bg-amber-400/10"
+            title="Open Daily Slate Studio for bulk schedule simulations"
+          >
+            <Flame size={14} /> Daily Studio
+          </a>
+          {simulation && (
+            <button
+              className="config-button text-emerald-300 border-emerald-400/30 hover:bg-emerald-400/10"
+              onClick={() => downloadResultBundle(simulation)}
+              title="Download JSON result and CSV method audit"
+            >
+              <Download size={14} /> Export Audit
+            </button>
+          )}
+          <button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}>
+            <Settings2 size={15} />Run profile
+          </button>
+          <button className="run-button" onClick={runFixture} disabled={simulate.isPending}>
+            <Play size={14} fill="currentColor" />
+            {simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : simulation ? "Rerun sample fixture" : "Run sample fixture"}
+          </button>
+        </div>
+      </header>
 
       <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
         <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run a fixture to populate the evidence field with actual calculations."}</span></div></div></section>
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
 
-      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF")}><option value="NCAAF">College football</option><option value="ALL">All sports</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
-      <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
+      {/* QUICK GAME SIMULATION BAR - Easy, zero-friction fixture setup */}
+      <div id="quick-game-sim">
+        <QuickGameSimBar
+          isPending={simulate.isPending}
+          onSimulate={handleQuickSimulate}
+          activeSimulationTeamA={simulation?.input.teamA}
+          activeSimulationTeamB={simulation?.input.teamB}
+        />
+      </div>
+
+      {/* SPORTSBOOK GAME CALL BANNER - Clear, unambiguous prediction outcome */}
+      {simulation && (
+        <div id="sportsbook-call-banner">
+          <SportsbookCallBanner
+            simulation={simulation as any}
+            onDownloadAudit={() => downloadResultBundle(simulation)}
+            onScrollToLedger={() => document.getElementById("audit-ledger")?.scrollIntoView({ behavior: "smooth" })}
+            onScrollToTop={() => document.getElementById("quick-game-sim")?.scrollIntoView({ behavior: "smooth" })}
+          />
+        </div>
+      )}
+
+      {/* Live scoreboard feed */}
+      <div id="live-scoreboard">
+        <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF")}><option value="NCAAF">College football</option><option value="ALL">All sports</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+        <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
+      </div>
 
       <section className="stats-ribbon"><div><span><Activity size={14} />Baseline status</span><strong>{simulation ? verdictCopy(simulation.baseline.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.baseline.winner, simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Pinned sample"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Yankees vs Astros · 02 Apr 2024"}</small></div></section>
-
-      <section className="diamond-introduction" id="base-chart"><p className="eyebrow">BASE CHART · ALL 360 DEGREES · NORTH INDIAN HOUSE GEOMETRY</p><h2>The diamond is the observatory.</h2><p>Fixed House 1 at the top, House 7 opposite, each following house in traditional order. Each frame receives its calculated planets, house assignments and complete method testimony; every degree-based division remains part of the same 360° coordinate space.</p></section>
-      <section className="visual-grid diamond-primary" id="method-laboratory"><MethodConstellation layers={layers} simulation={simulation} selected={selected} onSelect={selectLayer} /><div className="visual-side"><div className="astrolabe-switch"><button className={activeFrame === "god" ? "wheel-active" : ""} onClick={() => setActiveFrame("god")}>God View diamond</button><button className={activeFrame === "agent" ? "wheel-active" : ""} onClick={() => setActiveFrame("agent")}>Agent View diamond</button></div><Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} activeMethod={selected?.frame===(activeFrame==="god"?"God View":"Agent View")?selected.name:null} onMethodSelect={(name)=>{const item=layers.find(x=>x.frame===(activeFrame==="god"?"God View":"Agent View")&&x.name===name);if(item)setSelected(item);}} /><EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} /></div></section>
 
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
       <DecisionBreakdown simulation={simulation} />
 
-      {simulation?.houseStrengthAudit && <HouseStrengthPanel
-        god={simulation.houseStrengthAudit.godView}
-        agent={simulation.houseStrengthAudit.agentView}
-        teamA={simulation.input.teamA}
-        teamB={simulation.input.teamB}
-      />}
-
       <PatternIntelligenceConsole activeSimulation={simulation} />
 
-      
+      <section className="visual-grid" id="method-laboratory">
+        <MethodConstellation layers={layers} simulation={simulation} selected={selected} onSelect={selectLayer} />
+        <div className="visual-side" id="chart-telemetry">
+          {/* Dual Toggle Bar: Perspective & Chart Style */}
+          <div className="flex flex-col gap-2">
+            <div className="astrolabe-switch">
+              <button className={activeFrame === "god" ? "wheel-active" : ""} onClick={() => setActiveFrame("god")}>
+                God View (Fixed)
+              </button>
+              <button className={activeFrame === "agent" ? "wheel-active" : ""} onClick={() => setActiveFrame("agent")}>
+                Agent View (Horizon)
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-700/60 bg-black/40 p-1">
+              <button
+                className={`rounded-lg py-1.5 text-center text-xs font-bold transition ${
+                  chartStyle === "diamond"
+                    ? "border border-amber-400/40 bg-amber-400/15 text-amber-200 shadow-[0_0_12px_rgba(245,192,103,0.2)]"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                onClick={() => setChartStyle("diamond")}
+              >
+                🔷 Vedic Diamond Chart
+              </button>
+              <button
+                className={`rounded-lg py-1.5 text-center text-xs font-bold transition ${
+                  chartStyle === "circular"
+                    ? "border border-cyan-400/40 bg-cyan-400/15 text-cyan-200 shadow-[0_0_12px_rgba(130,239,255,0.2)]"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                onClick={() => setChartStyle("circular")}
+              >
+                ⭕ Circular Astrolabe
+              </button>
+            </div>
+          </div>
 
-      <MethodLedger layers={layers} simulation={simulation} filter={filter} onFilter={setFilter} selected={selected} onSelect={selectLayer} />
+          {/* Render selected chart layout */}
+          {chartStyle === "diamond" ? (
+            <VedicDiamondChart
+              frameName={activeFrame === "god" ? "God View" : "Agent View"}
+              ascendantLongitude={frameForWheel?.ascendantLongitude ?? 0}
+              planets={frameForWheel?.planets ?? []}
+              activeTeamA={simulation?.input.teamA}
+              activeTeamB={simulation?.input.teamB}
+            />
+          ) : (
+            <Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} />
+          )}
+
+          <EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} />
+        </div>
+      </section>
+
+      <div id="audit-ledger">
+        <MethodLedger layers={layers} simulation={simulation} filter={filter} onFilter={setFilter} selected={selected} onSelect={selectLayer} />
+      </div>
 
       <section className="research-notes" id="evidence-archive"><div><p className="eyebrow">Provenance record</p><h2>Logic remains first-class evidence.</h2><p>The interface only changes the visibility of the calculation. The engine remains in the preserved Firmament boundary, and every surface carries its source frame or verification state.</p></div><div className="note-list"><div><Orbit size={17} /><span><b>Fixed background</b><small>{simulation?.engine.fixedBackground ?? "Aries-zero zodiac wheel, anchored before calculation"}</small></span></div><div><MapPin size={17} /><span><b>Event perspective</b><small>{simulation ? `${simulation.input.location} · ${new Date(simulation.input.startTime).toLocaleString()}` : "Venue and event time resolve at run time"}</small></span></div><div><Sparkles size={17} /><span><b>Engine path</b><small>{simulation?.engine.calculationPath ?? "Chart, geometry, frame challenger, and method audit"}</small></span></div></div></section>
     </main>
