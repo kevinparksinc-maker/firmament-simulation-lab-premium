@@ -25,3 +25,15 @@
 .ni-contact-list strong{font-size:11px;color:#e2edf2}
 .ni-contact-list span{font-size:11px;color:#a5e1e5}
 .ni-contact-list small{font-size:10px;color:#b8c4d5}
+
+/* Every calculation method belongs to the North Indian primary chart. */
+.ni-method-map{margin-top:16px;padding:15px;border:1px solid rgba(225,192,141,.44);border-radius:14px;background:linear-gradient(140deg,#162944,#0a1730)}
+.ni-method-row-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:14px 0}
+.ni-method-row-grid button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:6px;background:#0b1731;border:1px solid rgba(183,197,211,.3);border-radius:9px;padding:10px;min-height:78px;color:#dce9f5;overflow-wrap:anywhere}
+.ni-method-row-grid button[aria-pressed=true],.ni-method-row-grid button:hover{background:#403b3566;border-color:#ecd295;box-shadow:inset 3px 0 #e8ce91}
+.ni-method-row-grid strong{font-size:11px;color:#f3dba8}
+.ni-method-row-grid span{font-size:10px;color:#c5e9ee}
+.ni-method-row-grid small{font-size:10px;color:#97b1c6}
+.ni-method-proof{padding:14px;border-radius:11px;border:1px solid rgba(232,207,160,.35);background:#0b1428;color:#c2d4e1;font-size:11px;line-height:1.7;overflow-wrap:anywhere}
+.ni-method-proof strong{font-size:13px;color:#ffe2aa}.ni-method-proof p{margin:10px 0}.ni-method-proof details{margin-top:12px}.ni-method-proof summary{color:#f5d99a;min-height:35px;cursor:pointer}.ni-method-proof code,.ni-method-proof small{display:block;font-size:10px;white-space:normal;overflow-wrap:anywhere;color:#aed3e8;margin:6px 0}
+@media(max-width:540px){.ni-method-row-grid{grid-template-columns:1fr}}
