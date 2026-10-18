@@ -1,3 +1,4 @@
+import { buildNorthIndianDegreeEvidence } from "@/lib/northIndianRelations";
 import { useMemo, useState } from "react";
 import "./NorthIndianChart.css";
 
@@ -52,6 +53,9 @@ export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=
     const bodies=planets.filter(body=>body.house===house);
     return { ...position,house,cusp,signNumber:signAtLongitude(cusp),bodies };
   }),[anchor,planets]);
+  const degreeEvidence=useMemo(()=>buildNorthIndianDegreeEvidence(planets.flatMap(body=>{ const longitude=mode==="god"?body.backgroundWheelLongitude??body.longitude:body.tropicalLongitude??body.longitude;return longitude==null?[]:[{planet:body.planet,house:body.house,longitude}]; })),[planets,mode]);
+  const selectedPlacements=degreeEvidence.placements.filter(body=>body.house===selected);
+  const selectedContacts=degreeEvidence.contacts.filter(contact=>contact.sourceHouse===selected||contact.targetHouse===selected);
   const invalid=planets.filter(body=>!Number.isInteger(body.house)||body.house<1||body.house>12);
   // A supplied planet-house relationship is authoritative. Comparing with a
   // longitude is an audit, not a reason to silently relocate the planet.
@@ -96,6 +100,21 @@ export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=
         <p className="ni-guide">Houses stay fixed: 1 top, 2 upper-left, 4 left, 7 bottom, 10 right, 12 upper-right. Signs and placements come from the model, not from rotating the diamond.</p>
       </div>
     </div>
+    <section className="ni-degree-ledger" aria-label="Selected house precise-degree lunar mansion and decan evidence">
+      <div className="ni-degree-title"><div><p className="ni-detail-kicker">HOUSE {selected} · DEGREE RELATIONSHIPS</p><h4>Manzils, Nakshatras &amp; Decans</h4></div><span>{selectedContacts.length} geometric contacts · 5° orb</span></div>
+      <p className="ni-degree-help">The selected North Indian house determines the territory. Every planet is evaluated at its calculated longitude against the 28 Arabic mansion centers, 27 Nakshatra centers, 36 decan centers and the other moving planets. All contacts retain their source house and exact orb. Reference-center aspects are a geometric research method, not a traditional claim that a mansion or decan is a planet.</p>
+      {selectedPlacements.length ? <div className="ni-degree-bodies">{selectedPlacements.map(body=><article key={body.planet}>
+        <strong>{body.planet} · {body.longitude.toFixed(4)}°</strong>
+        <span>Arabic Manzil {body.manzil.index}: {body.manzil.name} · {body.manzil.offset.toFixed(3)}° in mansion</span>
+        <span>Nakshatra {body.nakshatra.index}: {body.nakshatra.name} · {body.nakshatra.offset.toFixed(3)}° in Nakshatra</span>
+        <span>{body.decan.name} · {body.decan.offset.toFixed(3)}° into decan</span>
+        <small>{body.houseFamily} house family · House {body.house}</small>
+      </article>)}</div>:<p className="ni-degree-empty">No planets occupy this house in the calculated frame. Its degree boundaries and house family still exist.</p>}
+      {selectedContacts.length>0 && <details className="ni-contact-details"><summary>Inspect {selectedContacts.length} degree contacts and their weights</summary><div className="ni-contact-list">
+        {selectedContacts.map((contact,i)=><div key={i}><strong>{contact.source} → {contact.target}</strong><span>{contact.aspect} · {contact.orb.toFixed(3)}° orb · {contact.strengthPercent}% degree weight</span><small>{contact.targetKind} · H{contact.sourceHouse}{contact.targetHouse?" ↔ H"+contact.targetHouse:""}</small></div>)}
+      </div></details>}
+      <p className="ni-degree-disclaimer">House-family placement and degree-contact strength are separate evidence fields. The application does not invent a house weight or change the forty-two prediction-method scores from this display.</p>
+    </section>
     {(invalid.length>0||discrepancies.length>0)&&<details className="ni-audit"><summary>Placement audit · {invalid.length+discrepancies.length} items need review</summary><p>This screen preserves the engine's house numbers. Differences may reflect another coordinate system or an engine inconsistency; they are not corrected by drawing.</p>{invalid.map(x=><p key={x.planet}>{x.planet}: invalid engine house {x.house}</p>)}{discrepancies.map((x,i)=><p key={i}>{x}</p>)}</details>}
     <p className="ni-footer">God: permanent 0° Aries reference. Agent: event-local equal-house anchor. Chart style does not change any prediction method, method weight or verdict.</p>
   </section>;

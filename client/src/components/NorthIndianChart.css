@@ -5,3 +5,23 @@
 .ni-focus{border:1px solid #a0b9d23b;background:#091529;border-radius:12px;padding:13px;margin-top:12px;display:flex;flex-direction:column;gap:8px}.ni-focus>span{font-size:9px;letter-spacing:.13em;color:var(--ni-gold);font-weight:800}.ni-focus strong{font:500 19px Georgia,serif;color:#f7e7c5}.ni-focus small{color:#b0c6d6;font-size:10px}.ni-focus p{font-size:12px;color:#d2e1ec;line-height:1.6;margin:0}.ni-guide,.ni-footer{font-size:10px;line-height:1.7;color:#91b0c4;margin-top:14px}.ni-footer{border-top:1px solid #b3c5d725;padding-top:12px}.ni-audit{margin-top:14px;padding:12px;border-radius:11px;border:1px solid #efb25d66;background:#a45a1723;font-size:11px;line-height:1.7;color:#f5d8ad}.ni-audit summary{font-weight:800;cursor:pointer}.ni-audit p{margin:8px 0 0}.ni-compact .ni-grid{grid-template-columns:1fr}.ni-compact .ni-graphic svg{max-width:300px}.ni-compact .ni-heading h3{font-size:21px}.ni-compact .ni-detail{display:block}
 @media(max-width:640px){.ni-grid{grid-template-columns:1fr}.ni-graphic svg{max-width:370px}.ni-house-picker button{min-height:44px}.ni-heading{align-items:center}}
 @media(prefers-reduced-motion:reduce){.ni-house-picker button{transition:none}}
+
+.ni-degree-ledger{margin-top:15px;padding:14px;border:1px solid rgba(215,190,140,.3);border-radius:13px;background:#07162acc}
+.ni-degree-title{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.ni-degree-title h4{font:500 21px/1.3 Georgia,serif;color:#f2dfbc;margin:4px 0}
+.ni-degree-title>span{font-size:11px;color:#9bc7d9}
+.ni-degree-help,.ni-degree-disclaimer{font-size:11px;color:#a9c4d1;line-height:1.75;margin:10px 0}
+.ni-degree-disclaimer{color:#e1cda4;border-top:1px solid #b7a67f3d;padding-top:11px}
+.ni-degree-bodies{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:9px;margin-top:14px}
+.ni-degree-bodies article{display:flex;flex-direction:column;gap:6px;background:#111f38;border:1px solid #9db3cf35;border-radius:12px;padding:12px}
+.ni-degree-bodies strong{color:#f3d69f;font-size:12px}
+.ni-degree-bodies span{font-size:11px;color:#c1d7e6;line-height:1.5}
+.ni-degree-bodies small{font-size:10px;color:#94b1be}
+.ni-degree-empty{font-size:11px;color:#9cb5c4;padding:8px 0}
+.ni-contact-details{margin-top:14px;border:1px solid #9db3cf35;border-radius:12px;overflow:hidden}
+.ni-contact-details summary{cursor:pointer;min-height:44px;padding:12px;color:#f1d7a9;font-size:12px;font-weight:700;background:#172540}
+.ni-contact-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,225px),1fr));gap:7px;padding:11px}
+.ni-contact-list>div{display:flex;flex-direction:column;gap:5px;padding:10px;border:1px solid #869eba42;border-radius:9px;background:#101d34}
+.ni-contact-list strong{font-size:11px;color:#e2edf2}
+.ni-contact-list span{font-size:11px;color:#a5e1e5}
+.ni-contact-list small{font-size:10px;color:#b8c4d5}
