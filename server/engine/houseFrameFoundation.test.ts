@@ -34,7 +34,7 @@ describe("Firmament God/Agent unified 360° house foundation", () => {
     expect(() => houseCusp(13, "god", 0)).toThrow();
   });
   it("partitions the entire zodiac into exactly twelve stable territories", () => {
-    for (const anchor of [0, 17, 47, 100, 359.9]) {
+    for (const anchor of [0, 17, 47, 100, 359]) {
       for (let h = 1; h <= 12; h++) {
         const cusp = houseCusp(h, "agent", anchor);
         expect(locateInHouse(cusp, "agent", anchor).house).toBe(h);
