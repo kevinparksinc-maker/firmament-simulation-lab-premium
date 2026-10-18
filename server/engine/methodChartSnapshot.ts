@@ -32,18 +32,15 @@ export function buildMethodChartSnapshot(
   if (!Number.isFinite(eventTime.getTime())) throw new RangeError("Invalid snapshot time");
   const clone = structuredClone(prediction);
   const anchor = frame === "god" ? 0 : ascendantLongitude;
-  // Fail closed if the evidence supplied to a method contradicts the shared
-  // house geometry. Do not silently rewrite a planet's source longitude.
+  // Reproject the single ephemeris position into this frame once, BEFORE
+  // handing the chart to any method. Methods never do this themselves.
   for (const planet of clone.planets) {
-    const expected = locateInHouse(planet.backgroundWheelLongitude, frame, anchor);
-    if (planet.house !== expected.house) {
-      throw new Error(`Method snapshot mismatch (${frame}): ${planet.planet} supplied H${planet.house}, expected H${expected.house} at longitude ${planet.backgroundWheelLongitude}`);
-    }
+    const placement = locateInHouse(planet.backgroundWheelLongitude, frame, anchor);
+    planet.house = placement.house;
+    planet.degreeInHouse = placement.degreeInHouse;
   }
   for (const house of clone.houses) {
-    const expected = houseCusp(house.house, frame, anchor);
-    const delta = Math.abs(((house.cuspLongitude - expected + 540) % 360) - 180);
-    if (delta > 0.0001) throw new Error(`Method snapshot mismatch (${frame}): H${house.house} cusp ${house.cuspLongitude} vs ${expected}`);
+    house.cuspLongitude = houseCusp(house.house, frame, anchor);
   }
   freezeTree(clone);
   return Object.freeze({
