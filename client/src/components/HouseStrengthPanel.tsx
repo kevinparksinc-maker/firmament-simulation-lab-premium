@@ -1,3 +1,4 @@
+import "./HouseStrengthPanel.css";
 import type { HouseStrengthAudit } from "../../../server/engine/houseStrengthAudit";
 
 const fmt=(number:number)=>number.toFixed(3);
