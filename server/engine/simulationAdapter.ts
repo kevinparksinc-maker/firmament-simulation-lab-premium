@@ -155,9 +155,12 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
       planet: planet.planet,
       tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
       backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
-      house: planet.firmamentHouse,
+      // Permanent God View houses are fixed *ecliptic* 30° sectors.
+      // firmamentHouse is derived from right ascension and can disagree with
+      // the displayed 0° Aries zodiac. Never combine the two coordinates.
+      house: planet.eclipticHouse,
       sign: planet.sign,
-      degreeInHouse: Number(planet.firmamentDegreeInHouse.toFixed(4)),
+      degreeInHouse: Number(planet.eclipticDegreeInHouse.toFixed(4)),
       nakshatra: planet.nakshatra,
       pada: planet.pada,
       starLord: planet.starLord,
