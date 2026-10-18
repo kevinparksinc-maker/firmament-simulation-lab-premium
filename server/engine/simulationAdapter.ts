@@ -14,7 +14,7 @@ import {
 } from "./index";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 import { houseCusp, locateInHouse } from "./houseFrameFoundation";
-import { runRegisteredMethods } from "./methodRegistry";
+import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
 
 export type SimulationEventInput = {
@@ -288,8 +288,10 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
   const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
-  const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
-  const agentMethodResults = runRegisteredMethods({ prediction: agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, eventTime: startTime });
+  const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
+  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
+  const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
+  const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
   const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
@@ -327,6 +329,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
+      snapshotConvention: "aries-zero-360-equal-houses-v1",
       godView: godMethodResults,
       agentView: agentMethodResults,
     },
