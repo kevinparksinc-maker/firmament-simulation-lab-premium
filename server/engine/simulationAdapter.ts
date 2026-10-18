@@ -1,3 +1,4 @@
+import { calculateHouseStrengthAudit } from "./houseStrengthAudit";
 import {
   generateFixedJ2000KPPrediction,
   generateFixedJ2000PlanetReadings,
@@ -290,6 +291,22 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
   const agentMethodResults = runRegisteredMethods({ prediction: agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, eventTime: startTime });
   const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
+  // Independent, capped house-activation testimony. Never feeds frame synthesis.
+  // Always use the SAME published chart snapshots as the user-facing North Indian charts.
+  const godChart = fixedGodChartSnapshot(activePrediction, startTime);
+  const agentChart = input.agentViewModel === "fixed-earth-dawn-anchored"
+    ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
+    : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>);
+  const houseStrengthAudit = {
+    status: "experimental-read-only" as const,
+    godView: calculateHouseStrengthAudit(godChart.planets.map(planet => ({
+      planet: planet.planet, longitude: planet.backgroundWheelLongitude, house: planet.house,
+    }))),
+    agentView: calculateHouseStrengthAudit(agentChart.planets.map(planet => ({
+      planet: planet.planet, longitude: planet.tropicalLongitude, house: planet.house,
+    }))),
+    note: "Bounded activation ledger sourced from displayed chart placements. These are independent research diagnostics; no existing method or published prediction is adjusted.",
+  };
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
@@ -312,12 +329,11 @@ export function runSimulationEvent(input: SimulationEventInput) {
       hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
     },
     chart: {
-      godView: fixedGodChartSnapshot(activePrediction, startTime),
-    agentView: input.agentViewModel === "fixed-earth-dawn-anchored"
-        ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
-        : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>),
+      godView: godChart,
+      agentView: agentChart,
       celestialGeometry,
     },
+    houseStrengthAudit,
     experimentalLayers: {
       status: "experimental-read-only" as const,
       note: "These four evidence layers are calculated for audit/backtest inspection only and do not modify the existing live baseline or 21-method frame synthesis.",
