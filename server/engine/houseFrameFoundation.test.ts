@@ -33,4 +33,30 @@ describe("Firmament God/Agent unified 360° house foundation", () => {
     expect(() => normalizeLongitude(Number.NaN)).toThrow();
     expect(() => houseCusp(13, "god", 0)).toThrow();
   });
+  it("partitions the entire zodiac into exactly twelve stable territories", () => {
+    for (const anchor of [0, 17, 47, 100, 359.9]) {
+      for (let h = 1; h <= 12; h++) {
+        const cusp = houseCusp(h, "agent", anchor);
+        expect(locateInHouse(cusp, "agent", anchor).house).toBe(h);
+        const middle = normalizeLongitude(cusp + 15);
+        expect(locateInHouse(middle, "agent", anchor).house).toBe(h);
+      }
+    }
+  });
+  it("preserves all exact zodiacal subdivision lengths when assigned to a frame", () => {
+    for (const anchor of [0, 47, 359]) {
+      for (const width of [10, 360 / 27, 360 / 28]) {
+        for (let index = 0; index < 12; index++) {
+          const startLongitude = index * 30 + 4;
+          const overlaps = arcHouseOverlaps(
+            { startLongitude, endLongitude: startLongitude + width },
+            "agent", anchor
+          );
+          expect(overlaps.reduce((total, zone) => total + zone.degrees, 0)).toBeCloseTo(width, 9);
+          expect(overlaps.every(zone => zone.house >= 1 && zone.house <= 12)).toBe(true);
+        }
+      }
+    }
+  });
+
 });
