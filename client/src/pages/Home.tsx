@@ -1,3 +1,4 @@
+import { wheelPoint, equalHouseCenter } from "@/lib/celestialWheelGeometry";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -248,9 +249,34 @@ function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kin
       <svg viewBox="0 0 220 220" aria-hidden="true">
         <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
         <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
-        {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
-        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero + index * 30 - 90) * Math.PI / 180; const center = (houseZero + index * 30 + 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
-        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
+        {ZODIAC_SIGNS.map((sign, index) => {
+          const longitude = index * 30;
+          const glyph = wheelPoint(longitude + 15, 83);
+          const spoke = wheelPoint(longitude, 71);
+          return <g key={sign}>
+            <line x1="110" y1="110" x2={spoke.x} y2={spoke.y} className="wheel-spoke" />
+            <text x={glyph.x} y={glyph.y + 4} textAnchor="middle" className="wheel-sign">{sign}</text>
+          </g>;
+        })}
+        {Array.from({ length: 12 }, (_, index) => {
+          const cusp = houseZero + index * 30;
+          const center = equalHouseCenter(houseZero, index + 1);
+          const inner = wheelPoint(cusp, 40);
+          const outer = wheelPoint(cusp, 69);
+          const label = wheelPoint(center, 54);
+          return <g key={`house-${index}`}>
+            <line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} className="house-spoke" />
+            <text x={label.x} y={label.y + 3} textAnchor="middle" className="house-number">H{index + 1}</text>
+          </g>;
+        })}
+        {displayPlanets.map(planet => {
+          const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude;
+          const marker = wheelPoint(longitude, 56);
+          return <g key={planet.planet}>
+            <circle cx={marker.x} cy={marker.y} r="8" className="planet-orb" />
+            <text x={marker.x} y={marker.y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text>
+          </g>;
+        })}
         <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
       </svg>
       {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
