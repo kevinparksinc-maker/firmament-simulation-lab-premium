@@ -325,7 +325,10 @@ export function analyzeGameForensic(result: Simulation): GameForensic {
     : "Chaldean Decan face rulers are neutrally divided across both competitive sides.";
 
   // Mansion Narrative
-  const mansionNarrative = `Moon occupied Arabic Mansion #${moonManzil.index} (${moonManzil.name}) and Vedic Nakshatra ${moonNakshatra.name} (Pada ${moonNakshatra.pada}, Star Lord ${moonNakshatra.starLord}), creating a focal station in House ${moon?.house ?? 1}.`;
+  const allMansionPlacements = agentPlanets.filter(p => p.manzil?.name && p.nakshatra).map(p => `${p.planet}: H${p.house}, Arabic ${p.manzil!.name}, Vedic ${p.nakshatra}`);
+  const mansionNarrative = allMansionPlacements.length
+    ? `All chart bodies, including lunar nodes, are evaluated in their houses and both mansion systems: ${allMansionPlacements.join("; ")}.`
+    : "Lunar mansion placements were not available in this chart snapshot.";
 
   // Causal Attribution (Truth-Tellers vs Traps)
   const truthTellers: string[] = [];

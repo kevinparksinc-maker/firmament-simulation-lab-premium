@@ -13,7 +13,8 @@ import {
   NAKSHATRA_ARC_DEGREES,
 } from "./index";
 import { calculateExperimentalLayers } from "./experimentalLayers";
-import { runRegisteredMethods } from "./methodRegistry";
+import { houseCusp, locateInHouse } from "./houseFrameFoundation";
+import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
 
 export type SimulationEventInput = {
@@ -130,7 +131,7 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = index * 30;
+    const cuspLongitude = houseCusp(house, "god", 0);
     const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, startTime, false);
     const subLordPlacement = planets.find((planet) => planet.planet === stellar.subLord);
     return {
@@ -170,12 +171,12 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
 
 function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>, ascendantLongitude: number, startTime: Date) {
   const planets = prediction.planets.map((planet) => {
-    const local = fixedEclipticHouseFromLongitude(planet.ofDateEclipticLongitude - ascendantLongitude);
+    const local = locateInHouse(planet.backgroundWheelLongitude, "agent", ascendantLongitude);
     return { ...planet, house: local.house, degreeInHouse: local.degreeInHouse, sign: planet.sign };
   });
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
-    const cuspLongitude = (ascendantLongitude + index * 30) % 360;
+    const cuspLongitude = houseCusp(house, "agent", ascendantLongitude);
     const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, startTime, true);
     const subLordPlacement = planets.find((planet) => planet.planet === stellar.subLord);
     return {
@@ -287,8 +288,10 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
   const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
-  const godMethodResults = runRegisteredMethods({ prediction: activePrediction, eventTime: startTime });
-  const agentMethodResults = runRegisteredMethods({ prediction: agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, eventTime: startTime });
+  const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
+  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
+  const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
+  const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
   const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
@@ -326,6 +329,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
+      snapshotConvention: "aries-zero-360-equal-houses-v1",
       godView: godMethodResults,
       agentView: agentMethodResults,
     },

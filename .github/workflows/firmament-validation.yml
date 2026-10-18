@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-save --package-lock=false
         # Temporary CI-only workaround: existing npm lockfile is out of sync and
