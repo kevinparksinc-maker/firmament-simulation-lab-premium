@@ -242,7 +242,7 @@ function HouseKey() {
   return <div className="house-key" aria-label="House meanings">{HOUSE_LABELS.map(([house, label]) => <div key={house}><b>{house}</b><span>{label}</span></div>)}</div>;
 }
 
-function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kind: "god" | "agent"; active: boolean; onSelect: () => void }) {
+function Astrolabe({ frame, kind, active, onSelect, activeMethod, onMethodSelect }: { frame: (Frame & {planets:Planet[]}) | null; kind: "god" | "agent"; active: boolean; onSelect: () => void; activeMethod?:string|null; onMethodSelect?:(name:string)=>void }) {
   const planets = frame ? (frame as Frame & { planets?: Planet[] }).planets ?? [] : [];
   const anchor = kind === "god" ? 0 : frame?.ascendantLongitude ?? 0;
   return <div className={`astrolabe-stack ${active ? "astrolabe-stack-active" : ""}`}>
@@ -251,6 +251,9 @@ function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kin
       mode={kind}
       ascendantLongitude={anchor}
       planets={planets}
+      methods={frame?.allLayers??[]}
+      activeMethod={activeMethod}
+      onMethodSelect={onMethodSelect}
       compact
     />
     {!frame && <p className="mt-2 text-center text-xs text-slate-400">Run a fixture to populate the North Indian chart with measured positions.</p>}
@@ -392,6 +395,9 @@ export default function Home() {
 
       <section className="stats-ribbon"><div><span><Activity size={14} />Baseline status</span><strong>{simulation ? verdictCopy(simulation.baseline.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.baseline.winner, simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Pinned sample"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Yankees vs Astros · 02 Apr 2024"}</small></div></section>
 
+      <section className="diamond-introduction" id="base-chart"><p className="eyebrow">BASE CHART · ALL 360 DEGREES · NORTH INDIAN HOUSE GEOMETRY</p><h2>The diamond is the observatory.</h2><p>Fixed House 1 at the top, House 7 opposite, each following house in traditional order. Each frame receives its calculated planets, house assignments and complete method testimony; every degree-based division remains part of the same 360° coordinate space.</p></section>
+      <section className="visual-grid diamond-primary" id="method-laboratory"><MethodConstellation layers={layers} simulation={simulation} selected={selected} onSelect={selectLayer} /><div className="visual-side"><div className="astrolabe-switch"><button className={activeFrame === "god" ? "wheel-active" : ""} onClick={() => setActiveFrame("god")}>God View diamond</button><button className={activeFrame === "agent" ? "wheel-active" : ""} onClick={() => setActiveFrame("agent")}>Agent View diamond</button></div><Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} activeMethod={selected?.frame===(activeFrame==="god"?"God View":"Agent View")?selected.name:null} onMethodSelect={(name)=>{const item=layers.find(x=>x.frame===(activeFrame==="god"?"God View":"Agent View")&&x.name===name);if(item)setSelected(item);}} /><EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} /></div></section>
+
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
       <DecisionBreakdown simulation={simulation} />
@@ -405,7 +411,7 @@ export default function Home() {
 
       <PatternIntelligenceConsole activeSimulation={simulation} />
 
-      <section className="visual-grid" id="method-laboratory"><MethodConstellation layers={layers} simulation={simulation} selected={selected} onSelect={selectLayer} /><div className="visual-side"><div className="astrolabe-switch"><button className={activeFrame === "god" ? "wheel-active" : ""} onClick={() => setActiveFrame("god")}>God View wheel</button><button className={activeFrame === "agent" ? "wheel-active" : ""} onClick={() => setActiveFrame("agent")}>Agent View wheel</button></div><Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} /><EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} /></div></section>
+      
 
       <MethodLedger layers={layers} simulation={simulation} filter={filter} onFilter={setFilter} selected={selected} onSelect={selectLayer} />
 

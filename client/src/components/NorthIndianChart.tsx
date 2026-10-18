@@ -1,3 +1,4 @@
+import { mapMethodsToDiamond, type ChartMethodEvidence } from "@/lib/diamondMethodEvidence";
 import { buildNorthIndianDegreeEvidence } from "@/lib/northIndianRelations";
 import { useMemo, useState } from "react";
 import "./NorthIndianChart.css";
@@ -42,10 +43,17 @@ type Props = {
   compact?: boolean;
   /** God View's fixed background geometry vs the event-local moving longitude. */
   showCuspDegrees?: boolean;
+  methods?: ChartMethodEvidence[];
+  activeMethod?: string | null;
+  onMethodSelect?: (methodName:string)=>void;
 };
 
-export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=false,showCuspDegrees=true}:Props){
+export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=false,showCuspDegrees=true,methods=[],activeMethod=null,onMethodSelect}:Props){
   const [selected,setSelected]=useState(1);
+  const [localMethod,setLocalMethod]=useState<string|null>(null);
+  const mappedMethods=useMemo(()=>mapMethodsToDiamond(methods),[methods]);
+  const focusedMethod=mappedMethods.find(x=>x.method.name===(activeMethod??localMethod))??null;
+  const methodHouses=new Set(focusedMethod?.mentionedHouses??[]);
   const anchor=mode==="god"?0:ascendantLongitude;
   const houses=useMemo(()=>HOUSE_CENTERS.map((position,index)=>{
     const house=index+1;
@@ -78,8 +86,10 @@ export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=
           <path d="M200 2 L200 398 M2 200 L398 200" stroke="#b0bece" strokeWidth=".25" strokeOpacity=".08"/>
           {houses.map(h=>{
             const focused=h.house===selected;
+            const methodReferenced=methodHouses.has(h.house);
             const code=h.bodies.map(body=>GLYPHS[body.planet]??body.planet.slice(0,2)).join(" ");
             return <g key={h.house}>
+              {methodReferenced&&<circle cx={h.x} cy={h.y+5} r={h.house===1||h.house===7||h.house===4||h.house===10?46:33} fill="#f5bf66" fillOpacity=".12" stroke="#efd09a" strokeWidth="2" strokeDasharray="4 2"/>}
               {focused&&<circle cx={h.x} cy={h.y+5} r={h.house===1||h.house===7||h.house===4||h.house===10?49:35} fill={accent} fillOpacity=".085" stroke={accent} strokeOpacity=".45" strokeWidth="1.2" strokeDasharray="3 4"/>}
               <text x={h.x} y={h.y-14} textAnchor="middle" fill="#f0d79e" fontSize="12" fontWeight="700">H{h.house}</text>
               <text x={h.x} y={h.y+3} textAnchor="middle" fill="#92cbe2" fontSize="10">R{h.signNumber} · {SIGNS[h.signNumber-1].slice(0,3)}</text>
@@ -100,6 +110,21 @@ export function NorthIndianChart({label,mode,ascendantLongitude,planets,compact=
         <p className="ni-guide">Houses stay fixed: 1 top, 2 upper-left, 4 left, 7 bottom, 10 right, 12 upper-right. Signs and placements come from the model, not from rotating the diamond.</p>
       </div>
     </div>
+    {mappedMethods.length>0&&<section className="ni-method-map" aria-label="All frame methods mapped to the North Indian chart">
+      <div className="ni-degree-title"><div><p className="ni-detail-kicker">ALL METHODS · ACTUAL ENGINE TESTIMONY</p><h4>{mappedMethods.length} methods · North Indian evidence</h4></div><span>{mappedMethods.filter(x=>x.scope==="referenced-houses").length} with house references · {mappedMethods.filter(x=>x.scope!=="referenced-houses").length} chart-wide/unresolved</span></div>
+      <p className="ni-degree-help">Select a method to see its original score and highlighted house references in the fixed diamond. Highlighted houses are explicitly mentioned in that method's proof—they are <strong>not</strong> invented method inputs. A method without house references stays chart-wide until its engine emits structured placement provenance.</p>
+      <div className="ni-method-row-grid">
+        {mappedMethods.map(({method,mentionedHouses,scope,hasCalculationTrace},index)=><button
+          type="button" key={method.name+"-"+index} aria-pressed={focusedMethod?.method.name===method.name}
+          onClick={()=>{setLocalMethod(method.name);onMethodSelect?.(method.name);}}
+        ><strong>{String(index+1).padStart(2,"0")} · {method.name}</strong><span>{method.winner==="TIE"?"No directional call":method.winner==="A"?"ASC family":"DSC family"} · Δ {(method.scoreA-method.scoreB).toFixed(2)}</span><small>{scope==="referenced-houses"?"Proof mentions H"+mentionedHouses.join(", H"):"Chart-wide / houses unresolved"} · {hasCalculationTrace?"Trace available":"No formula trace"}</small></button>)}
+      </div>
+      {focusedMethod&&<div className="ni-method-proof"><strong>{focusedMethod.method.name} · method proof</strong>
+        <p>{focusedMethod.method.detail}</p><p>Source: {focusedMethod.method.source||"engine"} · A {focusedMethod.method.scoreA.toFixed(3)} / B {focusedMethod.method.scoreB.toFixed(3)}.</p>
+        <p>{focusedMethod.mentionedHouses.length?"Gold outlines indicate houses explicitly mentioned in this method's text.":"No house-specific proof was supplied; every house remains in scope rather than assuming a two-planet method."}</p>
+        {focusedMethod.method.calculation&&<details><summary>View calculation inputs and arithmetic</summary><code>{focusedMethod.method.calculation.formula}</code>{focusedMethod.method.calculation.inputs.map((line,i)=><small key={"in"+i}>{line}</small>)}{focusedMethod.method.calculation.steps.map((line,i)=><small key={"step"+i}>{line}</small>)}</details>}
+      </div>}
+    </section>}
     <section className="ni-degree-ledger" aria-label="Selected house precise-degree lunar mansion and decan evidence">
       <div className="ni-degree-title"><div><p className="ni-detail-kicker">HOUSE {selected} · DEGREE RELATIONSHIPS</p><h4>Manzils, Nakshatras &amp; Decans</h4></div><span>{selectedContacts.length} geometric contacts · 5° orb</span></div>
       <p className="ni-degree-help">The selected North Indian house determines the territory. Every planet is evaluated at its calculated longitude against the 28 Arabic mansion centers, 27 Nakshatra centers, 36 decan centers and the other moving planets. All contacts retain their source house and exact orb. Reference-center aspects are a geometric research method, not a traditional claim that a mansion or decan is a planet.</p>
