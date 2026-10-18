@@ -137,3 +137,17 @@ body{font-family:'DM Sans',sans-serif}
  .lab-celestial-modal-panel{border-radius:17px}
  .lab-celestial-modal-panel h2{font-size:25px}
 }
+
+/* NORTH INDIAN PRIMARY OBSERVATORY: method calculations remain 0–360 degrees. */
+.diamond-introduction{margin:20px 0 0;padding:23px;border:1px solid rgba(231,205,154,.38);border-radius:19px;background:radial-gradient(ellipse at 83% 0%,#3a4d7f44,transparent 61%),linear-gradient(110deg,#172643,#080f24)}
+.diamond-introduction h2{font:500 clamp(28px,3.5vw,42px)/1.2 'Playfair Display',Georgia,serif;color:#f1ddaf;margin:9px 0}
+.diamond-introduction>p:last-child{max-width:990px;font-size:12px;line-height:1.85;color:#bcd0dd}
+.visual-grid.diamond-primary{grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr);align-items:start;margin:16px 0 27px;gap:16px}
+.diamond-primary .visual-side{order:-1}
+.diamond-primary .astrolabe-stack>.ni-chart{box-shadow:0 22px 78px #0008;border-color:#e6cf9b80}
+.diamond-primary .ni-graphic svg{max-width:540px}
+.diamond-primary .ni-compact .ni-grid{grid-template-columns:minmax(0,1.05fr) minmax(200px,.95fr)}
+.diamond-primary .ni-compact .ni-detail{display:block}
+.diamond-primary .ni-compact .ni-graphic svg{max-width:530px}
+@media(max-width:1280px){.visual-grid.diamond-primary{grid-template-columns:1fr}.diamond-primary .ni-compact .ni-grid{grid-template-columns:minmax(0,1fr) minmax(200px,.7fr)}}
+@media(max-width:740px){.diamond-primary .ni-compact .ni-grid{grid-template-columns:1fr}.diamond-primary .ni-compact .ni-graphic svg{max-width:420px}.diamond-introduction{padding:18px}}
