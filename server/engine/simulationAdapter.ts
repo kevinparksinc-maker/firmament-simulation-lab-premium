@@ -171,7 +171,7 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
 
 function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>, ascendantLongitude: number, startTime: Date) {
   const planets = prediction.planets.map((planet) => {
-    const local = locateInHouse(planet.ofDateEclipticLongitude, "agent", ascendantLongitude);
+    const local = locateInHouse(planet.backgroundWheelLongitude, "agent", ascendantLongitude);
     return { ...planet, house: local.house, degreeInHouse: local.degreeInHouse, sign: planet.sign };
   });
   const houses = Array.from({ length: 12 }, (_, index) => {
