@@ -352,15 +352,17 @@ function nodesLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
   let scoreA = 0;
   let scoreB = 0;
   const details: string[] = [];
-  for (const node of planets.filter((planet) => planet.planet === "Rahu" || planet.planet === "Ketu")) {
+  for (const node of planets.filter(p => p.planet === "Rahu" || p.planet === "Ketu")) {
     const side = sideForHouse(node.house);
-    const score = [1, 4, 7, 10].includes(node.house) ? 2 : 1;
-    const [a, b] = sideScore(side, score);
-    scoreA += a;
-    scoreB += b;
-    if (side !== "neutral") details.push(`${node.planet} H${node.house}: +${score} ${side}`);
+    const base = [1, 4, 7, 10].includes(node.house) ? 2 : 1;
+    // Both nodes are always opposite; equal positive scores cancel. Record
+    // qualitative polarity explicitly; do not falsely report missing data.
+    const contribution = node.planet === "Rahu" ? base : -base;
+    const [a,b] = sideScore(side, contribution);
+    scoreA += a; scoreB += b;
+    details.push(`${node.planet} H${node.house} side ${side}: ${contribution >= 0 ? "+" : ""}${contribution} (Rahu intensification / Ketu subtraction)`);
   }
-  return { name: "Nodes (Rahu/Ketu)", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "Both nodes in neutral houses.", source: "recovered-archive-master", calculation: calculation("For each Rahu/Ketu: angular house ? +2 : +1; assign to node's house side", details.length ? details : ["Both nodes are neutral."]) };
+  return { name: "Nodes (Rahu/Ketu)", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "Lunar nodes unavailable.", source: "recovered-archive-master", calculation: calculation("Opposite-node polarity: Rahu + and Ketu − to their house sides; angular houses use magnitude 2, others 1", details.length ? details : ["No nodes in chart."]), limitation: "Directional Rahu/Ketu polarity is an experimental model choice, not established sports predictive validity." };
 }
 
 const UPACHAYA_HOUSES = new Set([3, 6, 10, 11]);
@@ -440,16 +442,42 @@ function translationLayer(entries: HouseLordEntry[], planets: FramePlanet[]): Fu
   return { name: "Translation of light", scoreA, scoreB, ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No third planet connected to both clusters by a major aspect.", source: "recovered-archive-master", calculation: calculation("For each non-lord translator connected to both clusters: +3 to the closer cluster", details.length ? details : ["No translator passed both-cluster aspect tests."]), limitation: "The recovered archive called this a geometric approximation because exact separating/applying speed data was unavailable." };
 }
 
-function frictionLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
-  const sideA = entries.filter((entry) => entry.ruledSide === "A");
-  const sideB = entries.filter((entry) => entry.ruledSide === "B");
+function frictionLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
+  // Read every body in every scoring house. The angular relationship is
+  // evaluated without assigning a fabricated advantage to cross-side aspects.
+  // Same-side harmony supports that side; same-side friction weakens it.
+  let scoreA = 0;
+  let scoreB = 0;
   const details: string[] = [];
-  for (const left of sideA) for (const right of sideB) {
-    const kind = aspectType(left.placement.longitude, right.placement.longitude);
-    if (kind === "trine" || kind === "sextile") details.push(`${left.lord}-${right.lord} ${kind}: harmonious (affects both, favors neither)`);
-    if (kind === "square" || kind === "opposition") details.push(`${left.lord}-${right.lord} ${kind}: friction (affects both, favors neither)`);
+  const targets = [
+    { angle: 0, label: "conjunction", weight: -1 },
+    { angle: 60, label: "sextile", weight: 1 },
+    { angle: 90, label: "square", weight: -1 },
+    { angle: 120, label: "trine", weight: 1 },
+    { angle: 180, label: "opposition", weight: -1 },
+  ] as const;
+  for (let i = 0; i < planets.length; i++) {
+    for (let j = i + 1; j < planets.length; j++) {
+      const left = planets[i]!, right = planets[j]!;
+      const separation = angularDistance(left.longitude, right.longitude);
+      const matched = targets.map(target => ({ ...target, orb: Math.abs(separation - target.angle) }))
+        .filter(target => target.orb <= 5)
+        .sort((a, b) => a.orb - b.orb)[0];
+      if (!matched) continue;
+      const strength = Math.max(0, 1 - matched.orb / 5);
+      const contribution = round(matched.weight * strength);
+      const leftSide = sideForHouse(left.house);
+      const rightSide = sideForHouse(right.house);
+      if (leftSide === rightSide && leftSide !== "neutral") {
+        if (leftSide === "A") scoreA += contribution;
+        else scoreB += contribution;
+        details.push(`${left.planet} H${left.house} / ${right.planet} H${right.house} ${matched.label} (${matched.orb.toFixed(2)}° orb) side ${leftSide}: ${contribution >= 0 ? "+" : ""}${contribution}`);
+      } else {
+        details.push(`${left.planet} H${left.house} / ${right.planet} H${right.house} ${matched.label}: cross-side contact recorded without winner assignment`);
+      }
+    }
   }
-  return { name: "Harmonious vs friction aspects", scoreA: 0, scoreB: 0, ruleClass: "SHARED", detail: (details.length ? details.join("; ") : "No cross-cluster harmonious or friction aspect.") + " Recorded as evidence only — without separating/applying data there's no rule to assign this to one side, so it does not count toward the winner.", source: "recovered-archive-master", calculation: calculation("Record cross-cluster sextile/trine/square/opposition; contribution fixed at 0 / 0", details.length ? details : ["No cross-cluster major aspect."]) };
+  return { name: "Harmonious vs friction aspects", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No chart-wide aspects inside the fixed 5° orb.", source: "recovered-archive-master", calculation: calculation("All body pairs: within 5° of 0/60/90/120/180; same-side trine/sextile + and conjunction/square/opposition − with linear 5° decay; cross-side aspects descriptive only", details.length ? details : ["No qualifying aspects."]), limitation: "Exploratory directional rule; conjunction treated as friction by configuration. Method coefficients have not been calibrated against historical outcomes." };
 }
 
 function kpLayer(kp: { ascendant: { finalKPWinFit: number }; descendant: { finalKPWinFit: number } }): FullPackageLayerEvidence {
@@ -473,7 +501,7 @@ function buildFrame(
   }
   const entries = houseLords(raw.planets, raw.ascendantLongitude);
   const addedLayers = [
-    fixedStarLayer(entries), retrogradeLayer(raw.planets), lunarLayer(raw.planets), chartAspectLayer(raw.planets), moonPhaseLayer(raw.planets), nodesLayer(raw.planets), upachayaLayer(raw.planets), viaCombustaLayer(entries), besiegementLayer(entries, raw.planets), mutualReceptionLayer(entries), translationLayer(entries, raw.planets), frictionLayer(entries), kpLayer(kp),
+    fixedStarLayer(entries), retrogradeLayer(raw.planets), lunarLayer(raw.planets), chartAspectLayer(raw.planets), moonPhaseLayer(raw.planets), nodesLayer(raw.planets), upachayaLayer(raw.planets), viaCombustaLayer(entries), besiegementLayer(entries, raw.planets), mutualReceptionLayer(entries), translationLayer(entries, raw.planets), frictionLayer(raw.planets), kpLayer(kp),
   ];
   const scoreA = round(foundation.scoreA + addedLayers.filter((layer) => layer.ruleClass !== "SHARED").reduce((sum, layer) => sum + layer.scoreA, 0));
   const scoreB = round(foundation.scoreB + addedLayers.filter((layer) => layer.ruleClass !== "SHARED").reduce((sum, layer) => sum + layer.scoreB, 0));
