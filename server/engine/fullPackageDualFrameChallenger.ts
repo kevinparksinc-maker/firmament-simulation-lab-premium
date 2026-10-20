@@ -8,6 +8,7 @@ import {
   type PlanetReading,
 } from "./firmamentEngine";
 import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
+import {completeChartLedger} from "./completeChartLedger";
 import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
 
 type Side = "A" | "B" | "neutral";
@@ -91,6 +92,7 @@ export type FullPackageFrame = {
   ascendantLongitude: number;
   foundation: { scoreA: number; scoreB: number; layers: FullPackageFoundationLayerEvidence[] };
   foundationError?: string;
+  fullChartLedger: ReturnType<typeof completeChartLedger>;
   addedLayers: FullPackageLayerEvidence[];
   synthesis: { scoreA: number; scoreB: number; margin: number; winner: Winner; noCall: boolean; formula: string };
 };
@@ -547,6 +549,7 @@ function buildFrame(
       layers: foundation.evidence.layers.map((layer) => ({ ...layer, source: "current-seven-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const })),
     },
     foundationError,
+    fullChartLedger:completeChartLedger(raw.planets),
     addedLayers,
     synthesis: { scoreA, scoreB, margin, winner, noCall: winner === "TIE", formula: "Current seven-layer Territorial foundation + each recovered archive addition + current full KP win-fit; all coefficients are fixed at 1.0 and were not tuned to outcomes." },
   };
