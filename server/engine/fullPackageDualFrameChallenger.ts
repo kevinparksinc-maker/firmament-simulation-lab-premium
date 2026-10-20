@@ -169,11 +169,11 @@ function frameParity(god: FullPackageFrame, agent: FullPackageFrame): FrameParit
 function signAt(longitude: number) { return SIGNS[Math.floor(normalize(longitude) / 30)]!; }
 function aspectType(first: number, second: number) {
   const separation = angularDistance(first, second);
-  if (separation <= 8) return "conjunction" as const;
-  if (Math.abs(separation - 60) <= 6) return "sextile" as const;
-  if (Math.abs(separation - 90) <= 8) return "square" as const;
-  if (Math.abs(separation - 120) <= 8) return "trine" as const;
-  if (Math.abs(separation - 180) <= 8) return "opposition" as const;
+  if (separation <= 5) return "conjunction" as const;
+  if (Math.abs(separation - 60) <= 5) return "sextile" as const;
+  if (Math.abs(separation - 90) <= 5) return "square" as const;
+  if (Math.abs(separation - 120) <= 5) return "trine" as const;
+  if (Math.abs(separation - 180) <= 5) return "opposition" as const;
   return null;
 }
 
@@ -315,19 +315,29 @@ function lunarLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
 }
 
 function chartAspectLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
-  let net = 0;
+  let scoreA = 0, scoreB = 0;
   const details: string[] = [];
-  const weights: Record<NonNullable<ReturnType<typeof aspectType>>, number> = { conjunction: 0, sextile: 1, square: -2, trine: 2, opposition: -2 };
-  for (let left = 0; left < planets.length; left += 1) {
-    for (let right = left + 1; right < planets.length; right += 1) {
-      const kind = aspectType(planets[left]!.longitude, planets[right]!.longitude);
+  const weights: Record<NonNullable<ReturnType<typeof aspectType>>, number> = { conjunction: -1, sextile: 1, square: -2, trine: 2, opposition: -2 };
+  for (let i = 0; i < planets.length; i++) {
+    for (let j = i + 1; j < planets.length; j++) {
+      const left = planets[i]!, right = planets[j]!;
+      const kind = aspectType(left.longitude, right.longitude);
       if (!kind) continue;
-      const score = weights[kind] * 0.5;
-      net += score;
-      if (score !== 0) details.push(`${planets[left]!.planet}-${planets[right]!.planet} ${kind}: ${score > 0 ? "+" : ""}${score}`);
+      const contribution = weights[kind] * 0.5;
+      const aSide = sideForHouse(left.house), bSide = sideForHouse(right.house);
+      // Never direct an unassigned global aspect score to a team.
+      // Shared cross-side contacts are real evidence for BOTH sides, not an invented advantage.
+      if (aSide === bSide) {
+        if (aSide === "A") scoreA += contribution;
+        if (aSide === "B") scoreB += contribution;
+      } else {
+        if (aSide === "A" || bSide === "A") scoreA += contribution;
+        if (aSide === "B" || bSide === "B") scoreB += contribution;
+      }
+      details.push(`${left.planet} H${left.house} (${aSide}) / ${right.planet} H${right.house} (${bSide}) ${kind}: ${contribution >= 0 ? "+" : ""}${contribution} per involved side`);
     }
   }
-  return { name: "Chart-wide aspects", scoreA: round(net / 2), scoreB: round(-net / 2), ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No scored major aspects.", source: "recovered-archive-master", calculation: calculation("For every major aspect: aspect weight × 0.5; A = net ÷ 2, B = −net ÷ 2", details.length ? details : ["No scored major aspects." ]), limitation: "The archive halves separating aspects. Applying/separating is not present in the current event payload, so this sandbox conservatively applies that half-strength treatment." };
+  return { name: "Chart-wide aspects", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No major aspects within the fixed 5° orb.", source: "recovered-archive-master", calculation: calculation("All planetary pairs within 5° of an approved major aspect: score the involved house side(s) directly; cross-side contacts apply symmetrically to both sides without fabricating a directional edge", details.length ? details : ["No qualifying aspects."]), limitation: "Cross-side contacts have symmetric impact until a user-approved directional doctrine specifies otherwise. Current coefficients remain experimental." };
 }
 
 function moonPhaseLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -476,7 +486,7 @@ function frictionLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
         .filter(target => target.orb <= 5)
         .sort((a, b) => a.orb - b.orb)[0];
       if (!matched) continue;
-      const strength = Math.max(0, 1 - matched.orb / 5);
+      const strength = Math.max(0, 1 - matched.orb / 5); // Existing continuous taper retained until user defines exact 100/80/60/40 band boundaries.
       const contribution = round(matched.weight * strength);
       const leftSide = sideForHouse(left.house);
       const rightSide = sideForHouse(right.house);
@@ -485,11 +495,14 @@ function frictionLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
         else scoreB += contribution;
         details.push(`${left.planet} H${left.house} / ${right.planet} H${right.house} ${matched.label} (${matched.orb.toFixed(2)}° orb) side ${leftSide}: ${contribution >= 0 ? "+" : ""}${contribution}`);
       } else {
-        details.push(`${left.planet} H${left.house} / ${right.planet} H${right.house} ${matched.label}: cross-side contact recorded without winner assignment`);
+        // Credit or debit BOTH affected sides; this is symmetrical until a defensible directional rule is specified.
+        if (leftSide === "A" || rightSide === "A") scoreA += contribution;
+        if (leftSide === "B" || rightSide === "B") scoreB += contribution;
+        details.push(`${left.planet} H${left.house} / ${right.planet} H${right.house} ${matched.label} (${matched.orb.toFixed(2)}° orb): cross-side ${contribution >= 0 ? "+" : ""}${contribution} to EACH involved side`);
       }
     }
   }
-  return { name: "Harmonious vs friction aspects", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No chart-wide aspects inside the fixed 5° orb.", source: "recovered-archive-master", calculation: calculation("All body pairs: within 5° of 0/60/90/120/180; same-side trine/sextile + and conjunction/square/opposition − with linear 5° decay; cross-side aspects descriptive only", details.length ? details : ["No qualifying aspects."]), limitation: "Exploratory directional rule; conjunction treated as friction by configuration. Method coefficients have not been calibrated against historical outcomes." };
+  return { name: "Harmonious vs friction aspects", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No chart-wide aspects inside the fixed 5° orb.", source: "recovered-archive-master", calculation: calculation("All body pairs: within 5° of 0/60/90/120/180; same-side trine/sextile + and conjunction/square/opposition − with linear 5° decay; cross-side contacts score both involved sides symmetrically", details.length ? details : ["No qualifying aspects."]), limitation: "Exploratory directional rule; conjunction treated as friction by configuration. Method coefficients have not been calibrated against historical outcomes." };
 }
 
 function kpLayer(kp: { ascendant: { finalKPWinFit: number }; descendant: { finalKPWinFit: number } }): FullPackageLayerEvidence {
@@ -509,7 +522,7 @@ function buildFrame(
     foundation = calculateRestoredTerritorial(raw.planets, raw.ascendantLongitude, (longitude) => fixedEclipticHouseFromLongitude(longitude - raw.ascendantLongitude).house, mode);
   } catch (error) {
     foundationError = error instanceof Error ? error.message : String(error);
-    foundation = { scoreA: 0, scoreB: 0, evidence: { layers: [], houseLords: [], planetaryWars: [], arabicLots: [], ninePlanetInfluence: [], decans: [] } };
+    throw new Error(`Territorial foundation failed in ${name}: ${foundationError}`);
   }
   const entries = houseLords(raw.planets, raw.ascendantLongitude);
   const addedLayers = [
