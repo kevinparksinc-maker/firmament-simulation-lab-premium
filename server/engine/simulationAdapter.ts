@@ -19,6 +19,7 @@ import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./me
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
 import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
 import { createMethodPerformanceAccumulator } from "./methodPerformance";
+import { resolveEventContract } from "./eventPipelineContract";
 
 export type SimulationEventInput = {
   id?: string;
@@ -327,24 +328,7 @@ function frameReport(
 }
 
 export function runSimulationEvent(input: SimulationEventInput) {
-  const startTime = new Date(input.startTime);
-  if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
-  const favoredTeam = input.favoredTeam ?? input.teamA;
-  const underdogTeam = input.underdogTeam ?? input.teamB;
-  const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? (input.oddsSource ? "market-odds" : "manual") : "legacy-side-order");
-  const gameInput: GameInput = {
-    teamA: favoredTeam,
-    teamB: underdogTeam,
-    gameType: input.sport,
-    location: input.location,
-    startTime,
-    ...(input.sunriseTime ? { sunriseTime: new Date(input.sunriseTime) } : {}),
-    ...(input.sunriseSource ? { sunriseSource: input.sunriseSource } : {}),
-    ...(input.agentViewModel ? { agentViewModel: input.agentViewModel } : {}),
-    ...(input.latitude !== undefined && input.longitude !== undefined
-      ? { coordinates: { latitude: input.latitude, longitude: input.longitude } }
-      : {}),
-  };
+  const { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource } = resolveEventContract(input);
 
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
@@ -410,7 +394,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
       actualWinnerMeaning: "A means favored won; B means underdog won; TIE means no decisive result.",
       homeAwayIsMetadataOnly: true,
       roleAssignmentSource,
-      primaryResearchEligible: roleAssignmentSource !== "legacy-side-order",
+      primaryResearchEligible: roleAssignmentSource === "market-odds" && Boolean(input.oddsSource) && Boolean(input.actualWinner),
     },
     engine: {
       source: "firmament-engine",
