@@ -89,7 +89,7 @@ export function createMethodPerformanceAccumulator() {
           core21: { hits: originalHits, misses: originalMisses, ties: originalTies, directionalAccuracyPercent: originalHits + originalMisses ? Number((100 * originalHits / (originalHits + originalMisses)).toFixed(2)) : null },
           expanded31Research: { hits: expandedHits, misses: expandedMisses, ties: expandedTies, directionalAccuracyPercent: expandedHits + expandedMisses ? Number((100 * expandedHits / (expandedHits + expandedMisses)).toFixed(2)) : null },
         },
-        methods: [...byId.values()].map(counter => ({
+        methods: Array.from(byId.values()).map(counter => ({
           ...counter,
           directionalAccuracyPercent: counter.hits + counter.misses ? Number((100 * counter.hits / (counter.hits + counter.misses)).toFixed(2)) : null,
           confidence95Percent: wilson95(counter.hits, counter.hits + counter.misses),
