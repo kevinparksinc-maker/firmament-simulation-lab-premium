@@ -172,9 +172,12 @@ export const appRouter = router({
       if (input.gameCount !== undefined && !input.methodId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "1/200/10000 game selection requires an individual method." });
       }
+      if (input.methodId && input.gameCount === undefined) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Choose exactly 1, 200, or 10000 games before starting an independent method batch." });
+      }
       const events = await getSimulationEvents(input.datasetId);
       if (events.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No valid events found in this dataset." });
-      const count = input.methodId ? (input.gameCount ?? 10000) : events.length;
+      const count = input.methodId ? input.gameCount! : events.length;
       if (input.methodId) {
         try { selectIndependentGameCount(events, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number]); }
         catch (error) {
