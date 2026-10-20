@@ -579,6 +579,70 @@ function buildFrame(
 }
 
 /**
+ * Standalone method runner for the 21 core slots. Computes only the requested
+ * layer after creating its frame chart. Legacy Territorial slots 1-8 presently
+ * share the calculateRestoredTerritorial foundation and are NOT independent
+ * implementation files yet. KP depends on the existing family resolution.
+ * No other core method is scored or blended into this result.
+ */
+export function runIsolatedCoreLayer(
+  input: GameInput,
+  index: number,
+  frame: "god" | "agent",
+  options: DualFrameRunOptions = {},
+) {
+  if (!Number.isInteger(index) || index < 0 || index >= 21) throw new RangeError("Core method index must be 0..20");
+  const raw = frame === "god"
+    ? planetsForGod(input)
+    : planetsForAgent(input, options.agentViewRotation ?? "none", options.agentViewModel ?? "astronomical");
+  const entriesNeeded = [8, 15, 16, 17, 18].includes(index);
+  const entries = entriesNeeded ? houseLords(raw.planets, raw.ascendantLongitude) : [];
+  let layer: FullPackageFoundationLayerEvidence | FullPackageLayerEvidence;
+  if (index < 8) {
+    // Legacy 8 territorial submethods are calculated together in the existing
+    // foundation; their evidence and scoring remain separate.
+    const restored = calculateRestoredTerritorial(
+      raw.planets, raw.ascendantLongitude,
+      (longitude) => fixedEclipticHouseFromLongitude(longitude - raw.ascendantLongitude).house,
+      frame,
+    );
+    layer = { ...restored.evidence.layers[index]!, source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const };
+  } else {
+    switch (index) {
+      case 8: layer = fixedStarLayer(entries); break;
+      case 9: layer = retrogradeLayer(raw.planets); break;
+      case 10: layer = lunarLayer(raw.planets); break;
+      case 11: layer = chartAspectLayer(raw.planets); break;
+      case 12: layer = moonPhaseLayer(raw.planets); break;
+      case 13: layer = nodesLayer(raw.planets); break;
+      case 14: layer = upachayaLayer(raw.planets); break;
+      case 15: layer = viaCombustaLayer(entries); break;
+      case 16: layer = besiegementLayer(entries, raw.planets); break;
+      case 17: layer = mutualReceptionLayer(entries, raw.planets); break;
+      case 18: layer = translationLayer(entries, raw.planets); break;
+      case 19: layer = frictionLayer(raw.planets); break;
+      case 20: {
+        const frameKp = runAgentGodFullLayerExperiment(input);
+        layer = kpLayer((frame === "god" ? frameKp.god : frameKp.agent).kp);
+        break;
+      }
+      default: throw new RangeError("Unknown core method index");
+    }
+  }
+  return {
+    layer,
+    frame,
+    ascendantLongitude: raw.ascendantLongitude,
+    chart: completeChartLedger(raw.planets),
+    calculationScope: index < 8
+      ? "Shared legacy 8-layer territorial evaluator; other seven outputs are ignored for this independent score."
+      : index === 20
+        ? "KP family resolution uses its upstream shared KP calculation; only the KP layer is selected."
+        : "Only the selected method evaluator is executed after generating the astronomical frame.",
+  };
+}
+
+/**
  * Sandbox-only expansion. It deliberately keeps the permanent fixed-house and
  * moving-Ascendant frames separate and does not write validation rows or alter
  * a live prediction path. Its foundation is the current Territorial stack, not
