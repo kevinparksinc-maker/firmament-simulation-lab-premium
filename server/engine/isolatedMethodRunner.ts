@@ -9,6 +9,7 @@ import { METHOD_REGISTRY, buildMethodChartSnapshot, runMethod } from "./methodRe
 import { completeChartLedger } from "./completeChartLedger";
 import type { SimulationEventInput } from "./simulationAdapter";
 import { resolveEventContract } from "./eventPipelineContract";
+import { getMethodCertificationGate } from "./methodCertificationPolicy";
 
 /** A method field runs ONE named method across the two physical frames.
  * Zero from a real arithmetic operation is recorded as data, never disguised
@@ -68,17 +69,6 @@ export const classifyRawMethodScores = (
   return a > b ? "A" : "B";
 };
 
-const classify = (methodId: string) => {
-  if (methodId === "HARMONICS_V1" || methodId === "CORE_05" || methodId === "CORE_09") return {
-    status: "POLICY_CONFLICT" as const,
-    notes: ["Legacy method uses different relationship-orb rules from the universal five-degree specification; preserve the raw scores but quarantine certification."],
-  };
-  if (["CORE_13", "CORE_17", "CORE_19"].includes(methodId)) return {
-    status: "INCOMPLETE_DOCTRINE" as const,
-    notes: ["Method is missing traditional applying/separating or VOC calculations and cannot be certified just because a proxy generated points."],
-  };
-  return { status: "READY_FOR_EXPERIMENT" as const, notes: ["Execution and availability do NOT mean method doctrine, full-chart coverage or empirical performance has been certified."] };
-};
 
 export function runSingleMethodEvent(input: SimulationEventInput, methodId: string): SingleMethodEventResult {
   const spec = INDEPENDENT_METHOD_FIELDS.find(m => m.id === methodId);
@@ -159,7 +149,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     };
     god = makeFrame("god"); agent = makeFrame("agent");
   }
-  const independentStatus = classify(methodId);
+  const independentStatus = getMethodCertificationGate(methodId);
   const incomplete = god.result === "MISSING_INPUT" || agent.result === "MISSING_INPUT";
   const status = incomplete ? "NOT_EVALUABLE" as const : independentStatus.status;
   const ready = !incomplete && status === "READY_FOR_EXPERIMENT" &&
@@ -184,7 +174,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     methodId, methodName: spec.name, methodFamily: spec.family,
     frameMethodStatus: status,
     certification: "NOT_CERTIFIED",
-    methodologyNotes: independentStatus.notes,
+    methodologyNotes: independentStatus.reasons,
     event: { teamA, teamB, startTime: date.toISOString(), sport: input.sport,
       oddsSource: input.oddsSource ?? null, roleAssignmentSource },
     god, agent,
