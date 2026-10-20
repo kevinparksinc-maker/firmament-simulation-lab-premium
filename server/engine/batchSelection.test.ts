@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectIndependentGameCount, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./batchSelection";
+import { selectIndependentGameCount, historicalFixtureIdentity, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./batchSelection";
 
 describe("explicit 1 / 200 / 10000 historical event selection", () => {
   const source = Array.from({length: 10_000}, (_,index) => ({
@@ -23,6 +23,21 @@ describe("explicit 1 / 200 / 10000 historical event selection", () => {
     expect(()=>selectIndependentGameCount(source.slice(0,150),200)).toThrow(/150 valid games; 200 are required/);
     expect(()=>selectIndependentGameCount(source.slice(0,199),200)).toThrow(/200 are required/);
     expect(()=>selectIndependentGameCount(source.slice(0,200),10000)).toThrow(/10000 are required/);
+  });
+  it("refuses duplicate historical fixtures even if their CSV row IDs differ", () => {
+    const sameFixture = {
+      sport:"MLB",startTime:"2024-06-15T19:10:00Z",
+      location:"Los Angeles, CA",teamA:"Dodgers",teamB:"Giants",
+    };
+    const rows = Array.from({length:200}, (_,idx) => ({
+      ...sameFixture,
+      id:`different-id-${idx}`,
+      startTime:idx < 2 ? sameFixture.startTime : new Date(Date.parse(sameFixture.startTime)+idx*86_400_000).toISOString(),
+    }));
+    expect(() => selectIndependentGameCount(rows,200,historicalFixtureIdentity)).toThrow(/Repeated historical fixture/);
+    // A reversed home/away listing cannot conceal an identical fixture.
+    const reversed = [{...sameFixture},{...sameFixture,teamA:"Giants",teamB:"Dodgers"}];
+    expect(historicalFixtureIdentity(reversed[0])).toBe(historicalFixtureIdentity(reversed[1]));
   });
   it("rejects unsupported counts rather than silently accepting a whole-dataset fallback",()=>{
     expect(()=>selectIndependentGameCount(source,30 as 1)).toThrow(/exactly 1, 200 or 10000/);
