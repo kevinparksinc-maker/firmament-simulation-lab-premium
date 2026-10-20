@@ -52,6 +52,6 @@ describe("neutral method audit", () => {
     const zeroLayers = layers.filter((layer) => layer.scoreA === 0 && layer.scoreB === 0);
     expect(zeroLayers.length).toBeGreaterThan(0);
     expect(zeroLayers.every((layer) => layer.neutralDiagnostic.status !== "unexplained")).toBe(true);
-    expect(zeroLayers.some((layer) => layer.neutralDiagnostic.status === "hard-coded-neutral")).toBe(true);
+    expect(zeroLayers.some((layer) => layer.neutralDiagnostic.status === "hard-coded-neutral")).toBe(false);
   });
 });
