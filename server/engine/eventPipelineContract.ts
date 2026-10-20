@@ -15,6 +15,7 @@ export type ResolvedEventContract = {
   underdogTeam: string;
   roleAssignmentSource: NonNullable<SimulationEventInput["roleAssignmentSource"]>;
   oddsSource: string | null;
+  provenanceWarning: string | null;
 };
 
 const nonempty = (value: string | undefined): string | null =>
@@ -34,13 +35,19 @@ export function resolveEventContract(input: SimulationEventInput): ResolvedEvent
   // actualWinner A/B is defined against this RESOLVED favorite/underdog order.
   // Importers must normalize source winner-name data accordingly.
   const oddsSource = nonempty(input.oddsSource);
-  const roleAssignmentSource = input.roleAssignmentSource ??
-    (input.favoredTeam && input.underdogTeam ? (oddsSource ? "market-odds" : "manual") : "legacy-side-order");
-
-  if (roleAssignmentSource === "market-odds" &&
-      (!input.favoredTeam || !input.underdogTeam || !oddsSource)) {
-    throw new Error("market-odds requires both explicit market-assigned teams and oddsSource.");
-  }
+  const explicitMarketSides = Boolean(nonempty(input.favoredTeam) && nonempty(input.underdogTeam));
+  const verifiedProvenanceFields = explicitMarketSides && Boolean(oddsSource);
+  const requestedRole = input.roleAssignmentSource ??
+    (explicitMarketSides ? (oddsSource ? "market-odds" : "manual") : "legacy-side-order");
+  // Historical test files often asserted market-odds before a provider and
+  // timestamp were saved. Keep them calculable, but they MUST NOT qualify as
+  // independently sourced market-favorite accuracy examples.
+  const provenanceWarning = requestedRole === "market-odds" && !verifiedProvenanceFields
+    ? "Market-odds label downgraded: missing explicit favorite/underdog or oddsSource. This game is not market-verified."
+    : null;
+  const roleAssignmentSource = provenanceWarning
+    ? (explicitMarketSides ? "manual" : "legacy-side-order")
+    : requestedRole;
   if ((input.latitude === undefined) !== (input.longitude === undefined)) {
     throw new Error("Coordinates require both latitude and longitude.");
   }
@@ -65,5 +72,5 @@ export function resolveEventContract(input: SimulationEventInput): ResolvedEvent
     ...(input.sunriseSource ? { sunriseSource: input.sunriseSource } : {}),
     ...(input.agentViewModel ? { agentViewModel: input.agentViewModel } : {}),
   };
-  return { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource, oddsSource };
+  return { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource, oddsSource, provenanceWarning };
 }
