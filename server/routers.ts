@@ -4,6 +4,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { runSimulationBatch, runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
 import { executeSimulationRun } from "./batchRunner";
+import { executeSingleMethodRun } from "./singleMethodBatchRunner";
+import { runSingleMethodEvent, INDEPENDENT_METHOD_FIELDS } from "./engine/isolatedMethodRunner";
 import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
 import { parseSimulationCsv } from "./simulationData";
 import { TRPCError } from "@trpc/server";
@@ -139,15 +141,24 @@ export const appRouter = router({
   }),
   runs: router({
     list: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(50).default(8) }).optional()).query(({ input }) => listSimulationRuns(input?.limit ?? 8)),
-    start: publicProcedure.input(z.object({ datasetId: z.number().int().positive() })).mutation(async ({ input }) => {
+    start: publicProcedure.input(z.object({
+      datasetId: z.number().int().positive(),
+      methodId: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      if (input.methodId && !INDEPENDENT_METHOD_FIELDS.some(m => m.id === input.methodId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown individual method field." });
+      }
       const events = await getSimulationEvents(input.datasetId);
       if (events.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No valid events found in this dataset." });
       const runId = await createSimulationRun(input.datasetId, events.length);
       if (!runId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Database is not available for run persistence." });
-      void executeSimulationRun(runId, input.datasetId).catch(async (error) => {
+      await updateSimulationRun(runId, { summaryJson: JSON.stringify({ mode: input.methodId ? "INDIVIDUAL_METHOD_ONLY" : "LEGACY_ALL_METHODS", methodId: input.methodId ?? null }) });
+      void (input.methodId
+        ? executeSingleMethodRun(runId, input.datasetId, input.methodId)
+        : executeSimulationRun(runId, input.datasetId)).catch(async (error) => {
         await updateSimulationRun(runId, { status: "failed", finishedAt: new Date(), summaryJson: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown batch error" }) });
       });
-      return { runId, status: "running" as const, totalEvents: events.length };
+      return { runId, status: "running" as const, totalEvents: events.length, methodId: input.methodId ?? null };
     }),
     get: publicProcedure.input(z.object({ runId: z.number().int().positive() })).query(async ({ input }) => {
       const run = await getSimulationRun(input.runId);
@@ -160,6 +171,11 @@ export const appRouter = router({
     }),
   }),
   simulate: router({
+    methodFields: publicProcedure.query(() => INDEPENDENT_METHOD_FIELDS.map(({ id, name, family, kind }) => ({ id, name, family, kind }))),
+    method: publicProcedure.input(z.object({ event: eventInput, methodId: z.string().min(1) })).mutation(({ input }) => {
+      if (!INDEPENDENT_METHOD_FIELDS.some(m => m.id === input.methodId)) throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown individual method." });
+      return runSingleMethodEvent(input.event, input.methodId);
+    }),
     event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
   }),
