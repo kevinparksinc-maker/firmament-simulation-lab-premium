@@ -7,7 +7,7 @@ import {
   type ManzilReading,
   type PlanetReading,
 } from "./firmamentEngine";
-import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
+import { calculateRestoredTerritorial, calculateIndividualTerritorialLayer, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
 import {completeChartLedger} from "./completeChartLedger";
 import {buildFamilyAudit,attachFamilyAudit} from "./collectiveFamilyAudit";
 import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
@@ -580,9 +580,9 @@ function buildFrame(
 
 /**
  * Standalone method runner for the 21 core slots. Computes only the requested
- * layer after creating its frame chart. Legacy Territorial slots 1-8 presently
- * share the calculateRestoredTerritorial foundation and are NOT independent
- * implementation files yet. KP depends on the existing family resolution.
+ * layer after creating its frame chart. Territorial slots 1-8 now execute
+ * their own calculations, without invoking sibling methods. KP still depends
+ * on upstream family resolution.
  * No other core method is scored or blended into this result.
  */
 export function runIsolatedCoreLayer(
@@ -599,14 +599,12 @@ export function runIsolatedCoreLayer(
   const entries = entriesNeeded ? houseLords(raw.planets, raw.ascendantLongitude) : [];
   let layer: FullPackageFoundationLayerEvidence | FullPackageLayerEvidence;
   if (index < 8) {
-    // Legacy 8 territorial submethods are calculated together in the existing
-    // foundation; their evidence and scoring remain separate.
-    const restored = calculateRestoredTerritorial(
+    const single = calculateIndividualTerritorialLayer(
       raw.planets, raw.ascendantLongitude,
       (longitude) => fixedEclipticHouseFromLongitude(longitude - raw.ascendantLongitude).house,
-      frame,
+      frame, index,
     );
-    layer = { ...restored.evidence.layers[index]!, source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const };
+    layer = { ...single, source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const };
   } else {
     switch (index) {
       case 8: layer = fixedStarLayer(entries); break;
@@ -635,7 +633,7 @@ export function runIsolatedCoreLayer(
     ascendantLongitude: raw.ascendantLongitude,
     chart: completeChartLedger(raw.planets),
     calculationScope: index < 8
-      ? "Shared legacy 8-layer territorial evaluator; other seven outputs are ignored for this independent score."
+      ? "Targeted Territorial evaluator executes only the chosen component, using the canonical chart and preserved original coefficients."
       : index === 20
         ? "KP family resolution uses its upstream shared KP calculation; only the KP layer is selected."
         : "Only the selected method evaluator is executed after generating the astronomical frame.",
