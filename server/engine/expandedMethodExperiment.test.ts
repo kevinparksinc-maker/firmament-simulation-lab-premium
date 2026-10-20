@@ -51,7 +51,9 @@ describe("31-line research challenger (not a doctrinal certification)", () => {
     expect(natal.scoreGodA).toBeNull();
     expect(natal.scoreAgentA).toBeNull();
     const linear = experiment.methods.find(m => m.id === "HARMONICS_V2")!;
-    expect(linear.counted).toBe(true);
+    expect(linear.status).toBe("POLICY_CONFLICT");
+    expect(linear.counted).toBe(false);
+    expect(linear.scoreGodA).not.toBeNull();
     expect(experiment.voteA + experiment.voteB).toBeLessThanOrEqual(experiment.countedMethods);
     expect(experiment.voteA + experiment.voteB).toBeGreaterThan(0);
   });
