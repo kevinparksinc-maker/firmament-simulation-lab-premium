@@ -28,6 +28,25 @@ The commit history for `server/engine/fullPackageDualFrameChallenger.ts` include
 
 Commit dates are UTC, which can display as October 19 in Nevada. The trace does **not** establish that any change was unauthorized.
 
+## Observed cancellation ledger — seven rivalry games
+
+The executable ledger evaluated 147 method rows in each view (21 methods × 7 games). These are **score-state classifications**, not judgments of doctrinal correctness:
+
+| Category | God View | Agent View | Synthesis |
+|---|---:|---:|---:|
+| A = 0 and B = 0 | 40 | 37 | 39 |
+| Equal nonzero A/B | 11 | 9 | 16 |
+| Opposite-signed A/B | 33 | 31 | 29 |
+| Both A/B nonzero and same sign, unequal | 37 | 39 | 50 |
+| Only one side nonzero | 26 | 31 | 13 |
+| **Total** | **147** | **147** | **147** |
+
+**Sign convention:** Opposite signs are not automatically a `TIE`: for example A=+3 and B=-3 create an A advantage, not cancellation. Same-signed unequal values also can yield a winner. Only A=B is an exact method tie. Some nonzero methods oppose others in the **aggregate sum**, a separate phenomenon from within-method ties.
+
+**Arithmetic invariant:** In all seven rivalry games, summing the 21 displayed A and B scores exactly reproduces each God and Agent frame total to three decimal places. This verifies the current summation path, **not** the validity of the underlying formulas.
+
+**Critical observation:** The Moon-phase/VOC layer is intentionally 0/0. Fixed-star amplifications and besiegement also returned zero in multiple fixtures. The audit can establish that the output is zero, but deciding whether that is a true non-trigger or an incomplete condition requires independent sky/reference calculations.
+
 ## Classification of all 21 methods
 
 | # | Method | Primary cancellation / risk | Action |
