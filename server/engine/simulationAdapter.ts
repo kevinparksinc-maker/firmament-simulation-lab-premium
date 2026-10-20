@@ -328,7 +328,7 @@ function frameReport(
 }
 
 export function runSimulationEvent(input: SimulationEventInput) {
-  const { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource } = resolveEventContract(input);
+  const { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource, provenanceWarning } = resolveEventContract(input);
 
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
@@ -394,6 +394,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
       actualWinnerMeaning: "A means favored won; B means underdog won; TIE means no decisive result.",
       homeAwayIsMetadataOnly: true,
       roleAssignmentSource,
+      provenanceWarning,
       primaryResearchEligible: roleAssignmentSource === "market-odds" && Boolean(input.oddsSource) && Boolean(input.actualWinner),
     },
     engine: {
