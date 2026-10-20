@@ -232,6 +232,29 @@ function frameReport(
     const scoringInputs = (calculation?.inputs ?? []).filter(line => !line.startsWith("FAMILY EVIDENCE (not additional score):"));
     const scoreA = layer.scoreA, scoreB = layer.scoreB;
     const familyDifference = Number((scoreA - scoreB).toFixed(3));
+    // Preserve a complete, enumerated inventory of what this method could read.
+    // This inventory is context, NOT evidence that the scoring formula used every body.
+    const inventory = frame.fullChartLedger.bodies.map(body => ({
+      planet: body.planet, zodiacLongitude: body.longitude, sign: body.sign,
+      house: body.house, side: body.side, nakshatra: body.nakshatra,
+      manzil: body.manzil, decan: body.decan,
+      scoredDirectly: scoringSteps.some(step => step.includes(body.planet)),
+    }));
+    const houseInventory = frame.fullChartLedger.houses.map(house => ({
+      house: house.house, side: house.side, occupants: house.occupants,
+      mentionedInScoringSteps: scoringSteps.some(step => new RegExp(`\\bH${house.house}\\b`).test(step)),
+    }));
+    const sourceAspects = frame.fullChartLedger.aspects.map(aspect => ({
+      ...aspect, mentionedInScoringSteps: scoringSteps.some(step =>
+        step.includes(aspect.left) && step.includes(aspect.right)),
+    }));
+    const scoringInputsAreLedger = scoringInputs.length > 0;
+    const limitations = [
+      ...(!scoringInputsAreLedger ? ["No method-specific inputs were recorded."] : []),
+      ...(scoringSteps.length === 0 ? ["No method-specific scoring steps were recorded."] : []),
+      "The full-chart inventory is context only. A listed planet/house/aspect was not necessarily used in this method's points.",
+      "No independent verification of the method's point coefficients or traditional doctrine is implied.",
+    ];
     return {
       number: index + 1,
       method: layer.name,
@@ -241,6 +264,15 @@ function frameReport(
       scoringInputs,
       scoringSteps,
       familyEvidence: familyInputs,
+      exactCalculation: {
+        formula: calculation?.formula ?? null,
+        scoringInputs,
+        scoringSteps,
+        completePlanetInventory: inventory,
+        completeHouseInventory: houseInventory,
+        aspectInventory: sourceAspects,
+        limitations,
+      },
       scoreA,
       scoreB,
       differenceAminusB: familyDifference,
