@@ -19,6 +19,7 @@ describe("annual rivalry recurring-cohort exploratory pilot",()=>{
   const counts=Object.fromEntries(["god","agent","synthesis","baseline","favorite"].map(k=>[k,{hit:perGame.filter(v=>(v.views as any)[k]===v.actual).length,tie:perGame.filter(v=>(v.views as any)[k]==="TIE").length}]));
   const methods=perGame[0].methodResults.synthesis.map((m:any)=>({name:m.name, ...Object.fromEntries(["god","agent","synthesis"].map(k=>[k,{hit:perGame.filter(v=>(v.methodResults as any)[k].find((n:any)=>n.name===m.name)?.pick===v.actual).length,tie:perGame.filter(v=>(v.methodResults as any)[k].find((n:any)=>n.name===m.name)?.pick==="TIE").length}]))}));
   const byRivalry=[...new Set(perGame.map(g=>g.rivalry))].map(name=>({name,games:perGame.filter(g=>g.rivalry===name).length, ...Object.fromEntries(["god","agent","synthesis","favorite"].map(k=>[k,perGame.filter(v=>v.rivalry===name && (v.views as any)[k]===v.actual).length]))}));
+  console.log("FIRMAMENT_FULL_METHOD_GRID="+JSON.stringify(perGame.map(g=>({id:g.id,rivalry:g.rivalry,actual:g.actual,methods:g.methodResults}))));
   console.log("FIRMAMENT_RIVALRY_REPORT="+JSON.stringify({games:perGame.length,counts,byRivalry,methods,perGame:perGame.map(({methodResults,...row})=>row)}));
  });
 });
