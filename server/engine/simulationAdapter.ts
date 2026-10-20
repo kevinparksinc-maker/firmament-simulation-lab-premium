@@ -352,6 +352,39 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
   const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
   const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
+  // Additional registered techniques are displayed explicitly beside the 21 core
+  // layers. Their scores do not silently modify the 21-method synthesis.
+  const additionalMethodIds = ["ASHTAKAVARGA_V1", "EVENT_LUNAR_DASHA_CHAIN_V1", "NATAL_VIMSHOTTARI_V1"] as const;
+  const toAdditionalMethod = (result: (typeof godMethodResults)[number]) => ({
+    id: result.methodId,
+    name: result.methodId === "ASHTAKAVARGA_V1" ? "Ashtakavarga — BAV/SAV"
+      : result.methodId === "EVENT_LUNAR_DASHA_CHAIN_V1" ? "Dasha — Event Lunar Nakshatra/Sub/Sub-Sub"
+      : "Dasha — Natal Vimshottari (Maha/Antar/Pratyantar)",
+    evaluable: result.evaluable,
+    scoreA: result.scoreA,
+    scoreB: result.scoreB,
+    prediction: result.prediction,
+    evidence: result.evidence,
+    detail: result.detail,
+    calculationVersion: result.calculationVersion,
+    limitation: result.methodId === "NATAL_VIMSHOTTARI_V1" && !result.evaluable
+      ? "NOT EVALUABLE: natal chart and birth time not supplied"
+      : "Registry method; separate from the validated 21-method synthesis. Experimental sports scores.",
+  });
+  const additionalMethods = {
+    godView: godMethodResults.filter(result => additionalMethodIds.some(id => id === result.methodId)).map(toAdditionalMethod),
+    agentView: agentMethodResults.filter(result => additionalMethodIds.some(id => id === result.methodId)).map(toAdditionalMethod),
+    synthesis: [] as Array<{id:string;name:string;scoreA:number|null;scoreB:number|null;prediction:"A"|"B"|"TIE"|"NONE";evaluable:boolean}>,
+  };
+  for(const id of additionalMethodIds){
+    const god=additionalMethods.godView.find(row=>row.id===id)!;
+    const agent=additionalMethods.agentView.find(row=>row.id===id)!;
+    const evaluable=god.evaluable && agent.evaluable && god.scoreA!==null && god.scoreB!==null && agent.scoreA!==null && agent.scoreB!==null;
+    const scoreA=evaluable?Number(((god.scoreA!+agent.scoreA!)/2).toFixed(3)):null;
+    const scoreB=evaluable?Number(((god.scoreB!+agent.scoreB!)/2).toFixed(3)):null;
+    additionalMethods.synthesis.push({id,name:god.name,scoreA,scoreB,evaluable,
+      prediction:!evaluable?"NONE":scoreA===scoreB?"TIE":scoreA!>scoreB!?"A":"B"});
+  }
   const celestialGeometry = buildCelestialGeometryEvidence(activePrediction.planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, nakshatra: planet.nakshatra, manzil: planet.manzil })));
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
@@ -390,10 +423,11 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
-      snapshotConvention: "aries-zero-360-equal-houses-v1",
+      snapshotConvention: "reverse-numbered-360-equal-houses-v2",
       godView: godMethodResults,
       agentView: agentMethodResults,
     },
+    additionalMethods,
     baseline: {
       territorial: activePrediction.territorial,
       kpStellar: activePrediction.kpStellar,
