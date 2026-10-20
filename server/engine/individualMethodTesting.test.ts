@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { INDEPENDENT_METHOD_FIELDS, runSingleMethodEvent } from "./isolatedMethodRunner";
 import { createSingleMethodAccumulator } from "./singleMethodPerformance";
+import { runFullPackageDualFrameChallenger } from "./fullPackageDualFrameChallenger";
 
 const fixture = {
   id: "independent-method-protocol",
@@ -37,6 +38,24 @@ describe("31 independent method fields with no fabricated neutral outputs", () =
     expect(result.god.scoreB).not.toBeNull();
     expect(result.combined.calculation).toContain("WITHOUT including any other");
     expect(result.certification).toBe("NOT_CERTIFIED");
+  });
+
+  it("isolated core 1–8 scores agree exactly with the existing engine for a fixture", () => {
+    const game = {
+      teamA: fixture.teamA, teamB: fixture.teamB, gameType: fixture.sport,
+      location: fixture.location,
+      coordinates: { latitude: fixture.latitude, longitude: fixture.longitude },
+      startTime: new Date(fixture.startTime),
+    };
+    const old = runFullPackageDualFrameChallenger(game);
+    for (let index = 0; index < 8; index++) {
+      const methodId = `CORE_${String(index + 1).padStart(2, "0")}`;
+      const single = runSingleMethodEvent(fixture, methodId);
+      for (const [frame, source] of [[single.god, old.god], [single.agent, old.agent]] as const) {
+        expect(frame.scoreA).toBeCloseTo(source.foundation.layers[index]!.scoreA, 5);
+        expect(frame.scoreB).toBeCloseTo(source.foundation.layers[index]!.scoreB, 5);
+      }
+    }
   });
 
   it("reports raw scores for same-strength values and never calls 0/0 a tie", () => {
