@@ -30,9 +30,12 @@ describe("20 historical game smoke test — exploratory, not independently audit
     }
     aggregate.set(row.name,value);
    }
-   return {id:game.input.id,actual,baseline:game.baseline.winner,god:game.godView.synthesis.winner,agent:game.agentView.synthesis.winner,agree:comparison.agreements,reverse:comparison.reversals,neutral:comparison.neutral,godHits:count(game.godView.allLayers.filter(layer=>layer.verdict==="hit"),actual) };
+   return {id:game.input.id,actual,baseline:game.baseline.winner,synthesis:game.synthesisView.winner,synthesisValid:game.synthesisView.valid,god:game.godView.synthesis.winner,agent:game.agentView.synthesis.winner,agree:comparison.agreements,reverse:comparison.reversals,neutral:comparison.neutral,godHits:count(game.godView.allLayers.filter(layer=>layer.verdict==="hit"),actual) };
   });
-  const summary={games:games.length,baselineHits:games.filter(g=>g.baseline===g.actual).length,godHits:games.filter(g=>g.god===g.actual).length,agentHits:games.filter(g=>g.agent===g.actual).length,frameAgreement:games.filter(g=>g.god===g.agent).length,totalMethodAgreements:games.reduce((a,g)=>a+g.agree,0),totalReversals:games.reduce((a,g)=>a+g.reverse,0),totalNeutral:games.reduce((a,g)=>a+g.neutral,0),methodRanking:[...aggregate.entries()].map(([name,v])=>({name,...v})).sort((a,b)=>(b.gHits+b.aHits)-(a.gHits+a.aHits))};
+  const synthesisHits=batch.results.filter((game,index)=>game.synthesisView.valid && game.synthesisView.winner===fixtures[index]!.actualWinner).length;
+  const synthesisTies=batch.results.filter(game=>game.synthesisView.winner==="TIE").length;
+  const synthesisValid=batch.results.filter(game=>game.synthesisView.valid).length;
+  const summary={synthesisHits,synthesisTies,synthesisValid,games:games.length,baselineHits:games.filter(g=>g.baseline===g.actual).length,godHits:games.filter(g=>g.god===g.actual).length,agentHits:games.filter(g=>g.agent===g.actual).length,frameAgreement:games.filter(g=>g.god===g.agent).length,totalMethodAgreements:games.reduce((a,g)=>a+g.agree,0),totalReversals:games.reduce((a,g)=>a+g.reverse,0),totalNeutral:games.reduce((a,g)=>a+g.neutral,0),methodRanking:[...aggregate.entries()].map(([name,v])=>({name,...v})).sort((a,b)=>(b.gHits+b.aHits)-(a.gHits+a.aHits))};
   console.log("FIRMAMENT_20_GAME_SMOKE_RESULT="+JSON.stringify({summary,games}));
  });
 });
