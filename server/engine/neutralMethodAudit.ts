@@ -37,7 +37,8 @@ function textFor(layer: Layer) {
 export function auditNeutralMethod(layer: Layer): NeutralMethodDiagnostic {
   const text = textFor(layer);
   const hasOutput = Math.abs(layer.scoreA) > 0 || Math.abs(layer.scoreB) > 0;
-  if (hasOutput) return { method: layer.name, status: "triggered", reason: "The method produced a directional contribution.", actionable: false };
+  if (hasOutput && layer.scoreA === layer.scoreB) return { method: layer.name, status: "valid-neutral", reason: "Both sides received equal nonzero scores; the directional differential is zero.", actionable: false };
+  if (hasOutput) return { method: layer.name, status: "triggered", reason: "The method produced unequal A/B scores and a directional contribution.", actionable: false };
   if (/unavailable|missing|requires/i.test(text)) return { method: layer.name, status: "missing-input", reason: layer.detail ?? "The method did not receive a required input.", actionable: true };
   if (/void-of-course remains false|todo/i.test(text)) return { method: layer.name, status: "hard-coded-neutral", reason: layer.detail ?? "The method is currently forced to a neutral output.", actionable: true };
   if (layer.ruleClass === "SHARED" && /evidence only|favors neither|environment-only|does not count toward the winner/i.test(text)) {
