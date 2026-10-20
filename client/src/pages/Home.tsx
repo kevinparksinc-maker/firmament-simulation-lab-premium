@@ -37,6 +37,7 @@ import { QuickGameSimBar, type QuickGameInput } from "@/components/QuickGameSimB
 import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
+import { ExpandedMethodPanel, type ExpandedMethodExperimentDisplay } from "@/components/ExpandedMethodPanel";
 
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
@@ -80,6 +81,7 @@ type Simulation = {
   godView: Frame;
   agentView: Frame;
   synthesisView: { version:string; valid:boolean; reason:string; winner:Side; verdict:Verdict; scoreA:number; scoreB:number; margin:number; formula:string; methods:Array<{name:string;winner:Side;scoreA:number;scoreB:number;godScoreA:number;godScoreB:number;agentScoreA:number;agentScoreB:number;formula:string}> };
+  expandedExperiment?: ExpandedMethodExperimentDisplay;
   frameParity: { valid: boolean; methodParity: boolean; formulaParity: boolean; sourceParity: boolean; ruleClassParity: boolean; synthesisParity: boolean; reason: string; changedLayers: Array<{ name: string; differentialShift: number }> };
   chart: { godView: { ascendantLongitude: number; planets: Planet[] }; agentView: { ascendantLongitude: number; planets: Planet[] } };
   comparison: { state: string; winner: Side; actualWinner: Side | null; verified: boolean };
@@ -325,6 +327,7 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
         </button>;
       })}
     </div>
+    {simulation.expandedExperiment && <ExpandedMethodPanel experiment={simulation.expandedExperiment} teamA={simulation.input.teamA} teamB={simulation.input.teamB} />}
     <div id="frame-method-detail" role="tabpanel" className="mt-4 rounded-xl border border-slate-600 bg-slate-950/80 p-4 md:p-6">
       {section === "synthesis"
         ? <><p className="text-xs font-bold tracking-widest text-amber-300">SYNTHESIS · CROSS-FRAME COMPARISON</p>
