@@ -24,6 +24,10 @@ const GATES: Readonly<Record<string, {
     status: "POLICY_CONFLICT",
     reason: "Fixed-star scorer uses a 1° orb and a limited star catalogue; universal 5° treatment and star source need independent review.",
   },
+  CORE_12: {
+    status: "POLICY_CONFLICT",
+    reason: "Chart-wide aspects use constant per-aspect weights inside the 5° orb. They do not yet implement the approved 100/80/60/40 orb-distance tiers or independent house-cusp aspects.",
+  },
   CORE_13: {
     status: "INCOMPLETE_DOCTRINE",
     reason: "Moon phase evidence does not establish actual Moon void-of-course using applying aspects and ingress timing.",
@@ -39,6 +43,10 @@ const GATES: Readonly<Record<string, {
   CORE_20: {
     status: "POLICY_CONFLICT",
     reason: "Harmonious/friction still applies continuous 1 − orb/5 weighting and does not independently score every eligible house-cusp relationship under 100/80/60/40 bands.",
+  },
+  HARMONICS_V2: {
+    status: "POLICY_CONFLICT",
+    reason: "H2–H12 V2 correctly limits the orb to 5°, but currently uses continuous linear falloff rather than the user-approved 100/80/60/40 banded weights. The exact orb-band boundaries have not been specified.",
   },
   HARMONICS_V1: {
     status: "POLICY_CONFLICT",
