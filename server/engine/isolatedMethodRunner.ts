@@ -110,7 +110,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
         formula: l.calculation?.formula ?? "MISSING FORMULA — audit required",
         inputs: l.calculation?.inputs ?? [],
         steps: l.calculation?.steps ?? [],
-        evidence: [l.detail, ...(l.limitation ? [l.limitation] : [])],
+        evidence: [l.detail, ...("limitation" in l && l.limitation ? [l.limitation] : [])],
         completeness: isolated.calculationScope,
         chart: isolated.chart,
       };
