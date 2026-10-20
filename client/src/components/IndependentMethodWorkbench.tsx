@@ -211,6 +211,11 @@ export function IndependentMethodWorkbench() {
       <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-4">
         <h4 className="text-sm font-semibold text-violet-200">A. Upload historical games (CSV)</h4>
         <p className="mt-1 text-xs text-slate-400">One CSV row per real event. To check favorite accuracy, include favoredTeam, underdogTeam, actualWinner (A/B), startTime, venue, oddsSource, and roleAssignmentSource=market-odds. Event time must include timezone. Unsourced games still calculate but are excluded from market-verified accuracy.</p>
+        <details className="mt-2 text-xs text-slate-300">
+          <summary className="cursor-pointer font-medium text-violet-200">Show expected CSV column headers</summary>
+          <code className="mt-2 block overflow-x-auto rounded-lg border border-white/10 bg-slate-900 p-2 text-xs">favoredTeam,underdogTeam,sport,location,startTime,actualWinner,oddsSource,roleAssignmentSource,latitude,longitude</code>
+          <p className="mt-1">Each row is one real event. A means the favorite won; B means the underdog won. Save venue-local kickoff as an ISO timestamp with UTC offset, and identify the historical bookmaker source accurately.</p>
+        </details>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="text-xs text-slate-300">Dataset name
             <input value={csvName} onChange={event => setCsvName(event.target.value)} placeholder="Example: MLB 2025 verified outcomes" className="mt-1 w-full rounded-md border border-slate-600 bg-slate-900 p-2 text-sm text-white"/>
@@ -224,7 +229,13 @@ export function IndependentMethodWorkbench() {
           {csvFileName && <span className="text-xs text-slate-400">{csvFileName}</span>}
         </div>
         {csvError && <p role="alert" className="mt-2 text-sm text-amber-200">{csvError}</p>}
-        {importCsv.data && <p className="mt-2 text-xs text-cyan-200">Imported {importCsv.data.validRowCount} valid games, {importCsv.data.invalidRowCount} invalid rows. Selected new dataset #{importCsv.data.datasetId}. Invalid rows were not scored.</p>}
+        {importCsv.data && <div className="mt-2">
+          <p className="text-xs text-cyan-200">Imported {importCsv.data.validRowCount} valid games, {importCsv.data.invalidRowCount} invalid rows. Selected dataset #{importCsv.data.datasetId}. Invalid rows were not scored.</p>
+          {importCsv.data.invalidPreview.length > 0 && <details className="mt-2 text-xs text-amber-200">
+            <summary className="cursor-pointer">Inspect rejected rows (up to 25)</summary>
+            <div className="mt-2 space-y-1">{importCsv.data.invalidPreview.map(row=><p key={row.rowNumber}>CSV row {row.rowNumber}: {row.error}</p>)}</div>
+          </details>}
+        </div>}
       </div>
 
       <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-4">
