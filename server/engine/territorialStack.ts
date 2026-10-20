@@ -183,6 +183,131 @@ function canonicalLots(planets: Map<string, TerritorialPlanet>, ascendant: numbe
   return definitions.map((definition) => ({ definition, rawLongitude: night ? definition.night(ascendant, longitude, fortune, spirit) : definition.day(ascendant, longitude, fortune, spirit) }));
 }
 
+
+/**
+ * Physically isolated entry point for ONE of the original eight Territorial
+ * methods. Deliberately does not calculate the other seven layers. Keep
+ * arithmetic identical to calculateRestoredTerritorial() until each
+ * doctrine is independently reviewed and certified.
+ */
+export function calculateIndividualTerritorialLayer(
+  planets: TerritorialPlanet[],
+  ascendantLongitude: number,
+  lotHouseFromLongitude: (longitude: number) => number,
+  mode: "god" | "agent",
+  methodIndex: number,
+) {
+  if (!Number.isInteger(methodIndex) || methodIndex < 0 || methodIndex > 7) throw new RangeError("Territorial method must be 0..7");
+  const names = ["Cluster territory & house-lord placement", "Nakshatra influence", "Essential dignity",
+    "Chaldean Decans", "Planetary war", "Arabic Lots", "Arabic mansion context", "Nine-planet influence"];
+  const byName = new Map(planets.map(p => [p.planet, p]));
+  const inputs: string[] = [];
+  const steps: string[] = [];
+  let scoreA = 0, scoreB = 0;
+  function credit(side: TerritorialSide, score: number, why: string) {
+    if (side === "A") scoreA += score;
+    if (side === "B") scoreB += score;
+    steps.push(`${why}: ${side} ${score < 0 ? "" : "+"}${score}`);
+  }
+  if ([0, 1, 2, 4].includes(methodIndex)) {
+    const warEffects = new Map<string, number>();
+    if (methodIndex === 4) {
+      for (const war of detectWars(planets)) {
+        warEffects.set(war.winner, (warEffects.get(war.winner) ?? 0) + 1);
+        warEffects.set(war.loser, (warEffects.get(war.loser) ?? 0) - 1);
+      }
+    }
+    for (let house = 1; house <= 12; house++) {
+      const lord = lordForHouse(house, mode, ascendantLongitude);
+      const side = sideForHouse(house);
+      const planet = byName.get(lord);
+      if (!planet) throw new Error(`H${house}: missing ruling planet ${lord}`);
+      if (side === "neutral") throw new Error(`H${house}: invalid competitive side`);
+      let value = 0;
+      let description: string;
+      if (methodIndex === 0) {
+        const placementSide = sideForHouse(planet.house);
+        if (placementSide === side) { value += 1; if (planet.house === house) value += 1; }
+        else if (placementSide !== "neutral") { value -= 1; if ([1,4,7,10].includes(planet.house)) value -= 1; }
+        description = `H${house} ${lord} placed H${planet.house}: territorial base`;
+      } else if (methodIndex === 1) {
+        value = nakshatraInfluence(planet.nakshatra, dignity(lord, planet.sign).score);
+        description = `H${house} ${lord} in ${planet.nakshatra}: mansion trait score`;
+      } else if (methodIndex === 2) {
+        const d = dignity(lord, planet.sign);
+        value = d.score;
+        description = `H${house} ${lord} ${planet.sign}: ${d.status}`;
+      } else {
+        value = warEffects.get(lord) ?? 0;
+        description = `H${house} ${lord}: planetary war winner/loser priority`;
+      }
+      inputs.push(description);
+      credit(side, value, description);
+    }
+  } else if (methodIndex === 3) {
+    for (const planet of planets) {
+      if (!Number.isFinite(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: missing longitude`);
+      const degree = normalize(planet.tropicalLongitude) % 30;
+      if (planet.sign !== signForLongitude(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
+      const face = getChaldeanDecan(planet.sign, degree);
+      const ruler = byName.get(face.ruler);
+      if (!ruler) throw new Error(`Decan ${planet.planet}: missing ruler ${face.ruler}`);
+      const side = sideForHouse(planet.house), rulerSide = sideForHouse(ruler.house);
+      const score = side === "neutral" ? 0 :
+        round((planet.planet === face.ruler ? 1 : 0) + (side === rulerSide ? .5 : rulerSide !== "neutral" ? -.5 : 0));
+      const note = `${planet.planet} ${planet.sign} ${degree.toFixed(3)}° face ${face.decan} ruler ${face.ruler} H${ruler.house}`;
+      inputs.push(note); credit(side, score, note);
+    }
+  } else if (methodIndex === 5) {
+    const sunAlt = byName.get("Sun")?.altitude;
+    if (sunAlt === undefined || !Number.isFinite(sunAlt)) throw new Error("Arabic Lots require finite Sun altitude");
+    for (const { definition, rawLongitude } of canonicalLots(byName, ascendantLongitude, sunAlt < 0)) {
+      const longitude = normalize(rawLongitude);
+      const house = lotHouseFromLongitude(longitude), side = sideForHouse(house);
+      const magnitude = [1,4,7,10].includes(house) ? 2 : 1;
+      const value = side === "neutral" ? 0 : definition.name === "Lot of Nemesis" ? -magnitude : magnitude;
+      const note = `${definition.name} at ${longitude.toFixed(3)}° H${house}, day ${definition.formulaDay} / night ${definition.formulaNight} (${definition.source})`;
+      inputs.push(note); credit(side, value, note);
+    }
+  } else if (methodIndex === 6) {
+    inputs.push(...planets.map(p => `${p.planet}: ${p.manzil?.name ?? "missing"} H${p.house}`));
+    for (let i = 0; i < planets.length; i++) for (let j = i + 1; j < planets.length; j++) {
+      const l = planets[i]!, r = planets[j]!;
+      if (l.manzil?.index == null || r.manzil?.index == null || l.manzil.index !== r.manzil.index) continue;
+      const delta = Math.abs(normalize(l.tropicalLongitude) - normalize(r.tropicalLongitude));
+      const distance = Math.min(delta,360-delta);
+      if (distance > 5) continue;
+      const sideL = sideForHouse(l.house), sideR = sideForHouse(r.house);
+      const weight = round(Math.max(0, 1 - distance / 5));
+      const note = `${l.planet}/${r.planet} manzil ${l.manzil.name} separation ${distance.toFixed(3)}°`;
+      if (sideL === sideR && sideL !== "neutral") credit(sideL, weight, note);
+      else steps.push(`${note}: cross-family context only, no automatic points`);
+    }
+  } else if (methodIndex === 7) {
+    for (const planet of planets) {
+      const side = sideForHouse(planet.house);
+      const weight = planet.planet === "Sun" || planet.planet === "Moon" ? 1.4 : 1;
+      const note = `${planet.planet} H${planet.house}: planetary body weight`;
+      inputs.push(note); credit(side, side === "neutral" ? 0 : weight, note);
+    }
+  }
+  const formulas = [
+    "Σ house-lord base points by ruled side",
+    "Σ ruler Nakshatra trait score including dignity modifier",
+    "Σ ruler dignity by ruled side",
+    "Σ face dignity and decan-ruler side allegiance across all bodies",
+    "Σ ruler war winner/loser points by ruled side; conjunction threshold 3° (policy conflict)",
+    "Σ sect-aware Arabic Lots with angular ×2 and Nemesis sign",
+    "Σ same-side manzil pair resonance within 5°; cross-side recorded but unscored",
+    "Σ body influence (Sun/Moon 1.4, other bodies 1) by occupied side",
+  ];
+  return {
+    name: names[methodIndex]!, scoreA: round(scoreA), scoreB: round(scoreB),
+    detail: `Independently ran ${names[methodIndex]}; scoring trace includes only that method.`,
+    calculation: { formula: formulas[methodIndex]!, inputs, steps: steps.length ? steps : ["No qualifying triggers; scores are actual zero, not an equal-strength verdict."] },
+  };
+}
+
 /**
  * Exact additive restoration of the audited Territorial layers. Arabic Lots are
  * calculated once per side, not once per house lord, so their influence is never
