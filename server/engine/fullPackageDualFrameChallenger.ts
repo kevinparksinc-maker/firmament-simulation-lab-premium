@@ -79,7 +79,7 @@ export type FullPackageFoundationLayerEvidence = {
   scoreB: number;
   ruleClass: RuleClass;
   detail: string;
-  source: "current-seven-layer-territorial";
+  source: "current-eight-layer-territorial";
   calculation?: CalculationTrace;
 };
 
@@ -294,18 +294,20 @@ function fixedStarLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
 
 const RETROGRADE_PENALTY = -1;
 
+const RETROGRADE_ELIGIBLE = new Set(["Mercury", "Venus", "Mars", "Jupiter", "Saturn"]);
+
 function retrogradeLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
   let scoreA = 0;
   let scoreB = 0;
   const details: string[] = [];
-  for (const planet of planets.filter((candidate) => candidate.isRetrograde)) {
+  for (const planet of planets.filter((candidate) => RETROGRADE_ELIGIBLE.has(candidate.planet) && candidate.isRetrograde)) {
     const side = sideForHouse(planet.house);
     const [a, b] = sideScore(side, RETROGRADE_PENALTY);
     scoreA += a;
     scoreB += b;
     if (side !== "neutral") details.push(`${planet.planet} H${planet.house}: ${RETROGRADE_PENALTY}`);
   }
-  return { name: "Retrograde condition", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No retrograde planets occupied a scoring cluster.", source: "recovered-archive-horary", calculation: calculation("For each retrograde planet: score −1 to its house side", details.length ? details : ["No retrograde planet contributed."]) };
+  return { name: "Retrograde condition", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No retrograde planets occupied a scoring cluster.", source: "recovered-archive-horary", calculation: calculation("For each retrograde Mercury, Venus, Mars, Jupiter or Saturn: score −1 to its house side; Sun/Moon and nodes excluded", details.length ? details : ["No retrograde planet contributed."]) };
 }
 
 function lunarLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
@@ -378,20 +380,22 @@ function nodesLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
   return { name: "Nodes (Rahu/Ketu)", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "Lunar nodes unavailable.", source: "recovered-archive-master", calculation: calculation("Opposite-node polarity: Rahu + and Ketu − to their house sides; angular houses use magnitude 2, others 1", details.length ? details : ["No nodes in chart."]), limitation: "Directional Rahu/Ketu polarity is an experimental model choice, not established sports predictive validity." };
 }
 
-const UPACHAYA_HOUSES = new Set([3, 6, 10, 11]);
+const UPACHAYA_A_HOUSES = new Set([3, 6, 10, 11]);
+const UPACHAYA_B_HOUSES = new Set([9, 12, 4, 5]);
+const UPACHAYA_MALEFICS = new Set(["Sun", "Mars", "Saturn"]);
 
 function upachayaLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
   let scoreA = 0;
   let scoreB = 0;
   const details: string[] = [];
-  for (const planet of planets.filter((candidate) => MALEFICS.has(candidate.planet) && UPACHAYA_HOUSES.has(candidate.house))) {
+  for (const planet of planets.filter((candidate) => UPACHAYA_MALEFICS.has(candidate.planet) && (UPACHAYA_A_HOUSES.has(candidate.house) || UPACHAYA_B_HOUSES.has(candidate.house)))) {
     const side = sideForHouse(planet.house);
     const [a, b] = sideScore(side, 1);
     scoreA += a;
     scoreB += b;
     if (side !== "neutral") details.push(`${planet.planet} H${planet.house}: +1 ${side}`);
   }
-  return { name: "Upachaya growth", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No malefic occupies an Upachaya house (3/6/10/11) in a scoring cluster.", source: "recovered-archive-master", calculation: calculation("For each malefic in H3/H6/H10/H11: +1 to its house side", details.length ? details : ["No qualifying malefic input."]) };
+  return { name: "Upachaya growth", scoreA, scoreB, ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No eligible Sun/Mars/Saturn in A-relative (3/6/10/11) or B-relative (9/12/4/5) Upachaya houses.", source: "recovered-archive-master", calculation: calculation("For Sun/Mars/Saturn in A-relative H3/H6/H10/H11 or turned B-relative H9/H12/H4/H5: +1 to its house side; nodes excluded to avoid duplicating node method", details.length ? details : ["No qualifying malefic input."]) };
 }
 
 function viaCombustaLayer(entries: HouseLordEntry[]): FullPackageLayerEvidence {
@@ -564,13 +568,13 @@ function buildFrame(
     foundation: {
       scoreA: foundation.scoreA,
       scoreB: foundation.scoreB,
-      // All seven Territorial foundation layers are placement-driven and differ by side by construction.
-      layers: foundation.evidence.layers.map((layer) => ({ ...attachFamilyAudit(layer,familyAudit), source: "current-seven-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const })),
+      // All eight Territorial foundation layers are placement-driven and differ by side by construction.
+      layers: foundation.evidence.layers.map((layer) => ({ ...attachFamilyAudit(layer,familyAudit), source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const })),
     },
     foundationError,
     fullChartLedger:completeChartLedger(raw.planets),
     addedLayers:auditedLayers,
-    synthesis: { scoreA, scoreB, margin, winner, noCall: winner === "TIE", formula: "Current seven-layer Territorial foundation + each recovered archive addition + current full KP win-fit; all coefficients are fixed at 1.0 and were not tuned to outcomes." },
+    synthesis: { scoreA, scoreB, margin, winner, noCall: winner === "TIE", formula: "Current eight-layer Territorial foundation + each recovered archive addition + current full KP win-fit; all coefficients are fixed at 1.0 and were not tuned to outcomes." },
   };
 }
 
