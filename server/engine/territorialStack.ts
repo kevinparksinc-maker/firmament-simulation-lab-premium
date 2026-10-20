@@ -158,8 +158,8 @@ function canonicalLots(planets: Map<string, TerritorialPlanet>, ascendant: numbe
   const sun = longitude("Sun"), moon = longitude("Moon"), mars = longitude("Mars"), venus = longitude("Venus"), jupiter = longitude("Jupiter"), saturn = longitude("Saturn");
   const direct = (a: number, b: number) => ascendant + a - b;
   const reverse = (a: number, b: number) => ascendant + b - a;
-  const fortune = direct(moon, sun);
-  const spirit = direct(sun, moon);
+  const fortune = night ? reverse(moon, sun) : direct(moon, sun);
+  const spirit = night ? reverse(sun, moon) : direct(sun, moon);
   const definitions: LotDefinition[] = [
     { name: "Lot of Fortune", meaning: "Material circumstances, body, resources, and what happens to the side.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => fortune, night: () => reverse(moon, sun), formulaDay: "Asc + Moon − Sun", formulaNight: "Asc + Sun − Moon", reversal: "Reverse the luminary arc at night." },
     { name: "Lot of Spirit", meaning: "Agency, intention, strategy, and what the side tries to do.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => spirit, night: () => reverse(sun, moon), formulaDay: "Asc + Sun − Moon", formulaNight: "Asc + Moon − Sun", reversal: "Reverse the luminary arc at night." },
