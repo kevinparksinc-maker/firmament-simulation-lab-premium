@@ -450,21 +450,30 @@ function mutualReceptionLayer(entries: HouseLordEntry[], planets: FramePlanet[])
 }
 
 function translationLayer(entries: HouseLordEntry[], planets: FramePlanet[]): FullPackageLayerEvidence {
-  const sideA = entries.filter((entry) => entry.ruledSide === "A");
-  const sideB = entries.filter((entry) => entry.ruledSide === "B");
-  const lordNames = new Set(entries.map((entry) => entry.lord));
-  let scoreA = 0;
-  let scoreB = 0;
+  const sideA = entries.filter(entry => entry.ruledSide === "A");
+  const sideB = entries.filter(entry => entry.ruledSide === "B");
+  const lordNames = new Set(entries.map(entry => entry.lord));
+  let scoreA = 0, scoreB = 0;
   const details: string[] = [];
-  for (const translator of planets.filter((planet) => !lordNames.has(planet.planet))) {
-    const closest = (candidates: HouseLordEntry[]) => candidates.map((entry) => ({ entry, distance: angularDistance(translator.longitude, entry.placement.longitude) })).filter((candidate) => aspectType(translator.longitude, candidate.entry.placement.longitude)).sort((left, right) => left.distance - right.distance)[0];
-    const closestA = closest(sideA);
-    const closestB = closest(sideB);
-    if (!closestA || !closestB) continue;
-    if (closestA.distance < closestB.distance) { scoreA += 3; details.push(`${translator.planet} → A: +3`); }
-    else { scoreB += 3; details.push(`${translator.planet} → B: +3`); }
+  const traces: string[] = [];
+  for (const translator of planets.filter(planet => !lordNames.has(planet.planet))) {
+    const candidates = (family: HouseLordEntry[]) => family.map(entry => ({
+      entry,
+      separation: angularDistance(translator.longitude, entry.placement.longitude),
+      aspect: aspectType(translator.longitude, entry.placement.longitude),
+    })).filter(candidate => candidate.aspect).sort((left,right)=>left.separation-right.separation);
+    const closestA = candidates(sideA)[0], closestB = candidates(sideB)[0];
+    if (!closestA || !closestB) {
+      traces.push(`${translator.planet} H${translator.house} at ${translator.longitude.toFixed(2)}°: no +3; missing qualifying aspect to ${!closestA ? "A" : ""}${!closestA && !closestB ? " and " : ""}${!closestB ? "B" : ""} family`);
+      continue;
+    }
+    const describe=(v:typeof closestA,side:"A"|"B")=>`${side} H${v.entry.house} ruler ${v.entry.lord} H${v.entry.placement.house} at ${v.entry.placement.longitude.toFixed(2)}°; ${v.aspect}, separation ${v.separation.toFixed(2)}°`;
+    const winner = closestA.separation < closestB.separation ? "A" : "B";
+    if (winner==="A") scoreA+=3; else scoreB+=3;
+    const line=`${translator.planet} H${translator.house} at ${translator.longitude.toFixed(2)}° → [${describe(closestA,"A")}] vs [${describe(closestB,"B")}]; smaller absolute separation → ${winner} +3 (running A=${scoreA}, B=${scoreB})`;
+    details.push(line);traces.push(line);
   }
-  return { name: "Translation of light", scoreA, scoreB, ruleClass: "OUTCOME", detail: details.length ? details.join("; ") : "No third planet connected to both clusters by a major aspect.", source: "recovered-archive-master", calculation: calculation("For each non-lord translator connected to both clusters: +3 to the closer cluster", details.length ? details : ["No translator passed both-cluster aspect tests."]), limitation: "The recovered archive called this a geometric approximation because exact separating/applying speed data was unavailable." };
+  return { name:"Translation of light", scoreA, scoreB, ruleClass:"OUTCOME", detail:details.length ? details.join("; ") : "No third planet connected to both clusters by a major aspect.", source:"recovered-archive-master", calculation:calculation("EXPERIMENTAL geometric proxy: for each non-house-lord body aspecting at least one lord of both families within 5°, compare closest absolute angular separations; award +3 to smaller separation (equal separations currently favor B). NOT traditional applying/separating translation of light.", traces.length?traces:["No eligible non-lord translator; A=0, B=0."]), limitation:"Geometric proxy only; traditional translation requires applying/separating and relative planetary speeds. Absolute angular separation is not orb proximity to exact aspect. Equal separation currently favors B; do not interpret as validated traditional doctrine." };
 }
 
 function frictionLayer(planets: FramePlanet[]): FullPackageLayerEvidence {
