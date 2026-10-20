@@ -9,6 +9,7 @@ import {
 } from "./firmamentEngine";
 import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
 import {completeChartLedger} from "./completeChartLedger";
+import {buildFamilyAudit,attachFamilyAudit} from "./collectiveFamilyAudit";
 import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
 
 type Side = "A" | "B" | "neutral";
@@ -526,10 +527,12 @@ function buildFrame(
     foundationError = error instanceof Error ? error.message : String(error);
     throw new Error(`Territorial foundation failed in ${name}: ${foundationError}`);
   }
+  const familyAudit = buildFamilyAudit(raw.planets,raw.ascendantLongitude,mode);
   const entries = houseLords(raw.planets, raw.ascendantLongitude);
   const addedLayers = [
     fixedStarLayer(entries), retrogradeLayer(raw.planets), lunarLayer(raw.planets), chartAspectLayer(raw.planets), moonPhaseLayer(raw.planets), nodesLayer(raw.planets), upachayaLayer(raw.planets), viaCombustaLayer(entries), besiegementLayer(entries, raw.planets), mutualReceptionLayer(entries, raw.planets), translationLayer(entries, raw.planets), frictionLayer(raw.planets), kpLayer(kp),
   ];
+  const auditedLayers = addedLayers.map(layer=>attachFamilyAudit(layer,familyAudit));
   const scoreA = round(foundation.scoreA + addedLayers.filter((layer) => layer.ruleClass !== "SHARED").reduce((sum, layer) => sum + layer.scoreA, 0));
   const scoreB = round(foundation.scoreB + addedLayers.filter((layer) => layer.ruleClass !== "SHARED").reduce((sum, layer) => sum + layer.scoreB, 0));
   const margin = round(Math.abs(scoreA - scoreB));
@@ -546,11 +549,11 @@ function buildFrame(
       scoreA: foundation.scoreA,
       scoreB: foundation.scoreB,
       // All seven Territorial foundation layers are placement-driven and differ by side by construction.
-      layers: foundation.evidence.layers.map((layer) => ({ ...layer, source: "current-seven-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const })),
+      layers: foundation.evidence.layers.map((layer) => ({ ...attachFamilyAudit(layer,familyAudit), source: "current-seven-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const })),
     },
     foundationError,
     fullChartLedger:completeChartLedger(raw.planets),
-    addedLayers,
+    addedLayers:auditedLayers,
     synthesis: { scoreA, scoreB, margin, winner, noCall: winner === "TIE", formula: "Current seven-layer Territorial foundation + each recovered archive addition + current full KP win-fit; all coefficients are fixed at 1.0 and were not tuned to outcomes." },
   };
 }
