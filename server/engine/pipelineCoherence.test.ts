@@ -34,13 +34,19 @@ describe("complete event → chart → 31 methods → results pipeline", () => {
     expect(core.input.teamB).toBe(solo.event.teamB);
   });
 
-  it("rejects falsely claimed sportsbook provenance in both APIs", () => {
+  it("does not count unsourced legacy market labels as verified favorite tests", () => {
     const input = {
       ...fixture, favoredTeam: "Dodgers", underdogTeam: "Giants",
       roleAssignmentSource: "market-odds" as const,
+      actualWinner: "A" as const,
     };
-    expect(() => runSimulationEvent(input)).toThrow(/oddsSource/);
-    expect(() => runSingleMethodEvent(input, "CORE_01")).toThrow(/oddsSource/);
+    const full = runSimulationEvent(input);
+    const solo = runSingleMethodEvent(input, "CORE_01");
+    expect(full.evaluationFramework.roleAssignmentSource).toBe("manual");
+    expect(full.evaluationFramework.primaryResearchEligible).toBe(false);
+    expect(full.evaluationFramework.provenanceWarning).toContain("downgraded");
+    expect(solo.event.roleAssignmentSource).toBe("manual");
+    expect(solo.methodologyNotes.join(" ")).toContain("downgraded");
   });
 
   it("reproduces every standalone core and registry raw score from its full simulation counterpart", () => {
