@@ -1,14 +1,14 @@
 import { runSingleMethodEvent } from "./engine/isolatedMethodRunner";
 import { createSingleMethodAccumulator } from "./engine/singleMethodPerformance";
 import { getSimulationEvents, insertSimulationResult, updateSimulationRun } from "./simulationDb";
-import { selectIndependentGameCount, type IndependentGameCount } from "./engine/batchSelection";
+import { selectIndependentGameCount, historicalFixtureIdentity, type IndependentGameCount } from "./engine/batchSelection";
 
 /** Runs one requested method per game. No full 21/31 synthesis is invoked.
  * Per-game traces persist to the existing results table; summary keeps only
  * streaming aggregates, with no 10,000-result in-memory accumulation.
  */
 export async function executeSingleMethodRun(runId: number, datasetId: number, methodId: string, gameCount: IndependentGameCount) {
-  const events = selectIndependentGameCount(await getSimulationEvents(datasetId), gameCount);
+  const events = selectIndependentGameCount(await getSimulationEvents(datasetId), gameCount, row => historicalFixtureIdentity(row.input));
   const collector = createSingleMethodAccumulator(methodId);
   let completedEvents = 0, failedEvents = 0;
   for (const event of events) {
