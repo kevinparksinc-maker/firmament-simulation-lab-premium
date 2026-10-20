@@ -154,12 +154,12 @@ function detectWars(planets: TerritorialPlanet[]) {
 type LotDefinition = { name: string; meaning: string; source: string; work: string; day: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; night: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; formulaDay: string; formulaNight: string; reversal: string };
 
 function canonicalLots(planets: Map<string, TerritorialPlanet>, ascendant: number, night: boolean) {
-  const longitude = (planet: string) => planets.get(planet)?.tropicalLongitude ?? 0;
+  const longitude = (planet: string) => { const position=planets.get(planet); if (!position || !Number.isFinite(position.tropicalLongitude)) throw new Error(`Arabic Lot missing finite longitude for ${planet}`); return position.tropicalLongitude; };
   const sun = longitude("Sun"), moon = longitude("Moon"), mars = longitude("Mars"), venus = longitude("Venus"), jupiter = longitude("Jupiter"), saturn = longitude("Saturn");
   const direct = (a: number, b: number) => ascendant + a - b;
   const reverse = (a: number, b: number) => ascendant + b - a;
-  const fortune = direct(moon, sun);
-  const spirit = direct(sun, moon);
+  const fortune = night ? reverse(moon, sun) : direct(moon, sun);
+  const spirit = night ? reverse(sun, moon) : direct(sun, moon);
   const definitions: LotDefinition[] = [
     { name: "Lot of Fortune", meaning: "Material circumstances, body, resources, and what happens to the side.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => fortune, night: () => reverse(moon, sun), formulaDay: "Asc + Moon − Sun", formulaNight: "Asc + Sun − Moon", reversal: "Reverse the luminary arc at night." },
     { name: "Lot of Spirit", meaning: "Agency, intention, strategy, and what the side tries to do.", source: "Paulus Alexandrinus", work: "Introduction, Hermetic Lots", day: () => spirit, night: () => reverse(sun, moon), formulaDay: "Asc + Sun − Moon", formulaNight: "Asc + Moon − Sun", reversal: "Reverse the luminary arc at night." },
@@ -205,7 +205,8 @@ export function calculateRestoredTerritorial(
     const lord = lordForHouse(house, mode, ascendantLongitude);
     const side = sideForHouse(house);
     const placement = planetsByName.get(lord);
-    if (side === "neutral" || !placement) continue;
+    if (!placement) throw new Error(`Territorial house ${house}: missing ruling planet ${lord}`);
+    if (side === "neutral") throw new Error(`Territorial house ${house}: invalid side`);
     const placementSide = sideForHouse(placement.house);
     let base = 0;
     if (placementSide === side) { base += 1; if (placement.house === house) base += 1; }
@@ -219,7 +220,9 @@ export function calculateRestoredTerritorial(
     else { components.baseB += base; components.nakB += nakshatraScore; components.dignB += dignityResult.score; components.warB += planetaryWar; }
   }
 
-  const night = (planetsByName.get("Sun")?.altitude ?? 0) < 0;
+  const sunAltitude = planetsByName.get("Sun")?.altitude;
+  if (sunAltitude === undefined || !Number.isFinite(sunAltitude)) throw new Error("Arabic Lots require a finite Sun altitude to determine day/night sect");
+  const night = sunAltitude < 0;
   const arabicLots = canonicalLots(planetsByName, ascendantLongitude, night).map(({ definition, rawLongitude }) => {
     const longitude = normalize(rawLongitude);
     const house = lotHouseFromLongitude(longitude);
@@ -241,7 +244,8 @@ export function calculateRestoredTerritorial(
     const degreeInSign = planet.degreeInSign ?? planet.degreeInHouse;
     const decan = getChaldeanDecan(planet.sign, degreeInSign);
     const rulerPlacement = planetsByName.get(decan.ruler);
-    const rulerHouse = rulerPlacement?.house ?? 2;
+    if (!rulerPlacement) throw new Error(`Decan ${planet.planet}: missing ruler ${decan.ruler}`);
+    const rulerHouse = rulerPlacement.house;
     const rulerSide = sideForHouse(rulerHouse);
     const allegiance: DecanEvidence["allegiance"] = targetSide === "neutral" || rulerSide === "neutral" ? "neutral" : targetSide === rulerSide ? "supports" : "opposes";
     const faceDignity = planet.planet === decan.ruler ? 1 : 0;
