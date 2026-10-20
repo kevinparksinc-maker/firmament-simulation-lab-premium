@@ -21,6 +21,7 @@ const eventInput = z.object({
   favoredTeam: z.string().min(1).optional(),
   underdogTeam: z.string().min(1).optional(),
   roleAssignmentSource: z.enum(["market-odds","expert-consensus","manual","legacy-side-order"]).optional(),
+  oddsSource: z.string().min(1).max(255).optional(),
   sport: z.enum(["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS", "boxing"]),
   location: z.string().min(1),
   latitude: z.number().min(-90).max(90).optional(),
