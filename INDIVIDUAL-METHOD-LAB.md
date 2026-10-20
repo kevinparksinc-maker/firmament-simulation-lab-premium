@@ -2,6 +2,46 @@
 
 **Status:** experimental research branch; no method has been independently certified for doctrinal correctness or predictive accuracy. The original 21-method calculator remains available as the unchanged comparison path.
 
+## Single coherent runtime pipeline
+
+```text
+Event / imported historical fixture
+    │
+    ├─ resolved favorite = Ascendant side A
+    ├─ resolved underdog = Descendant side B
+    ├─ explicit odds source / provenance warning / UTC event time
+    ▼
+resolveEventContract()  [shared by full and standalone engines]
+    ▼
+Canonical event + one consistent 360° ephemeris
+    ├─ God View: permanent 0° Aries, reverse numbered equal houses
+    └─ Agent View: local/dawn-anchored ascending cusp, same planets, reverse numbered houses
+         │
+         ├─ method registry CORE_01 .. CORE_21
+         └─ method registry HARMONICS/VARGA/ASHTAKAVARGA/DASHA .. total 31
+                  │
+                  ▼
+         One method → TWO separate raw A/B ledgers
+                  │
+                  ▼
+         Within-method 50/50 God–Agent arithmetic (never sums other methods)
+                  │
+                  ├─ raw equal strength A=B → preserve BOTH numeric scores
+                  ├─ no proven trigger → true 0/0 if independently evidenced
+                  ├─ zero net but missing trigger trace → ZERO_NET_UNRESOLVED
+                  ├─ missing natal chart or invalid inputs → MISSING_INPUT
+                  └─ doctrine/5°/weights conflict → score visible but NOT certified
+                  │
+                  ├─ 31-row visual scorecard → expandable evidence breakdown
+                  └─ 10,000-game ONE-method batch runner → hit/miss/coverage stats
+```
+
+**Shared consistency tests:** `server/engine/pipelineCoherence.test.ts` runs every one of the 31 method fields against the same full simulation and checks God/Agent raw score parity, 12 houses, 12 body positions, and a dawn-anchored Agent View. `server/simulationMigrationIntegrity.test.ts` checks persistent odds-source schema migration consistency.
+
+**Legacy outcomes:** The unchanged 21-method winner model and optional experimental 31-method ballot are separate from this independent method laboratory. A quarantined method keeps real A/B/average scores in the audit, even though it cannot cast a predictive ballot. Historically asserted `market-odds` fixtures without source provenance are still calculated, but downgraded to unverified/manual for any accuracy or pattern-mining claim.
+
+**Still awaiting user-approved doctrine:** Orb tolerance is 5° and the desired weighting values are 100/80/60/40, but the boundaries assigning each band are not defined. We have deliberately NOT guessed cutoffs or fabricated certification. See `server/engine/methodCertificationPolicy.ts` for the centralized list of specific blockers, including Harmonics V1 and V2, chart-wide aspects, friction, classical lunar and horary proxies. This means the app has a coherent *experimental execution* path, not 31 certified predictive methods.
+
 ## Operating modes
 
 - **One-method fixture:** Select one of the 31 fields in the Independent Method Laboratory, enter a real fixture, and press **Run only this method**. The backend calculates its chart frames and invokes only the selected scorer. Original core methods 1–8 use isolated Territorial formulas. Core method 21 (KP) still requires shared upstream KP family resolution but does not add other layers' scores. The other core layers execute their individual calculation functions.
