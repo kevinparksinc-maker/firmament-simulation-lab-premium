@@ -17,6 +17,8 @@ import { calculateExperimentalLayers } from "./experimentalLayers";
 import { houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
+import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
+import { createMethodPerformanceAccumulator } from "./methodPerformance";
 
 export type SimulationEventInput = {
   id?: string;
@@ -390,6 +392,13 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
   const predictiveSynthesis = synthesizeFramePredictions([...dualFrame.god.foundation.layers,...dualFrame.god.addedLayers], [...dualFrame.agent.foundation.layers,...dualFrame.agent.addedLayers], dualFrame.parity.valid);
+  const expandedExperiment = buildExpandedMethodExperiment(
+    predictiveSynthesis,
+    godMethodResults,
+    agentMethodResults,
+    dualFrame.god.fullChartLedger.houses.length,
+    dualFrame.god.fullChartLedger.bodies.length,
+  );
 
   return {
     id: input.id ?? `${favoredTeam}-${underdogTeam}-${input.startTime}`,
@@ -428,6 +437,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
       agentView: agentMethodResults,
     },
     additionalMethods,
+    expandedExperiment,
     baseline: {
       territorial: activePrediction.territorial,
       kpStellar: activePrediction.kpStellar,
@@ -450,6 +460,8 @@ export function runSimulationEvent(input: SimulationEventInput) {
 
 export function runSimulationBatch(events: SimulationEventInput[]) {
   const results = events.map((event) => runSimulationEvent(event));
+  const performance = createMethodPerformanceAccumulator();
+  for (const result of results) performance.observe(result);
   const verified = results.filter((result) => result.comparison.verified);
   const hits = verified.filter((result) => result.baseline.verdict === "hit").length;
   return {
@@ -461,6 +473,7 @@ export function runSimulationBatch(events: SimulationEventInput[]) {
       baselineHits: hits,
       baselineMisses: verified.length - hits,
       baselineAccuracy: verified.length ? Number(((hits / verified.length) * 100).toFixed(1)) : null,
+      methodPerformance: performance.summary(),
     },
   };
 }
