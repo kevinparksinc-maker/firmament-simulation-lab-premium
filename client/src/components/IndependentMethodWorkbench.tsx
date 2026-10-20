@@ -26,6 +26,7 @@ export function IndependentMethodWorkbench() {
   const labelFor = (status: string) => ({
     A: teamA, B: teamB, EQUAL_SCORES: "Equal strength (see both scores)",
     NO_QUALIFYING_CONDITION: "No qualifying condition — NOT a tie",
+    ZERO_NET_UNRESOLVED: "Both net scores zero — investigate cancellation versus missing triggers",
     MISSING_INPUT: "Missing input — NOT a tie",
     EVIDENCE_ONLY: "Evidence only / incomplete — NOT a scored tie",
   } as Record<string, string>)[status] ?? status;
