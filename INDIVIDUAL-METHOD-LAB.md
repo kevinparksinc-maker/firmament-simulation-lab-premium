@@ -42,6 +42,26 @@ Canonical event + one consistent 360° ephemeris
 
 **Still awaiting user-approved doctrine:** Orb tolerance is 5° and the desired weighting values are 100/80/60/40, but the boundaries assigning each band are not defined. We have deliberately NOT guessed cutoffs or fabricated certification. See `server/engine/methodCertificationPolicy.ts` for the centralized list of specific blockers, including Harmonics V1 and V2, chart-wide aspects, friction, classical lunar and horary proxies. This means the app has a coherent *experimental execution* path, not 31 certified predictive methods.
 
+## Tested visual operating controls: 1, 200, 10,000
+
+The `IndependentMethodWorkbench` is mounted directly on `Home.tsx`.
+The desktop `MethodScorecard` is one 31-row five-column table:
+**Method Name | God View | Agent View | Synthesis | Results Breakdown**.
+On mobile each row becomes a compact standalone card. Buttons run exactly
+the named method and reveal scoring formula/inputs, 12-house placements and
+aspects; they do not launch a hidden 31-method ensemble.
+
+### User journey
+
+1. **Run 1 manual game:** Enter teams, sport, venue, coordinates, ISO kickoff; select a method in the table, press **Run method**, inspect its row. This is an individual event, not a historical-accuracy batch.
+2. **Upload historical CSV:** On the same screen choose CSV and dataset name, press **Import and validate CSV**. Invalid rows are counted and rejected; valid rows persist. A verified favorite-only baseline requires an actual bookmaker source, not just A/B labels.
+3. **Choose 1 / 200 / 10,000:** Click one test-size tile, select the dataset and method, press **Run N games**. The backend selects exactly the first N valid input rows in source order. It rejects datasets too short, instead of recycling fixtures, simulating phantom games, or automatically running all methods.
+4. **Inspect every game:** Batch progress and aggregate hits/misses/coverage appear on the screen; the new `BatchGameResultsPanel` requests 20 rows at a time and displays **Game | God A/B | Agent A/B | Synthesis A/B | Outcome | View Breakdown**. Clicking a game retrieves its archived full method-only evidence; no 10,000-row payload is sent to the browser.
+
+### Environment warning
+
+The current backend starts an asynchronous run inside its API process using a non-awaited Promise. This has **not** been certified as a durable, restart-safe background worker, and serverless container termination may interrupt 200- or 10,000-game runs. Run these tests in staging first with an always-on worker (or migrate the job to a durable queue/Cloud Run Job) before interpreting production-scale completion as reliable. The UI and API reflect recorded progress, not a guaranteed completion.
+
 ## Operating modes
 
 - **One-method fixture:** Select one of the 31 fields in the Independent Method Laboratory, enter a real fixture, and press **Run only this method**. The backend calculates its chart frames and invokes only the selected scorer. Original core methods 1–8 use isolated Territorial formulas. Core method 21 (KP) still requires shared upstream KP family resolution but does not add other layers' scores. The other core layers execute their individual calculation functions.
