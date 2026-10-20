@@ -40,6 +40,7 @@ export function createMethodPerformanceAccumulator() {
       const eligible = result.comparison.actualWinner !== null &&
         result.comparison.actualWinner !== "TIE" &&
         result.evaluationFramework.roleAssignmentSource === "market-odds" &&
+        Boolean(result.input.oddsSource) &&
         result.expandedExperiment.valid;
       if (eligible) {
         researchEligible++;
