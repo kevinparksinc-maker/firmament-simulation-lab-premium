@@ -1,4 +1,4 @@
-export type ScheduleSport = "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB";
+export type ScheduleSport = "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "TENNIS";
 
 export type ScheduledGame = {
   id: string;
@@ -143,9 +143,57 @@ async function espnSchedule(sport: Exclude<ScheduleSport, "MLB">, date: string):
   });
 }
 
+/** ESPN tennis events may be tournament containers. Emit only real two-player
+ * competitions, never tournament headings or invented player names. */
+export function parseTennisScoreboard(payload: any, tour: "ATP" | "WTA"): ScheduledGame[] {
+  const found: ScheduledGame[] = [];
+  const seen = new Set<string>();
+  const visit = (node: any, parent?: any, depth = 0) => {
+    if (!node || typeof node !== "object" || depth > 8) return;
+    const context = node.competitors ? node : parent;
+    if (Array.isArray(node.competitors) && node.competitors.length === 2) {
+      const [first, second] = node.competitors;
+      const name = (c: any) => c?.athlete?.displayName ?? c?.team?.displayName ?? c?.displayName ?? c?.athlete?.fullName;
+      const left = name(first), right = name(second);
+      const date = node.date ?? parent?.date;
+      const parsedDate = typeof date === "string" ? new Date(date) : null;
+      if (left && right && parsedDate && !Number.isNaN(parsedDate.getTime())) {
+        const id = `tennis-${tour.toLowerCase()}-${node.id ?? parent?.id ?? `${left}-${right}-${date}`}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          const state = node.status?.type?.state ?? parent?.status?.type?.state ?? "pre";
+          const venue = node.venue?.fullName ?? parent?.venue?.fullName ?? parent?.name ?? "Tennis venue unavailable";
+          const score = (c:any) => c?.score == null ? "—" : String(c.score);
+          const eventName = parent?.name ?? parent?.shortName ?? tour;
+          found.push({id,sport:"TENNIS",teamA:left,teamB:right,venue,location:venue,
+            startTime:parsedDate.toISOString(),status:node.status?.type?.shortDetail ?? parent?.status?.type?.shortDetail ?? "Scheduled",
+            source:`ESPN ${tour} tennis scoreboard`,oddsStatus:"unavailable",isLive:state==="in",
+            scoreA:score(first),scoreB:score(second),
+            period:node.status?.type?.detail ?? `${tour} · ${eventName}`});
+        }
+      }
+    }
+    for (const field of ["events","competitions","matches","draws","groups"]) {
+      const children = node[field];
+      if (Array.isArray(children)) for (const child of children) visit(child,node,depth+1);
+    }
+  };
+  visit(payload);
+  return found;
+}
+
+async function tennisSchedule(date:string): Promise<ScheduledGame[]> {
+  const tours = ["atp","wta"] as const;
+  const results = await Promise.allSettled(tours.map(async tour => {
+    const payload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/tennis/${tour}/scoreboard?dates=${dateKey(date)}`);
+    return parseTennisScoreboard(payload,tour.toUpperCase() as "ATP"|"WTA");
+  }));
+  return results.flatMap(result => result.status==="fulfilled" ? result.value : []);
+}
+
 export async function listScheduledGames(date: string, sport: ScheduleSport | "ALL" = "ALL") {
-  const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB"] : [sport];
-  const results = await Promise.allSettled(sports.map((item) => item === "MLB" ? mlbSchedule(date) : espnSchedule(item, date)));
+  const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"] : [sport];
+  const results = await Promise.allSettled(sports.map((item) => item === "MLB" ? mlbSchedule(date) : item === "TENNIS" ? tennisSchedule(date) : espnSchedule(item, date)));
   return results.flatMap((result) => result.status === "fulfilled" ? result.value : []).sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
