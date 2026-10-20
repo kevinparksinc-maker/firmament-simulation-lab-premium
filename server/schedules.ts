@@ -100,7 +100,7 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
 }
 
 async function espnSchedule(sport: Exclude<ScheduleSport, "MLB" | "TENNIS">, date: string): Promise<ScheduledGame[]> {
-  const paths: Record<Exclude<ScheduleSport, "MLB">, string> = {
+  const paths: Record<Exclude<ScheduleSport, "MLB" | "TENNIS">, string> = {
     NBA: "basketball/nba",
     NFL: "football/nfl",
     NHL: "hockey/nhl",
