@@ -3,11 +3,12 @@ import {
   generatePredictionForModel,
   type GameInput,
 } from "./firmamentEngine";
-import { runIsolatedCoreLayer } from "./fullPackageDualFrameChallenger";
+import { runIsolatedCoreLayer, resolveAgentFrameGeometry } from "./fullPackageDualFrameChallenger";
 import { METHOD_NAMES } from "./frameworkContract";
 import { METHOD_REGISTRY, buildMethodChartSnapshot, runMethod } from "./methodRegistry";
 import { completeChartLedger } from "./completeChartLedger";
 import type { SimulationEventInput } from "./simulationAdapter";
+import { resolveEventContract } from "./eventPipelineContract";
 
 /** A method field runs ONE named method across the two physical frames.
  * Zero from a real arithmetic operation is recorded as data, never disguised
@@ -82,24 +83,11 @@ const classify = (methodId: string) => {
 export function runSingleMethodEvent(input: SimulationEventInput, methodId: string): SingleMethodEventResult {
   const spec = INDEPENDENT_METHOD_FIELDS.find(m => m.id === methodId);
   if (!spec) throw new RangeError(`Unknown individual method ${methodId}`);
-  const date = new Date(input.startTime);
-  if (!Number.isFinite(date.getTime())) throw new RangeError("Invalid event startTime");
+  const { gameInput: game, startTime: date, favoredTeam: teamA,
+    underdogTeam: teamB, roleAssignmentSource } = resolveEventContract(input);
   if (input.agentViewRotation === "whole-chart") {
-    throw new RangeError("Independent method testing cannot silently rotate physical longitudes. Whole-chart rotation requires separately certified astronomy mapping.");
+    throw new RangeError("Standalone mode cannot silently rotate planetary longitudes. Opposition shadow calculations require separate certification.");
   }
-  const teamA = input.favoredTeam ?? input.teamA;
-  const teamB = input.underdogTeam ?? input.teamB;
-  const roleAssignmentSource = input.roleAssignmentSource ??
-    (input.favoredTeam && input.underdogTeam ? (input.oddsSource ? "market-odds" : "manual") : "legacy-side-order");
-  const game: GameInput = {
-    teamA, teamB, gameType: input.sport, location: input.location,
-    startTime: date,
-    ...(input.latitude !== undefined && input.longitude !== undefined
-      ? { coordinates: { latitude: input.latitude, longitude: input.longitude } } : {}),
-    ...(input.sunriseTime ? { sunriseTime: new Date(input.sunriseTime) } : {}),
-    ...(input.sunriseSource ? { sunriseSource: input.sunriseSource } : {}),
-    ...(input.agentViewModel ? { agentViewModel: input.agentViewModel } : {}),
-  };
   let god: SingleMethodFrame, agent: SingleMethodFrame;
 
   if (spec.kind === "core") {
@@ -130,11 +118,26 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
   } else {
     const godPrediction = generateFixedJ2000KPPrediction(game);
     const agentPrediction = generatePredictionForModel(game, "azimuth");
+    const agentGeometry = resolveAgentFrameGeometry(game, {
+      agentViewRotation: input.agentViewRotation === "ascendant-only" ? "ascendant-only" : "none",
+      agentViewModel: input.agentViewModel ?? "astronomical",
+    });
     const makeFrame = (frame: "god" | "agent"): SingleMethodFrame => {
       const prediction = frame === "god" ? godPrediction : agentPrediction;
-      const anchor = frame === "agent" && input.agentViewRotation === "ascendant-only"
-        ? (agentPrediction.ascendantLongitude + 180) % 360 : undefined;
-      const snapshot = buildMethodChartSnapshot(prediction, date, frame, anchor);
+      const snapshot = buildMethodChartSnapshot(
+        prediction, date, frame, frame === "god" ? 0 : agentGeometry.ascendantLongitude);
+      if (frame === "agent") {
+        // A mismatched chart invalidates this isolated calculation; never
+        // silently report one geometry for core and another for Vedic layers.
+        const expected = new Map(agentGeometry.planetPositions.map(p => [p.planet, p]));
+        for (const p of snapshot.prediction.planets) {
+          const corresponding = expected.get(p.planet);
+          if (!corresponding || corresponding.house !== p.house ||
+              Math.abs(corresponding.longitude - p.backgroundWheelLongitude) > 1e-7) {
+            throw new Error(`Shared Agent View geometry mismatch for ${p.planet}.`);
+          }
+        }
+      }
       // The actual singled-out registry entry is the ONLY registry method called.
       const method = runMethod(methodId, { prediction: snapshot.prediction, eventTime: date });
       const scoreA = method.scoreA, scoreB = method.scoreB;
