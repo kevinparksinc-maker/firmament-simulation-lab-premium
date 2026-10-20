@@ -1,3 +1,4 @@
+import { compareFrameMethods, summarizeMethodComparison } from "@/lib/crossFrameMethods";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -301,6 +302,8 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
     { key: "synthesis" as const, label: "03 · SYNTHESIS", hint: "Compare the two frame results", frame: null },
   ];
   const comparisonState = god.synthesis.winner === agent.synthesis.winner ? "AGREEMENT" : "DISAGREEMENT";
+  const comparisons = compareFrameMethods(god.allLayers, agent.allLayers);
+  const methodSummary = summarizeMethodComparison(comparisons);
   const methodRows = section === "synthesis"
     ? god.allLayers.map((layer, index) => ({ name: layer.name, god: layer, agent: agent.allLayers.find(candidate => candidate.name === layer.name), index }))
     : active.allLayers.map((layer, index) => ({ name: layer.name, god: section === "god" ? layer : null, agent: section === "agent" ? layer : null, index }));
@@ -327,6 +330,25 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
           <h3 className="mt-2 text-xl font-bold text-white">{comparisonState === "AGREEMENT" ? "Both frames favor the same side" : "The frames favor different sides"}</h3>
           <p className="mt-2 text-sm text-slate-300">God View: <strong>{sideLabel(god.synthesis.winner, simulation)}</strong> ({god.synthesis.scoreA.toFixed(2)} A / {god.synthesis.scoreB.toFixed(2)} B). Agent View: <strong>{sideLabel(agent.synthesis.winner, simulation)}</strong> ({agent.synthesis.scoreA.toFixed(2)} A / {agent.synthesis.scoreB.toFixed(2)} B).</p>
           <p className="mt-2 text-sm text-slate-300">Parity: {simulation.frameParity.valid ? "Passed" : "Failed—review before relying on the comparison"}. These are two frame results; no third independent scoring engine is claimed.</p>
+          <div className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4">
+            <h4 className="text-lg font-semibold text-white">Method comparison · God vs Agent</h4>
+            <p className="mt-1 text-sm text-slate-300">Compare each method with itself in the other frame. Agreement does not establish predictive accuracy. No method weights or picks are modified.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[["Agree", methodSummary.agreements], ["Reverse", methodSummary.reversals], ["Neutral", methodSummary.neutral], ["Compared", methodSummary.compared]].map(([label, value]) => <div key={label} className="rounded-lg border border-white/10 bg-slate-900 p-2"><span className="block text-xs text-slate-400">{label}</span><strong className="text-xl text-white">{value}</strong></div>)}
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[570px] text-left text-sm">
+                <thead><tr className="border-b border-white/15 text-xs text-slate-400"><th className="py-2 pr-3">Method</th><th className="py-2 pr-3">God View</th><th className="py-2 pr-3">Agent View</th><th className="py-2">Comparison</th></tr></thead>
+                <tbody>{comparisons.map(item => <tr key={item.name} className="border-b border-white/10">
+                  <td className="py-2 pr-3 font-medium text-white">{item.name}</td>
+                  <td className="py-2 pr-3 text-slate-300">{item.god ? sideLabel(item.god.winner,simulation) : "Not calculated"} <span className="text-xs text-slate-500">{item.godMargin == null ? "" : item.godMargin.toFixed(2)}</span></td>
+                  <td className="py-2 pr-3 text-slate-300">{item.agent ? sideLabel(item.agent.winner,simulation) : "Not calculated"} <span className="text-xs text-slate-500">{item.agentMargin == null ? "" : item.agentMargin.toFixed(2)}</span></td>
+                  <td className="py-2 text-amber-200">{item.relationship === "agreement" ? "Same pick" : item.relationship === "reversal" ? "Opposite picks" : item.relationship === "both-neutral" ? "Both neutral" : item.relationship === "one-neutral" ? "One neutral" : "Missing data"}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">Historical reliability needs verified final outcomes from multiple games. This comparison reflects only this simulation.</p>
+          </div>
         </>
         : <><p className="text-xs font-bold tracking-widest text-amber-300">{section === "god" ? "GOD VIEW · FIXED REFERENCE" : "AGENT VIEW · ASCENDANT REFERENCE"}</p>
           <h3 className="mt-2 text-xl font-bold text-white">Verdict: {sideLabel(active.synthesis.winner, simulation)}</h3>
