@@ -27,7 +27,7 @@ export type QuickGameInput = {
   teamB: string;
   favoredTeam: string;
   underdogTeam: string;
-  sport: "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "boxing";
+  sport: "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "TENNIS" | "boxing";
   location: string;
   latitude?: number;
   longitude?: number;
@@ -307,6 +307,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
                     ["NFL", "NFL Football"],
                     ["NBA", "NBA Basketball"],
                     ["MLB", "MLB Baseball"],
+                    ["TENNIS", "🎾 ATP / WTA Tennis"],
                     ["boxing", "Combat / Boxing"],
                   ] as const
                 ).map(([code, name]) => (

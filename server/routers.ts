@@ -21,7 +21,7 @@ const eventInput = z.object({
   favoredTeam: z.string().min(1).optional(),
   underdogTeam: z.string().min(1).optional(),
   roleAssignmentSource: z.enum(["market-odds","expert-consensus","manual","legacy-side-order"]).optional(),
-  sport: z.enum(["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "boxing"]),
+  sport: z.enum(["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS", "boxing"]),
   location: z.string().min(1),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
@@ -133,7 +133,7 @@ export const appRouter = router({
     }),
   }),
   schedules: router({
-    list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
+    list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
     live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),
   }),
   runs: router({
