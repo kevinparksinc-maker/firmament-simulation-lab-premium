@@ -238,6 +238,7 @@ function frameReport(
     sunriseSource: frame.sunriseSource ?? null,
     sunriseTime: frame.sunriseTime ?? null,
     ascendantLongitude: frame.ascendantLongitude,
+    fullChartLedger: frame.fullChartLedger,
     synthesis: {
       ...frame.synthesis,
       verdict: verdictFor(frame.synthesis.winner, actualWinner),
