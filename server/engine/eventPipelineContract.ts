@@ -29,12 +29,10 @@ export function resolveEventContract(input: SimulationEventInput): ResolvedEvent
   if (favoredTeam.toLowerCase() === underdogTeam.toLowerCase()) {
     throw new Error("Ascendant and Descendant may not be assigned to the same team.");
   }
-  // API callers may supply explicit favorite and underdog in addition to
-  // teamA/B. Never silently reverse an already populated team A/B matchup.
-  if (input.favoredTeam && input.underdogTeam &&
-      (input.teamA !== favoredTeam || input.teamB !== underdogTeam)) {
-    throw new Error("teamA/teamB must match favoredTeam/underdogTeam when market sides are supplied.");
-  }
+  // API callers sometimes send home/away as teamA/B. The explicit market
+  // favorite controls the predictive A side, regardless of home order.
+  // actualWinner A/B is defined against this RESOLVED favorite/underdog order.
+  // Importers must normalize source winner-name data accordingly.
   const oddsSource = nonempty(input.oddsSource);
   const roleAssignmentSource = input.roleAssignmentSource ??
     (input.favoredTeam && input.underdogTeam ? (oddsSource ? "market-odds" : "manual") : "legacy-side-order");
