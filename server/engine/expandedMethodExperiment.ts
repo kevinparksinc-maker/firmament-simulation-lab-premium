@@ -1,6 +1,7 @@
 import type { SynthesisPrediction, SynthesisSide } from "./crossFrameSynthesis";
 import { METHOD_REGISTRY, type MethodResult } from "./methodRegistry";
 import { EXPECTED_METHOD_COUNT, UNIVERSAL_ASPECT_ORB_DEGREES } from "./frameworkContract";
+import { getMethodCertificationGate } from "./methodCertificationPolicy";
 
 /**
  * Pre-registered, equal-ballot 31-line challenger. The existing 21-method
@@ -24,7 +25,7 @@ export type ExpandedMethodRow = {
   prediction: SynthesisSide | "NONE";
   vote: -1 | 0 | 1;
   counted: boolean;
-  status: "COUNTED" | "MISSING_INPUT" | "NOT_EVALUABLE" | "NO_QUALIFYING_CONDITION" | "POLICY_CONFLICT" | "INVALID_PARITY";
+  status: "COUNTED" | "MISSING_INPUT" | "NOT_EVALUABLE" | "NO_QUALIFYING_CONDITION" | "ZERO_NET_UNRESOLVED" | "POLICY_CONFLICT" | "INCOMPLETE_DOCTRINE" | "INVALID_PARITY";
   reason: string;
   certification: "NOT_CERTIFIED";
   calculationVersion: string;
@@ -81,54 +82,54 @@ export function buildExpandedMethodExperiment(
     METHOD_REGISTRY.every(spec => god.has(spec.id) && agent.has(spec.id));
 
   const coreRows: ExpandedMethodRow[] = core.methods.map((method, index) => {
-    const hasSignal = [method.godScoreA, method.godScoreB, method.agentScoreA, method.agentScoreB].some(v => v !== 0); 
-    return ({
-    id: `CORE_${String(index + 1).padStart(2, "0")}`,
-    name: method.name,
-    family: "Core 21",
-    source: "core",
-    executedGod: true,
-    executedAgent: true,
-    scoreGodA: method.godScoreA,
-    scoreGodB: method.godScoreB,
-    scoreAgentA: method.agentScoreA,
-    scoreAgentB: method.agentScoreB,
-    prediction: method.winner,
-    vote: voteFor(method.winner),
-    counted: parity && hasSignal,
-    status: !parity ? "INVALID_PARITY" : hasSignal ? "COUNTED" : "NO_QUALIFYING_CONDITION",
-    reason: !parity ? "Full frame/registry parity invalid." : !hasSignal ? "The recorded raw scores are 0/0 in BOTH frames. No eligible trigger; NOT an equal-strength tie or a counted method." : "Equal-ballot research vote; the original God/Agent raw scores are preserved.",
-    certification: "NOT_CERTIFIED",
-    calculationVersion: "CORE_21_SNAPSHOT",
-    evidence: ["Core score is available in godView/agentView proof.methodWalkthrough; check scored operands, not merely the chart inventory."],
-  });
+    const id = `CORE_${String(index + 1).padStart(2, "0")}`;
+    const gate = getMethodCertificationGate(id);
+    const hasSignal = [method.godScoreA, method.godScoreB, method.agentScoreA, method.agentScoreB].some(v => v !== 0);
+    // Zero across both frames is ambiguous without a scored-event trigger
+    // ledger: it might be no trigger OR canceled positive/negative terms.
+    const status: ExpandedMethodRow["status"] = !parity ? "INVALID_PARITY"
+      : gate.status !== "READY_FOR_EXPERIMENT" ? gate.status
+      : hasSignal ? "COUNTED" : "ZERO_NET_UNRESOLVED";
+    const counted = status === "COUNTED";
+    return {
+      id, name: method.name, family: "Core 21", source: "core" as const,
+      executedGod: true, executedAgent: true,
+      scoreGodA: method.godScoreA, scoreGodB: method.godScoreB,
+      scoreAgentA: method.agentScoreA, scoreAgentB: method.agentScoreB,
+      prediction: method.winner,
+      vote: counted ? voteFor(method.winner) : 0 as const,
+      counted, status,
+      reason: !parity ? "Full frame/registry parity invalid."
+        : gate.status !== "READY_FOR_EXPERIMENT" ? gate.reasons.join(" ")
+        : !hasSignal ? "Raw 0/0 in BOTH frames; missing trigger/cancellation proof. Not a confirmed tied-strength reading."
+        : "Both frames recorded numeric evidence. Equal-ballot comparison is research-only and not a certificate.",
+      certification: "NOT_CERTIFIED" as const,
+      calculationVersion: "CORE_21_SNAPSHOT",
+      evidence: ["Detailed core formulas/inputs/steps are supplied by the God/Agent method walkthrough. A full-chart inventory by itself does not establish which operands scored."],
+    };
   });
 
   const extraRows: ExpandedMethodRow[] = METHOD_REGISTRY.map(spec => {
     const g = god.get(spec.id), a = agent.get(spec.id);
-    // V1's variable 1.5-6 degree Gaussian orbs violate the user-wide 5 degree linear policy.
-    const policyConflict = spec.id === "HARMONICS_V1";
-    const missingNatal = spec.id === "NATAL_VIMSHOTTARI_V1" && (!usable(g) || !usable(a));
+    const gate = getMethodCertificationGate(spec.id);
     const good = usable(g) && usable(a);
-    const noTrigger = good && [g!.scoreA, g!.scoreB, a!.scoreA, a!.scoreB].every(value => value === 0);
-    const counted = parity && !policyConflict && good && !noTrigger;
-    const scoreA = good ? ((g!.scoreA! + a!.scoreA!) / 2) : 0;
-    const scoreB = good ? ((g!.scoreB! + a!.scoreB!) / 2) : 0;
-    const winner = good ? predictionFor(scoreA, scoreB) : "NONE";
+    const missingNatal = spec.id === "NATAL_VIMSHOTTARI_V1" && !good;
+    const ambiguousZero = good && [g!.scoreA, g!.scoreB, a!.scoreA, a!.scoreB].every(value => value === 0);
     const status: ExpandedMethodRow["status"] = !parity ? "INVALID_PARITY" :
-      policyConflict ? "POLICY_CONFLICT" : missingNatal ? "MISSING_INPUT" :
-      !good ? "NOT_EVALUABLE" : noTrigger ? "NO_QUALIFYING_CONDITION" : "COUNTED";
-    const reason = policyConflict
-      ? "V1 uses Gaussian weights and varying orbs up to 6 degrees. Executed for comparison, but NOT counted until it meets the universal 5 degree policy; HARMONICS_V2 remains eligible."
-      : missingNatal
-      ? "A natal Moon and verified birth time are required; an event chart cannot stand in for an unknown birth chart."
-      : !good
-      ? "One or both frames lack a finite, evaluable predictive score. No zero-valued substitute is assigned."
-      : noTrigger
-      ? "Both frames returned real raw 0/0 with no qualifying trigger; it is NOT a tie and is not counted."
-      : counted
-      ? "Both frames are evaluable; one equal-weight experimental ballot is counted. Mathematics and sports mapping remain uncertified."
-      : "Expanded parity failed: do not issue a result.";
+      missingNatal ? "MISSING_INPUT" :
+      !good ? "NOT_EVALUABLE" :
+      gate.status !== "READY_FOR_EXPERIMENT" ? gate.status :
+      ambiguousZero ? "ZERO_NET_UNRESOLVED" : "COUNTED";
+    const counted = status === "COUNTED";
+    const scoreA = good ? ((g!.scoreA! + a!.scoreA!) / 2) : null;
+    const scoreB = good ? ((g!.scoreB! + a!.scoreB!) / 2) : null;
+    const winner = good ? predictionFor(scoreA!, scoreB!) : "NONE";
+    const reason = !parity ? "Frame/method parity invalid." :
+      missingNatal ? "Natal Moon and verified birth time are required; an event chart cannot stand in for a missing birth chart." :
+      !good ? "One or both frames lack a finite, evaluable predictive score. Missing values remain null, never fabricated as zero." :
+      gate.status !== "READY_FOR_EXPERIMENT" ? gate.reasons.join(" ") :
+      ambiguousZero ? "Numeric 0/0 was returned by both frames, but no trigger ledger proves whether conditions were absent or points canceled. Audit required." :
+      "Both frames have a numeric directional comparison. One experimental equal ballot counted; underlying sports mapping remains uncertified.";
     return {
       id: spec.id, name: spec.name, family: spec.family, source: "registry" as const,
       executedGod: Boolean(g), executedAgent: Boolean(a),
@@ -141,7 +142,7 @@ export function buildExpandedMethodExperiment(
       evidence: [
         ...(g?.evidence.map(e => `God: ${e.explanation}`) ?? []),
         ...(a?.evidence.map(e => `Agent: ${e.explanation}`) ?? []),
-        "Full chart inventories are evidence context, not proof each body/house was included in this method's scoring.",
+        "Complete-chart inventory is a reference, not proof that every body/house was scored.",
       ],
     };
   });
