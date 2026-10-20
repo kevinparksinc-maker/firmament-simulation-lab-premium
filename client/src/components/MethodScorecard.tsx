@@ -128,7 +128,46 @@ export function MethodScorecard({ fields, cache, signature, selectedId, expanded
           className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filter === value ? "border-cyan-300 bg-cyan-400/15 text-cyan-100" : "border-slate-600 text-slate-300 hover:border-slate-400"}`}>{label}</button>)}
     </div>
     <p className="mt-3 text-xs text-slate-400">A = Ascendant side; B = Descendant side. Δ = A minus B. A displayed 0 is an actual score, not a placeholder. Not run, no trigger, missing input, and equal strength are different conditions.</p>
-    <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
+    <div className="mt-3 space-y-3 lg:hidden" aria-label="Mobile method scorecards">
+      {rows.map(field => {
+        const result = current(field.id), open = expandedId === field.id, busy = runningId === field.id;
+        return <article key={field.id} className={`rounded-xl border p-3 ${selectedId === field.id ? "border-cyan-300/70 bg-cyan-400/10" : "border-slate-700 bg-slate-950/70"}`}>
+          <button type="button" onClick={() => onSelect(field.id)} className="w-full text-left">
+            <h4 className="text-sm font-semibold text-white">{field.name}</h4>
+            <p className="mt-1 text-xs text-slate-400">{field.id} · {field.family}</p>
+          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-white/10 p-3">
+              <p className="mb-2 text-xs font-bold uppercase text-cyan-200">God View</p><ScoreCell frame={result?.god}/>
+            </div>
+            <div className="rounded-lg border border-white/10 p-3">
+              <p className="mb-2 text-xs font-bold uppercase text-cyan-200">Agent View</p><ScoreCell frame={result?.agent}/>
+            </div>
+            <div className="col-span-2 rounded-lg border border-violet-400/25 p-3">
+              <p className="mb-2 text-xs font-bold uppercase text-violet-200">Synthesis · this method only</p><ScoreCell frame={result?.combined}/>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onRun(field.id)} disabled={runningId !== null}
+              className="rounded-lg bg-cyan-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{busy ? "Calculating…" : result ? "Rerun method" : "Run method"}</button>
+            {result && <button type="button" aria-expanded={open} onClick={() => onExpand(field.id)}
+              className="rounded-lg border border-slate-500 px-3 py-2 text-xs text-white">{open ? "Hide breakdown" : "View breakdown"}</button>}
+          </div>
+          {result && open && <div className="mt-4 space-y-3">
+            <p className="text-xs text-amber-200">{result.frameMethodStatus.replaceAll("_"," ")} · {result.comparison.replaceAll("_"," ")} · NOT CERTIFIED</p>
+            <FrameBreakdown frame={result.god}/>
+            <FrameBreakdown frame={result.agent}/>
+            <div className="rounded-lg border border-violet-400/20 p-3">
+              <h5 className="text-sm font-semibold text-violet-200">Within-method synthesis</h5>
+              <p className="mt-2 font-mono text-xs text-white">A {formatScore(result.combined.scoreA)} · B {formatScore(result.combined.scoreB)} · Δ {formatScore(result.combined.difference)}</p>
+              <p className="mt-2 text-xs text-amber-200">{briefStatus(result.combined.result)}</p>
+              <p className="mt-2 text-xs text-slate-300">{result.combined.calculation}</p>
+            </div>
+          </div>}
+        </article>;
+      })}
+    </div>
+    <div className="mt-3 hidden overflow-x-auto rounded-lg border border-white/10 lg:block">
       <table className="w-full min-w-[990px] table-fixed border-collapse text-left text-sm">
         <colgroup><col style={{ width: "27%" }}/><col style={{ width: "18%" }}/><col style={{ width: "18%" }}/><col style={{ width: "18%" }}/><col style={{ width: "19%" }}/></colgroup>
         <thead className="sticky top-0 z-10 bg-slate-800 text-xs uppercase tracking-wide text-slate-200">
