@@ -10,4 +10,5 @@ it("emits full 2023 Iron Bowl method walkthrough and family charts",()=>{
   agent:{asc:out.agentView.ascendantLongitude,chart:out.agentView.fullChartLedger,methods:out.agentView.proof.methodWalkthrough.map((x:any)=>({n:x.number,name:x.method,formula:x.appliedRule,scoringInputs:x.scoringInputs,scoringSteps:x.scoringSteps,a:x.scoreA,b:x.scoreB,status:x.scoringProofStatus}))},
   synthesis:out.synthesisView.methods.map((x:any)=>({name:x.name,a:x.scoreA,b:x.scoreB,winner:x.winner}))
  }));
+ console.log("IRONBOWL_HOUSELORD_STEPS="+JSON.stringify({god:out.godView.proof.methodWalkthrough.slice(0,3).map((x:any)=>({name:x.method,inputs:x.scoringInputs,steps:x.scoringSteps})),agent:out.agentView.proof.methodWalkthrough.slice(0,3).map((x:any)=>({name:x.method,inputs:x.scoringInputs,steps:x.scoringSteps}))}));
 });
