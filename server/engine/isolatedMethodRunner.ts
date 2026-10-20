@@ -152,10 +152,17 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
   const independentStatus = getMethodCertificationGate(methodId);
   const incomplete = god.result === "MISSING_INPUT" || agent.result === "MISSING_INPUT";
   const status = incomplete ? "NOT_EVALUABLE" as const : independentStatus.status;
-  const ready = !incomplete && status === "READY_FOR_EXPERIMENT" &&
+  const hasNumericFrames = !incomplete &&
+    god.scoreA !== null && god.scoreB !== null &&
+    agent.scoreA !== null && agent.scoreB !== null &&
+    [god.scoreA, god.scoreB, agent.scoreA, agent.scoreB].every(Number.isFinite);
+  const ready = hasNumericFrames && status === "READY_FOR_EXPERIMENT" &&
     god.result !== "EVIDENCE_ONLY" && agent.result !== "EVIDENCE_ONLY";
-  const a = ready ? round((god.scoreA! + agent.scoreA!) / 2) : null;
-  const b = ready ? round((god.scoreB! + agent.scoreB!) / 2) : null;
+  // Preserve synthesis ARITHMETIC even when a method is doctrinally
+  // quarantined. Only its PREDICTIVE result is withheld; the actual two
+  // scored frame values must never be erased from a certification review.
+  const a = hasNumericFrames ? round((god.scoreA! + agent.scoreA!) / 2) : null;
+  const b = hasNumericFrames ? round((god.scoreB! + agent.scoreB!) / 2) : null;
   const bothNoTrigger = god.result === "NO_QUALIFYING_CONDITION" && agent.result === "NO_QUALIFYING_CONDITION";
   const eitherUnknownZero = god.result === "ZERO_NET_UNRESOLVED" || agent.result === "ZERO_NET_UNRESOLVED";
   const combinedResult: SingleMethodFrame["result"] = !ready ? (incomplete ? "MISSING_INPUT" : "EVIDENCE_ONLY")
@@ -181,7 +188,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     combined: {
       scoreA: a, scoreB: b, difference: a !== null && b !== null ? round(a - b) : null,
       result: combinedResult,
-      calculation: "Per-method cross-frame comparison: average corresponding God/Agent scores WITHOUT including any other named method. Excluded/uncertified methods retain raw per-frame evidence but cannot generate a certified combined verdict.",
+      calculation: "Per-method arithmetic: average corresponding God/Agent A and B scores WITHOUT any other method. The arithmetic is visible even if the method is quarantined; its predictive verdict is withheld until eligible.",
     },
     actualWinner, comparison,
   };
