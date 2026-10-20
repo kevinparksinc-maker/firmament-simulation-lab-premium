@@ -251,8 +251,29 @@ export function calculateRestoredTerritorial(
   });
   const decanA = decans.filter((entry) => entry.targetSide === "A").reduce((sum, entry) => sum + entry.score, 0);
   const decanB = decans.filter((entry) => entry.targetSide === "B").reduce((sum, entry) => sum + entry.score, 0);
-  const scoreA = components.baseA + components.nakA + components.dignA + components.warA + lotA + influenceA + decanA;
-  const scoreB = components.baseB + components.nakB + components.dignB + components.warB + lotB + influenceB + decanB;
+  // Research-only same-mansion clustering: use every planetary body and all
+  // 28 manzil sectors. This does not attribute invented classical sports powers
+  // to a station; it measures same-side co-location inside the 5° aspect limit.
+  let mansionA = 0, mansionB = 0;
+  const mansionPairs: string[] = [];
+  for (let i = 0; i < planets.length; i++) for (let j = i + 1; j < planets.length; j++) {
+    const left = planets[i]!, right = planets[j]!;
+    if (left.manzil?.index == null || right.manzil?.index == null || left.manzil.index !== right.manzil.index) continue;
+    const leftSide = sideForHouse(left.house), rightSide = sideForHouse(right.house);
+    const difference = Math.abs(normalize(left.tropicalLongitude) - normalize(right.tropicalLongitude));
+    const separation = Math.min(difference, 360 - difference);
+    if (separation > 5) continue;
+    const strength = round(Math.max(0, 1 - separation / 5));
+    if (leftSide === rightSide && leftSide !== "neutral") {
+      if (leftSide === "A") mansionA += strength;
+      else mansionB += strength;
+      mansionPairs.push(`${left.planet}/${right.planet} ${left.manzil.name} H${left.house}/H${right.house}: ${strength} to ${leftSide}`);
+    } else {
+      mansionPairs.push(`${left.planet}/${right.planet} ${left.manzil.name}: cross-side resonance, no automatic winning side`);
+    }
+  }
+  const scoreA = components.baseA + components.nakA + components.dignA + components.warA + lotA + mansionA + influenceA + decanA;
+  const scoreB = components.baseB + components.nakB + components.dignB + components.warB + lotB + mansionB + influenceB + decanB;
   const layers = [
     { name: "Cluster territory & house-lord placement", scoreA: round(components.baseA), scoreB: round(components.baseB), detail: "Own-cluster support and opponent-cluster displacement, including angular displacement penalties.", calculation: { formula: "Σ house-lord base points by ruled side", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord} placed H${entry.placementHouse}: base ${entry.base}`), steps: houseLords.map((entry) => `H${entry.house} (${entry.side}) → ${entry.base >= 0 ? "+" : ""}${entry.base} base`) } },
     { name: "Nakshatra influence", scoreA: round(components.nakA), scoreB: round(components.nakB), detail: "27-profile stellar influence using traits, Gana, Yoni, and dignity-linked lord synergy.", calculation: { formula: "round((((average trait weight + Gana bonus) × Yoni multiplier × (1 + dignity × 0.05)) − 1) × 5)", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord}: ${entry.nakshatra.name}, dignity ${entry.dignity.score}, contribution ${entry.nakshatra.score}`), steps: houseLords.map((entry) => `H${entry.house} → ${entry.nakshatra.name}: ${entry.nakshatra.score >= 0 ? "+" : ""}${entry.nakshatra.score} to ${entry.side}`) } },
@@ -260,7 +281,7 @@ export function calculateRestoredTerritorial(
     { name: "Chaldean Decans", scoreA: round(decanA), scoreB: round(decanB), detail: "0°/10°/20° faces across all 12 signs: +1 own-face dignity and ±0.5 from the decan ruler’s cluster allegiance.", calculation: { formula: "Σ (face dignity + ruler allegiance)", inputs: decans.map((entry) => `${entry.planet} ${entry.sign} ${entry.degreeInSign.toFixed(2)}° → decan ${entry.decan}, ruler ${entry.ruler} H${entry.rulerHouse}: ${entry.score}`), steps: decans.map((entry) => `${entry.planet}: face ${entry.faceDignity >= 0 ? "+" : ""}${entry.faceDignity} + allegiance ${entry.allegiance} = ${entry.score} to ${entry.targetSide}`) } },
     { name: "Planetary war", scoreA: round(components.warA), scoreB: round(components.warB), detail: "Conjunctions within 3° award +1 to the priority winner and −1 to the loser.", calculation: { formula: "Σ (+1 winner, −1 loser) for conjunctions within 3°", inputs: wars.map((war) => `${war.winner} over ${war.loser}: ${war.degreeDifference.toFixed(2)}°`), steps: wars.map((war) => `${war.winner}: +1; ${war.loser}: −1`) } },
     { name: "Arabic Lots", scoreA: round(lotA), scoreB: round(lotB), detail: `${arabicLots.length} source-tagged lots are calculated once per chart and scored by house side.`, calculation: { formula: "Σ lot score by house side; angular houses ×2; Nemesis is negative", inputs: arabicLots.map((lot) => `${lot.name}: ${lot.formulaDay} | night: ${lot.formulaNight}; ${lot.longitude.toFixed(2)}° ${lot.sign}, H${lot.house}, ${lot.side}, score ${lot.score}; source ${lot.source}, ${lot.work}`), steps: arabicLots.map((lot) => `${lot.name} → ${lot.side}: ${lot.score >= 0 ? "+" : ""}${lot.score}; ${lot.reversal}`) } },
-    { name: "Arabic mansion context", scoreA: 0, scoreB: 0, detail: "The 28 Arabic lunar mansions are recorded as positional evidence but do not currently create a side-specific score; no historical sports weighting rule is enabled.", calculation: { formula: "For each planet: manzil = floor(normalized longitude ÷ (360/28)); contribution = 0 / 0 until a documented side-specific weighting is selected.", inputs: planets.map((planet) => `${planet.planet}: ${planet.manzil?.name ?? "unavailable"}, H${planet.house}, ${sideForHouse(planet.house)}`), steps: ["Arabic mansion identifies the 28-part lunar sector.", "It is not labeled hit or miss by itself.", "Contribution remains A 0.00 vs B 0.00 to prevent invented weighting."] } },
+    { name: "Arabic mansion context", scoreA: round(mansionA), scoreB: round(mansionB), detail: mansionPairs.length ? mansionPairs.join("; ") : "No pair shares a manzil within the 5° orb. Each body still has its own mansion placement.", calculation: { formula: "Exploratory: all 28 Arabic manzil sectors, all bodies; for same-mansion pairs within 5°, same-side 1 − orb/5; cross-side context only.", inputs: planets.map((planet) => `${planet.planet}: ${planet.manzil?.name ?? "unavailable"}, H${planet.house}, ${sideForHouse(planet.house)}`), steps: mansionPairs.length ? mansionPairs : ["No qualifying co-mansion pair inside 5° orb; legitimate 0/0."] } },
     { name: "Nine-planet influence", scoreA: round(influenceA), scoreB: round(influenceB), detail: "All nine planetary placements across the fixed cluster territories; Sun and Moon carry the established 1.4 signal.", calculation: { formula: "Σ planet weight by house side; Sun/Moon = 1.4, all others = 1.0", inputs: ninePlanetInfluence.map((planet) => `${planet.planet} H${planet.house}: ${planet.side}, weight ${planet.score}`), steps: ninePlanetInfluence.map((planet) => `${planet.planet} → ${planet.side}: ${planet.score >= 0 ? "+" : ""}${planet.score}`) } },
   ];
   return { scoreA: round(scoreA), scoreB: round(scoreB), evidence: { layers, houseLords, planetaryWars: wars, arabicLots, ninePlanetInfluence, decans } };
