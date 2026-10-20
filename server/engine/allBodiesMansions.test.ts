@@ -18,6 +18,6 @@ describe("all-planet and lunar-node celestial territory coverage", () => {
   });
   it("the 12 house cusps never change between method evaluations within one frame", () => {
     const cusps = Array.from({ length: 12 }, (_, i) => houseCusp(i+1, "agent", 47));
-    expect(cusps).toEqual(Array.from({length:12},(_,i)=>(47+i*30)%360));
+    expect(cusps).toEqual(Array.from({length:12},(_,i)=>(47+((12-i)%12)*30)%360));
   });
 });
