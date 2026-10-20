@@ -19,9 +19,9 @@ describe("simulation adapter", () => {
 
     expect(result.engine.source).toBe("firmament-engine");
     expect(result.engine.hamalAnchor).toContain("13° Aries");
-    expect(result.chart.godView.planets).toHaveLength(9);
+    expect(result.chart.godView.planets).toHaveLength(12);
     expect(result.chart.godView.houses).toHaveLength(12);
-    expect(result.chart.agentView.planets).toHaveLength(9);
+    expect(result.chart.agentView.planets).toHaveLength(12);
     expect(result.godView.name).toBe("God View");
     expect(result.agentView.name).toBe("Agent’s View");
     expect(result.godView.allLayers.length).toBeGreaterThan(0);
