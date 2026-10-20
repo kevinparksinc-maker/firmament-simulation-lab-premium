@@ -241,7 +241,10 @@ export function calculateRestoredTerritorial(
   const influenceB = ninePlanetInfluence.filter((planet) => planet.side === "B").reduce((sum, planet) => sum + planet.score, 0);
   const decans = planets.map((planet) => {
     const targetSide = sideForHouse(planet.house);
-    const degreeInSign = planet.degreeInSign ?? planet.degreeInHouse;
+    // Sign-relative degree is not equal-house degree: compute it from the zodiacal longitude.
+    if (!Number.isFinite(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: missing finite zodiac longitude`);
+    const degreeInSign = normalize(planet.tropicalLongitude) % 30;
+    if (planet.sign !== signForLongitude(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
     const decan = getChaldeanDecan(planet.sign, degreeInSign);
     const rulerPlacement = planetsByName.get(decan.ruler);
     if (!rulerPlacement) throw new Error(`Decan ${planet.planet}: missing ruler ${decan.ruler}`);

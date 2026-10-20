@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {runSimulationBatch} from "./simulationAdapter";
 import {calculateRestoredTerritorial,type TerritorialPlanet} from "./territorialStack";
-const planets=(names:string[]):TerritorialPlanet[]=>names.map((name,i)=>({planet:name,tropicalLongitude:i*23,house:i%12+1,sign:["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"][i%12]!,degreeInHouse:3,degreeInSign:3,altitude:2,isRetrograde:false,nakshatra:"Ashwini"}));
+const planets=(names:string[]):TerritorialPlanet[]=>names.map((name,i)=>({planet:name,tropicalLongitude:i*23,house:i%12+1,sign:["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"][Math.floor((i*23)/30)]!,degreeInHouse:3,degreeInSign:3,altitude:2,isRetrograde:false,nakshatra:"Ashwini"}));
 const all=["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn"];
 const run=(p:TerritorialPlanet[])=>calculateRestoredTerritorial(p,0,x=>Math.floor((((x%360)+360)%360)/30)+1,"god");
 describe("Territorial fail-closed guards",()=>{
