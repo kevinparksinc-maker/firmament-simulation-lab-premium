@@ -5,7 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { runSimulationBatch, runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
 import { executeSimulationRun } from "./batchRunner";
 import { executeSingleMethodRun } from "./singleMethodBatchRunner";
-import { selectIndependentGameCount, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./engine/batchSelection";
+import { selectIndependentGameCount, historicalFixtureIdentity, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./engine/batchSelection";
 import { runSingleMethodEvent, INDEPENDENT_METHOD_FIELDS } from "./engine/isolatedMethodRunner";
 import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, getSimulationResultPage, getSimulationResultDetail, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
 import { parseSimulationCsv } from "./simulationData";
@@ -179,7 +179,7 @@ export const appRouter = router({
       if (events.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No valid events found in this dataset." });
       const count = input.methodId ? input.gameCount! : events.length;
       if (input.methodId) {
-        try { selectIndependentGameCount(events, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number]); }
+        try { selectIndependentGameCount(events, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number], row => historicalFixtureIdentity(row.input)); }
         catch (error) {
           throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Insufficient dataset games." });
         }
