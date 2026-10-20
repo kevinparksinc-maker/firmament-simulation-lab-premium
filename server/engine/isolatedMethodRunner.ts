@@ -74,7 +74,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
   const spec = INDEPENDENT_METHOD_FIELDS.find(m => m.id === methodId);
   if (!spec) throw new RangeError(`Unknown individual method ${methodId}`);
   const { gameInput: game, startTime: date, favoredTeam: teamA,
-    underdogTeam: teamB, roleAssignmentSource } = resolveEventContract(input);
+    underdogTeam: teamB, roleAssignmentSource, provenanceWarning } = resolveEventContract(input);
   if (input.agentViewRotation === "whole-chart") {
     throw new RangeError("Standalone mode cannot silently rotate planetary longitudes. Opposition shadow calculations require separate certification.");
   }
@@ -174,7 +174,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     methodId, methodName: spec.name, methodFamily: spec.family,
     frameMethodStatus: status,
     certification: "NOT_CERTIFIED",
-    methodologyNotes: independentStatus.reasons,
+    methodologyNotes: provenanceWarning ? [...independentStatus.reasons, provenanceWarning] : independentStatus.reasons,
     event: { teamA, teamB, startTime: date.toISOString(), sport: input.sport,
       oddsSource: input.oddsSource ?? null, roleAssignmentSource },
     god, agent,
