@@ -224,6 +224,31 @@ function frameReport(
   const allLayers = [...foundation, ...added];
   const ascendantHouses = [1, 2, 3, 6, 10, 11];
   const descendantHouses = [4, 5, 7, 8, 9, 12];
+  // Explain each score without disguising a full-chart evidence appendix as scoring.
+  const methodWalkthrough = allLayers.map((layer, index) => {
+    const calculation = layer.calculation;
+    const scoringSteps = (calculation?.steps ?? []).filter(line => !line.startsWith("FAMILY EVIDENCE (not additional score):") && !line.startsWith("Collective coverage:"));
+    const familyInputs = (calculation?.inputs ?? []).filter(line => line.startsWith("FAMILY EVIDENCE (not additional score):"));
+    const scoringInputs = (calculation?.inputs ?? []).filter(line => !line.startsWith("FAMILY EVIDENCE (not additional score):"));
+    const scoreA = layer.scoreA, scoreB = layer.scoreB;
+    const familyDifference = Number((scoreA - scoreB).toFixed(3));
+    return {
+      number: index + 1,
+      method: layer.name,
+      housesA: ascendantHouses,
+      housesB: descendantHouses,
+      appliedRule: calculation?.formula ?? "UNDOCUMENTED: method lacks a formal formula",
+      scoringInputs,
+      scoringSteps,
+      familyEvidence: familyInputs,
+      scoreA,
+      scoreB,
+      differenceAminusB: familyDifference,
+      selectedSide: layer.winner,
+      scoringProofStatus: !calculation?.formula || scoringSteps.length === 0 ? "INCOMPLETE_TRACE" : "FORMULA_AND_STEPS_RECORDED_NOT_INDEPENDENTLY_RECONCILED",
+      arithmetic: `A ${scoreA.toFixed(3)} minus B ${scoreB.toFixed(3)} equals ${familyDifference.toFixed(3)}; method judgment ${layer.winner}`,
+    };
+  });
   const decisionTrace = [
     `Role assignment: Side A = Ascendant territory in H${ascendantHouses.join(", H")}; Side B = Descendant territory in H${descendantHouses.join(", H")}.`,
     `Frame rule: ${frame.houseRule}; coordinate frame: ${frame.coordinateFrame}; ascendant model: ${frame.ascendantModel}.`,
@@ -254,6 +279,7 @@ function frameReport(
         descendantHouses,
       },
       scoreFormula: frame.synthesis.formula,
+      methodWalkthrough,
       decisionTrace,
     },
     summary: {
