@@ -238,3 +238,64 @@ export async function listSimulationDatasets() {
   }
   return db.select().from(simulationDatasets).orderBy(simulationDatasets.createdAt);
 }
+
+/**
+ * Paginate persisted per-event proofs so a 10,000-game experiment doesn't
+ * materialize 10,000 full chart ledgers in one browser response.
+ */
+export async function getSimulationResultPage(runId: number, offset: number, pageSize = 25) {
+  if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new RangeError("Invalid run result page.");
+  }
+  const db = await getDb();
+  const rows = db
+    ? await db.select().from(simulationResults).where(eq(simulationResults.runId, runId)).orderBy(simulationResults.id).limit(pageSize).offset(offset)
+    : (inMemoryResults.get(runId) ?? []).slice(offset, offset + pageSize);
+  return rows.map(row => {
+    let parsed: {
+      methodId?: string;
+      event?: { teamA?: string; teamB?: string; startTime?: string };
+      actualWinner?: string | null;
+      god?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      agent?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      combined?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      comparison?: string;
+      frameMethodStatus?: string;
+    } | null = null;
+    try { parsed = row.outputJson ? JSON.parse(row.outputJson) : null; }
+    catch { parsed = null; }
+    return {
+      id: row.id,
+      eventId: row.eventId,
+      status: row.status,
+      errorMessage: row.errorMessage,
+      fixture: parsed?.event ? {
+        teamA: parsed.event.teamA ?? "Unknown",
+        teamB: parsed.event.teamB ?? "Unknown",
+        startTime: parsed.event.startTime ?? "",
+      } : null,
+      methodId: parsed?.methodId ?? null,
+      god: parsed?.god ? { scoreA: parsed.god.scoreA ?? null, scoreB: parsed.god.scoreB ?? null, result: parsed.god.result ?? null } : null,
+      agent: parsed?.agent ? { scoreA: parsed.agent.scoreA ?? null, scoreB: parsed.agent.scoreB ?? null, result: parsed.agent.result ?? null } : null,
+      combined: parsed?.combined ? { scoreA: parsed.combined.scoreA ?? null, scoreB: parsed.combined.scoreB ?? null, result: parsed.combined.result ?? null } : null,
+      comparison: parsed?.comparison ?? null,
+      actualWinner: parsed?.actualWinner ?? null,
+      frameMethodStatus: parsed?.frameMethodStatus ?? null,
+    };
+  });
+}
+
+export async function getSimulationResultDetail(runId: number, resultId: number) {
+  const db = await getDb();
+  const matching = db
+    ? await db.select().from(simulationResults).where(eq(simulationResults.id, resultId)).limit(1)
+    : (inMemoryResults.get(runId) ?? []).filter(result => result.id === resultId);
+  const row = matching[0];
+  if (!row || row.runId !== runId) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    errorMessage: row.errorMessage,
+    output: row.outputJson ? JSON.parse(row.outputJson) as unknown : null,
+  };
+}
