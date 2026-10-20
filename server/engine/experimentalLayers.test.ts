@@ -21,7 +21,7 @@ describe("experimental evidence layers", () => {
     const prediction = generateFixedJ2000KPPrediction(input);
     const result = calculateHarmonic(prediction.planets, { harmonic: 5, maxOrbDeg: 6, falloff: "gaussian", enabled: true });
     expect(result.harmonic).toBe(5);
-    expect(result.pairs).toHaveLength(36);
+    expect(result.pairs).toHaveLength(66);
     expect(result.pairs.every((pair) => pair.residual >= 0 && pair.residual <= 36)).toBe(true);
   });
 
@@ -34,7 +34,7 @@ describe("experimental evidence layers", () => {
     expect(result.harmonics.verdict.layer).toBe("harmonics");
     expect(result.harmonics.spectrum.map((row) => row.harmonic)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(result.varga.verdict.layer).toBe("varga");
-    expect(result.varga.placements).toHaveLength(45);
+    expect(result.varga.placements).toHaveLength(60);
     expect(result.ashtakavarga.verdict.layer).toBe("ashtakavarga");
     expect(result.ashtakavarga.rows).toHaveLength(7);
     expect(result.dasha.verdict.layer).toBe("dasha");
