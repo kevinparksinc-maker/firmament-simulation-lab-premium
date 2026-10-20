@@ -38,6 +38,7 @@ import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
 import { ExpandedMethodPanel, type ExpandedMethodExperimentDisplay } from "@/components/ExpandedMethodPanel";
+import { IndependentMethodWorkbench } from "@/components/IndependentMethodWorkbench";
 
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
@@ -525,6 +526,7 @@ export default function Home() {
         <a href="#live-scoreboard"><CircleDot size={17} />Live scoreboard</a>
         <a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a>
         <a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a>
+        <a href="#independent-methods"><Beaker size={17} />31 individual method fields</a>
         <a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a>
         <a href="#chart-telemetry"><Compass size={17} />Diamond chart wheel</a>
         <a href="#audit-ledger"><Activity size={17} />Decision ledger</a>
@@ -586,6 +588,8 @@ export default function Home() {
           activeSimulationTeamB={simulation?.input.teamB}
         />
       </div>
+
+      <IndependentMethodWorkbench />
 
       {/* SPORTSBOOK GAME CALL BANNER - Clear, unambiguous prediction outcome */}
       {simulation && (
