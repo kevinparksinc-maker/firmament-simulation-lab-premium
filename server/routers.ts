@@ -5,6 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { runSimulationBatch, runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
 import { executeSimulationRun } from "./batchRunner";
 import { executeSingleMethodRun } from "./singleMethodBatchRunner";
+import { selectIndependentGameCount, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./engine/batchSelection";
 import { runSingleMethodEvent, INDEPENDENT_METHOD_FIELDS } from "./engine/isolatedMethodRunner";
 import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
 import { parseSimulationCsv } from "./simulationData";
@@ -144,21 +145,32 @@ export const appRouter = router({
     start: publicProcedure.input(z.object({
       datasetId: z.number().int().positive(),
       methodId: z.string().optional(),
+      gameCount: z.union([z.literal(1), z.literal(200), z.literal(10000)]).optional(),
     })).mutation(async ({ input }) => {
       if (input.methodId && !INDEPENDENT_METHOD_FIELDS.some(m => m.id === input.methodId)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown individual method field." });
       }
+      if (input.gameCount !== undefined && !input.methodId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "1/200/10000 game selection requires an individual method." });
+      }
       const events = await getSimulationEvents(input.datasetId);
       if (events.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No valid events found in this dataset." });
-      const runId = await createSimulationRun(input.datasetId, events.length);
+      const count = input.methodId ? (input.gameCount ?? 10000) : events.length;
+      if (input.methodId) {
+        try { selectIndependentGameCount(events, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number]); }
+        catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Insufficient dataset games." });
+        }
+      }
+      const runId = await createSimulationRun(input.datasetId, count);
       if (!runId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Database is not available for run persistence." });
-      await updateSimulationRun(runId, { summaryJson: JSON.stringify({ mode: input.methodId ? "INDIVIDUAL_METHOD_ONLY" : "LEGACY_ALL_METHODS", methodId: input.methodId ?? null }) });
+      await updateSimulationRun(runId, { summaryJson: JSON.stringify({ mode: input.methodId ? "INDIVIDUAL_METHOD_ONLY" : "LEGACY_ALL_METHODS", methodId: input.methodId ?? null, requestedGameCount: count }) });
       void (input.methodId
-        ? executeSingleMethodRun(runId, input.datasetId, input.methodId)
+        ? executeSingleMethodRun(runId, input.datasetId, input.methodId, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number])
         : executeSimulationRun(runId, input.datasetId)).catch(async (error) => {
         await updateSimulationRun(runId, { status: "failed", finishedAt: new Date(), summaryJson: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown batch error" }) });
       });
-      return { runId, status: "running" as const, totalEvents: events.length, methodId: input.methodId ?? null };
+      return { runId, status: "running" as const, totalEvents: count, methodId: input.methodId ?? null };
     }),
     get: publicProcedure.input(z.object({ runId: z.number().int().positive() })).query(async ({ input }) => {
       const run = await getSimulationRun(input.runId);
