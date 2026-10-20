@@ -17,8 +17,30 @@ describe("simulation CSV validation", () => {
   it("accepts college football research fixtures without inventing outcomes", () => {
     const parsed = parseSimulationCsv(["favoredTeam,underdogTeam,sport,location,startTime", "Ohio State,Indiana,NCAAF,Bloomington IN,2026-10-17T16:00:00Z"].join("\n"));
     expect(parsed.invalid).toHaveLength(0);
-    expect(parsed.valid[0]).toMatchObject({ sport: "NCAAF", teamA: "Ohio State", teamB: "Indiana", roleAssignmentSource: "market-odds" });
+    expect(parsed.valid[0]).toMatchObject({ sport: "NCAAF", teamA: "Ohio State", teamB: "Indiana", roleAssignmentSource: "manual" });
     expect(parsed.valid[0]?.actualWinner).toBeUndefined();
+  });
+
+  it("labels bookmaker favorites as market-odds only with explicit source provenance", () => {
+    const parsed = parseSimulationCsv([
+      "favoredTeam,underdogTeam,sport,location,startTime,oddsSource,roleAssignmentSource,actualWinner",
+      "Yankees,Red Sox,MLB,Boston,2024-04-01T19:10:00Z,Archived Bookmaker Line,market-odds,A",
+    ].join("\n"));
+    expect(parsed.invalid).toHaveLength(0);
+    expect(parsed.valid[0]).toMatchObject({
+      teamA: "Yankees", teamB: "Red Sox",
+      favoredTeam: "Yankees", underdogTeam: "Red Sox",
+      roleAssignmentSource: "market-odds", oddsSource: "Archived Bookmaker Line", actualWinner: "A",
+    });
+  });
+
+  it("rejects claims of market-odds without an odds source", () => {
+    const parsed = parseSimulationCsv([
+      "favoredTeam,underdogTeam,sport,location,startTime,roleAssignmentSource",
+      "Yankees,Red Sox,MLB,Boston,2024-04-01T19:10:00Z,market-odds",
+    ].join("\n"));
+    expect(parsed.valid).toHaveLength(0);
+    expect(parsed.invalid[0]?.error).toContain("oddsSource");
   });
 
   it("keeps invalid rows and their source row numbers instead of inventing data", () => {
