@@ -55,6 +55,10 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
   const location = value(row, "location", "venue", "city");
   const startTime = value(row, "startTime", "start_time", "dateTime", "date_time", "datetime", "date");
   const actualRaw = value(row, "actualWinner", "actual_winner", "winner")?.toUpperCase();
+  const oddsSource = value(row, "oddsSource", "odds_source", "sportsbook_source");
+  const declaredRole = value(row, "roleAssignmentSource", "role_assignment_source");
+  if (declaredRole && !["market-odds", "expert-consensus", "manual", "legacy-side-order"].includes(declaredRole)) throw new Error("Invalid roleAssignmentSource");
+  if (declaredRole === "market-odds" && (!favoredTeam || !underdogTeam || !oddsSource)) throw new Error("market-odds requires favorite, underdog and oddsSource");
   if (!teamA || !teamB || !location || !startTime) throw new Error("favoredTeam, underdogTeam, location, and startTime are required");
   if (!sportRaw || !["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "BOXING"].includes(sportRaw)) throw new Error("sport must be MLB, NBA, NFL, NHL, MLS, NCAAF, NCAAB, or boxing");
   const date = new Date(startTime);
@@ -68,7 +72,8 @@ function normalizeRow(row: Record<string, string>, rowNumber: number): Simulatio
     ...(underdogTeam ? { underdogTeam } : {}),
     ...(homeTeam ? { homeTeam } : {}),
     ...(awayTeam ? { awayTeam } : {}),
-    roleAssignmentSource: favoredTeam && underdogTeam ? "market-odds" : "legacy-side-order",
+    roleAssignmentSource: declaredRole as SimulationEventInput["roleAssignmentSource"] ?? (favoredTeam && underdogTeam ? (oddsSource ? "market-odds" : "manual") : "legacy-side-order"),
+    ...(oddsSource ? { oddsSource } : {}),
     sport: sportRaw === "BOXING" ? "boxing" : sportRaw as SimulationEventInput["sport"],
     location,
     latitude: parseNumber(value(row, "latitude", "lat"), "latitude", -90, 90),
