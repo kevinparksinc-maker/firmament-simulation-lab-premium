@@ -626,8 +626,9 @@ export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: D
 /** East = H1 / Aries; 30° sectors proceed counter-clockwise through the fixed dome. */
 export function fixedDomeHouseFromAzimuth(azimuth: number) {
   const delta = normalize(90 - azimuth);
-  const house = Math.floor(delta / 30) + 1;
-  return { house, degreeInHouse: delta % 30, sign: SIGNS[house - 1] };
+  const sector = Math.floor(delta / 30);
+  const house = sector === 0 ? 1 : 13 - sector;
+  return { house, degreeInHouse: delta % 30, sign: SIGNS[sector] };
 }
 
 /**
@@ -638,8 +639,9 @@ export function fixedDomeHouseFromAzimuth(azimuth: number) {
 export function fixedFirmamentHouseFromRA(firmamentRA: number) {
   // Compatibility name retained; the fixed dome maps raw longitude directly.
   const normalizedLongitude = normalize(firmamentRA);
-  const house = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees) + 1;
-  return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[house - 1] };
+  const sector = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees);
+  const house = sector === 0 ? 1 : 13 - sector;
+  return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[sector] };
 }
 
 /**
@@ -649,7 +651,7 @@ export function fixedFirmamentHouseFromRA(firmamentRA: number) {
  */
 export function fixedEclipticHouseFromLongitude(longitude: number) {
   const { house, degreeInHouse } = locateInHouse(longitude, "god", 0);
-  return { house, degreeInHouse, sign: SIGNS[house - 1] };
+  return { house, degreeInHouse, sign: signForLongitude(longitude) };
 }
 
 export type EqualHouseZonePlacement = {
