@@ -31,17 +31,18 @@ export function houseAnchor(frame: FirmamentFrame, ascendantLongitude: number): 
 
 export function houseCusp(house: number, frame: FirmamentFrame, ascendantLongitude: number): number {
   if (!Number.isInteger(house) || house < 1 || house > 12) throw new RangeError("House must be 1 through 12");
-  return normalizeLongitude(houseAnchor(frame, ascendantLongitude) + (house - 1) * 30);
+  return normalizeLongitude(houseAnchor(frame, ascendantLongitude) + ((13 - house) % 12) * 30);
 }
 
 export function locateInHouse(longitude: number, frame: FirmamentFrame, ascendantLongitude: number): HousePosition {
   const relative = normalizeLongitude(longitude - houseAnchor(frame, ascendantLongitude));
-  const house = Math.floor(relative / 30) + 1;
+  const segment = Math.floor(relative / 30);
+  const house = segment === 0 ? 1 : 13 - segment;
   return {
     house,
     startLongitude: houseCusp(house, frame, ascendantLongitude),
-    endLongitude: houseCusp(house === 12 ? 1 : house + 1, frame, ascendantLongitude),
-    degreeInHouse: relative - (house - 1) * 30,
+    endLongitude: houseCusp(house === 1 ? 12 : house - 1, frame, ascendantLongitude),
+    degreeInHouse: relative % 30,
   };
 }
 
@@ -66,7 +67,7 @@ export function arcHouseOverlaps(arc: LongitudeArc, frame: FirmamentFrame, ascen
       const right = Math.min(end, upper);
       if (right > left) {
         overlaps.push({
-          house: h + 1,
+          house: h === 0 ? 1 : 13 - h,
           startLongitude: normalizeLongitude(houseAnchor(frame, ascendantLongitude) + left),
           endLongitude: normalizeLongitude(houseAnchor(frame, ascendantLongitude) + right),
           degrees: right - left,

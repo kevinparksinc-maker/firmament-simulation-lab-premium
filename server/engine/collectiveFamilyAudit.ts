@@ -19,7 +19,7 @@ export function buildFamilyAudit(planets:ChartBody[],ascendantLongitude:number,m
   if(!p.nakshatra||!p.manzil?.name)throw new Error("Missing lunar mansion evidence for "+p.planet);
  }
  const lord=(house:number)=>{
-  const longitude=normalize((mode==="god"?0:ascendantLongitude)+(house-1)*30);
+  const longitude=normalize((mode==="god"?0:ascendantLongitude)+((13-house)%12)*30);
   return RULERS[Math.floor(longitude/30)]!;
  };
  const side=(key:"A"|"B")=>{
