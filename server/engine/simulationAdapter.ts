@@ -331,7 +331,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
   if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
   const favoredTeam = input.favoredTeam ?? input.teamA;
   const underdogTeam = input.underdogTeam ?? input.teamB;
-  const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? "manual" : "legacy-side-order");
+  const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? (input.oddsSource ? "market-odds" : "manual") : "legacy-side-order");
   const gameInput: GameInput = {
     teamA: favoredTeam,
     teamB: underdogTeam,
