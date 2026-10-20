@@ -307,6 +307,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
                     ["NFL", "NFL Football"],
                     ["NBA", "NBA Basketball"],
                     ["MLB", "MLB Baseball"],
+                    ["TENNIS", "🎾 ATP / WTA Tennis"],
                     ["boxing", "Combat / Boxing"],
                   ] as const
                 ).map(([code, name]) => (
