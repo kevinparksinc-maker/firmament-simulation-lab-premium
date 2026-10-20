@@ -1,5 +1,5 @@
 export type SynthesisSide = "A" | "B" | "TIE";
-export type FrameMethod = { name: string; scoreA: number; scoreB: number; winner: SynthesisSide };
+export type FrameMethod = { name: string; scoreA: number; scoreB: number; winner?: SynthesisSide };
 export type SynthesizedMethod = { name: string; scoreA: number; scoreB: number; winner: SynthesisSide; godScoreA:number; godScoreB:number; agentScoreA:number; agentScoreB:number; formula:string };
 export type SynthesisPrediction = { version: "CROSS_FRAME_SYNTHESIS_V1"; scoreA:number; scoreB:number; margin:number; winner:SynthesisSide; methods:SynthesizedMethod[]; formula:string; valid:boolean; reason:string };
 const round=(x:number)=>Math.round(x*100)/100;
