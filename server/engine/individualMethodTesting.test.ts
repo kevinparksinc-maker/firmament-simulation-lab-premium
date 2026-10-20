@@ -102,7 +102,10 @@ describe("31 independent method fields with no fabricated neutral outputs", () =
     const result = runSingleMethodEvent(fixture, "HARMONICS_V1");
     expect(result.frameMethodStatus).toBe("POLICY_CONFLICT");
     expect(result.god.scoreA).not.toBeNull();
-    expect(result.combined.scoreA).toBeNull();
+    expect(result.combined.scoreA).not.toBeNull();
+    expect(result.combined.scoreB).not.toBeNull();
+    expect(result.combined.result).toBe("EVIDENCE_ONLY");
+    expect(result.comparison).toBe("NOT_EVALUABLE");
   });
 
   it("collects 10000 rows of ONE selected method without mixing methods", () => {
