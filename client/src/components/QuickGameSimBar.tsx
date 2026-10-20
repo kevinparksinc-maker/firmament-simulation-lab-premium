@@ -27,7 +27,7 @@ export type QuickGameInput = {
   teamB: string;
   favoredTeam: string;
   underdogTeam: string;
-  sport: "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "boxing";
+  sport: "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "TENNIS" | "boxing";
   location: string;
   latitude?: number;
   longitude?: number;
