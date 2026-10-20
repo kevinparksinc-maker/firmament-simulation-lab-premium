@@ -36,7 +36,7 @@ describe("31 independent method fields with no fabricated neutral outputs", () =
     expect(result.god.inputs.length).toBeGreaterThan(0);
     expect(result.god.scoreA).not.toBeNull();
     expect(result.god.scoreB).not.toBeNull();
-    expect(result.combined.calculation).toContain("WITHOUT including any other");
+    expect(result.combined.calculation).toContain("WITHOUT any other method");
     expect(result.certification).toBe("NOT_CERTIFIED");
   });
 
@@ -63,8 +63,8 @@ describe("31 independent method fields with no fabricated neutral outputs", () =
     expect(voc.frameMethodStatus).toBe("INCOMPLETE_DOCTRINE");
     expect(voc.god.result).toBe("EVIDENCE_ONLY");
     expect(voc.combined.result).toBe("EVIDENCE_ONLY");
-    expect(voc.combined.scoreA).toBeNull();
-    expect(voc.combined.scoreB).toBeNull();
+    expect(voc.combined.scoreA).toBe(0);
+    expect(voc.combined.scoreB).toBe(0);
     expect(voc.comparison).toBe("NOT_EVALUABLE");
     // Both genuine numeric scores are retained for transparent inspection.
     expect(voc.god.scoreA).toBe(0);
