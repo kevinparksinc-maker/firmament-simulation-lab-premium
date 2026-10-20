@@ -50,7 +50,7 @@ export type SingleMethodEventResult = {
 };
 
 const round = (x: number) => Number(x.toFixed(5));
-const scoreOutcome = (
+export const classifyRawMethodScores = (
   a: number | null,
   b: number | null,
   kind: "ordinary" | "shared" = "ordinary",
@@ -114,7 +114,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
       return {
         frame: frame === "god" ? "God View" : "Agent View",
         scoreA, scoreB,
-        result: scoreOutcome(scoreA, scoreB, l.ruleClass === "SHARED" ? "shared" : "ordinary",
+        result: classifyRawMethodScores(scoreA, scoreB, l.ruleClass === "SHARED" ? "shared" : "ordinary",
           isolated.qualifyingScoreContributions ??
             ((l.detail.startsWith("No ") || l.detail.startsWith("No scoring ")) ? 0 : null)),
         difference: scoreA !== null && scoreB !== null ? round(scoreA - scoreB) : null,
