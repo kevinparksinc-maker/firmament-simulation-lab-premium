@@ -204,7 +204,9 @@ export function calculateIndividualTerritorialLayer(
   const inputs: string[] = [];
   const steps: string[] = [];
   let scoreA = 0, scoreB = 0;
+  let qualifyingScoreContributions = 0;
   function credit(side: TerritorialSide, score: number, why: string) {
+    if (side !== "neutral" && score !== 0) qualifyingScoreContributions++;
     if (side === "A") scoreA += score;
     if (side === "B") scoreB += score;
     steps.push(`${why}: ${side} ${score < 0 ? "" : "+"}${score}`);
@@ -304,6 +306,7 @@ export function calculateIndividualTerritorialLayer(
   return {
     name: names[methodIndex]!, scoreA: round(scoreA), scoreB: round(scoreB),
     detail: `Independently ran ${names[methodIndex]}; scoring trace includes only that method.`,
+    qualifyingScoreContributions,
     calculation: { formula: formulas[methodIndex]!, inputs, steps: steps.length ? steps : ["No qualifying triggers; scores are actual zero, not an equal-strength verdict."] },
   };
 }
