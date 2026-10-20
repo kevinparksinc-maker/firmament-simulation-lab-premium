@@ -26,7 +26,7 @@ export function compareFrameMethods(
 ): MethodComparison[] {
   const agentByName = new Map(agent.map(method => [method.name, method]));
   const godByName = new Map(god.map(method => [method.name, method]));
-  const names = [...new Set([...god.map(method => method.name), ...agent.map(method => method.name)])];
+  const names = Array.from(new Set([...god.map(method => method.name), ...agent.map(method => method.name)]));
   return names.map(name => {
     const g = godByName.get(name) ?? null;
     const a = agentByName.get(name) ?? null;
