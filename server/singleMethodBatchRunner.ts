@@ -1,13 +1,14 @@
 import { runSingleMethodEvent } from "./engine/isolatedMethodRunner";
 import { createSingleMethodAccumulator } from "./engine/singleMethodPerformance";
 import { getSimulationEvents, insertSimulationResult, updateSimulationRun } from "./simulationDb";
+import { selectIndependentGameCount, type IndependentGameCount } from "./engine/batchSelection";
 
 /** Runs one requested method per game. No full 21/31 synthesis is invoked.
  * Per-game traces persist to the existing results table; summary keeps only
  * streaming aggregates, with no 10,000-result in-memory accumulation.
  */
-export async function executeSingleMethodRun(runId: number, datasetId: number, methodId: string) {
-  const events = await getSimulationEvents(datasetId);
+export async function executeSingleMethodRun(runId: number, datasetId: number, methodId: string, gameCount: IndependentGameCount) {
+  const events = selectIndependentGameCount(await getSimulationEvents(datasetId), gameCount);
   const collector = createSingleMethodAccumulator(methodId);
   let completedEvents = 0, failedEvents = 0;
   for (const event of events) {
@@ -25,7 +26,7 @@ export async function executeSingleMethodRun(runId: number, datasetId: number, m
   }
   const summary = {
     mode: "INDIVIDUAL_METHOD_ONLY",
-    methodId, total: events.length, completedEvents, failedEvents,
+    methodId, requestedGameCount: gameCount, selectionPolicy: `First ${gameCount} validated CSV events in original row order, no replacement or fabrication`, total: events.length, completedEvents, failedEvents,
     methodPerformance: collector.summary(),
     warning: "An individual method is not historically or doctrinally certified by generating 10,000 results. Validate fixture odds, actual kickoff and independent holdout first.",
   };
