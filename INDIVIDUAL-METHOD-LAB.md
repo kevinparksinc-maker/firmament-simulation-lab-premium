@@ -1,0 +1,44 @@
+# Individual Method Laboratory — 31 fields
+
+**Status:** experimental research branch; no method has been independently certified for doctrinal correctness or predictive accuracy. The original 21-method calculator remains available as the unchanged comparison path.
+
+## Operating modes
+
+- **One-method fixture:** Select one of the 31 fields in the Independent Method Laboratory, enter a real fixture, and press **Run only this method**. The backend calculates its chart frames and invokes only the selected scorer. Original core methods 1–8 use isolated Territorial formulas. Core method 21 (KP) still requires shared upstream KP family resolution but does not add other layers' scores. The other core layers execute their individual calculation functions.
+- **One-method history:** Import a dataset containing up to 10,000 events, pick one method field and a dataset, and launch a persisted run. Only the selected method is executed for each event; the run does not invoke the general 21-/31-method scorer or pattern discovery. Per-event proofs are saved, and the run summary reports per-method hits, misses, unresolved zero-net results, equal raw scores, true nontrigger results and coverage.
+- **Existing combined mode:** Existing 21-method score-weighted baseline remains as-is; an experimental 31-line vote comparison is separate. The 31-line vote is **not** a validated combined forecasting formula, and no automatic promotion of its methods occurs.
+
+## Scoring states (never mask missing data as a tie)
+
+| State | Meaning |
+|---|---|
+| `A` / `B` | Method's scored advantage in God/Agent or average of *that same* method's frames |
+| `EQUAL_SCORES` | Real numeric A and B scores match; preserve both exact values even if negative or zero after proven cancellation |
+| `NO_QUALIFYING_CONDITION` | Independently verified absence of a scored condition in this chart; not a tied prediction |
+| `ZERO_NET_UNRESOLVED` | Numeric scores net to zero but evidence does not prove whether scoring triggers were absent or canceled; requires audit |
+| `MISSING_INPUT` | Required inputs unavailable, e.g. natal Moon and birth time for true natal Vimshottari |
+| `EVIDENCE_ONLY` | Method is descriptive/incomplete, e.g. genuine VOC not determined; exclude from a directional score |
+
+Never invent points, alter a source ephemeris, or force a side merely to avoid an authentic zero. The exact formula, inputs, steps, body/house inventory and both frame scores must be visible.
+
+## Example 10,000-game dataset (CSV)
+
+Required: `favoredTeam,underdogTeam,sport,location,startTime,actualWinner,oddsSource,roleAssignmentSource`.
+
+Recommended: `id,latitude,longitude,homeTeam,awayTeam` and an independent point-in-time odds archive. Use `market-odds` only where actual historical bookmaker odds establish favorite/underdog at the intended snapshot. `actualWinner` must be A for favored-team winner or B for underdog winner; never use home/away as the definition of A/B. `startTime` needs an exact UTC or offset-aware timestamp. A source label is **not independent evidence**; verify original source provenance before making a historical-accuracy claim.
+
+For a reliable 10,000-game study: preregister the method versions, preserve all misses and no-calls, deduplicate fixtures, stratify by sport/season, hold out untouched seasons, report denominator, coverage and uncertainty. Do not select methods using the same holdout used for final validation. Astronomical sports predictions have not been scientifically established; historical hit rates can be accidental.
+
+## Database change required before deployment
+
+The `simulation_events` table gains nullable `favoredTeam`, `underdogTeam`, `roleAssignmentSource` and `oddsSource`. **Do not deploy this branch on an existing database without a reviewed migration**. Apply schema migration with the project's configured Drizzle workflow after validating a backup. Existing rows with no stored odds provenance remain legacy/unverified and must not be silently converted into market-backed examples.
+
+## Certification gates to complete
+
+1. Assert all 12 competitive house assignments, supported bodies and exact frame convention.
+2. Show method-specific scored inputs and exclusions (a full chart inventory alone is insufficient).
+3. Validate 5° orb and approved 100/80/60/40 mapping; investigate 3° war and 1° fixed-star legacy exceptions.
+4. Correct Moon VOC, applying/separating besiegement and translation of light before certification.
+5. Add independently verified fixtures for Dasha and every Varga, and document method-specific assumptions.
+6. Rerun typecheck, tests, production build and the one-method 10k job on verified data.
+7. Approve a method based on auditable correctness and held-out comparison to the favorite-only baseline, not by a raw hit-rate ranking alone.
