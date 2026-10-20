@@ -598,6 +598,7 @@ export function runIsolatedCoreLayer(
   const entriesNeeded = [8, 15, 16, 17, 18].includes(index);
   const entries = entriesNeeded ? houseLords(raw.planets, raw.ascendantLongitude) : [];
   let layer: FullPackageFoundationLayerEvidence | FullPackageLayerEvidence;
+  let qualifyingScoreContributions: number | null = null;
   if (index < 8) {
     const single = calculateIndividualTerritorialLayer(
       raw.planets, raw.ascendantLongitude,
@@ -605,6 +606,7 @@ export function runIsolatedCoreLayer(
       frame, index,
     );
     layer = { ...single, source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const };
+    qualifyingScoreContributions = single.qualifyingScoreContributions;
   } else {
     switch (index) {
       case 8: layer = fixedStarLayer(entries); break;
@@ -630,6 +632,7 @@ export function runIsolatedCoreLayer(
   return {
     layer,
     frame,
+    qualifyingScoreContributions,
     ascendantLongitude: raw.ascendantLongitude,
     chart: completeChartLedger(raw.planets),
     calculationScope: index < 8
