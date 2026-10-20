@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INDEPENDENT_METHOD_FIELDS, runSingleMethodEvent } from "./isolatedMethodRunner";
+import { INDEPENDENT_METHOD_FIELDS, runSingleMethodEvent, classifyRawMethodScores } from "./isolatedMethodRunner";
 import { createSingleMethodAccumulator } from "./singleMethodPerformance";
 import { runFullPackageDualFrameChallenger } from "./fullPackageDualFrameChallenger";
 
@@ -69,6 +69,15 @@ describe("31 independent method fields with no fabricated neutral outputs", () =
     // Both genuine numeric scores are retained for transparent inspection.
     expect(voc.god.scoreA).toBe(0);
     expect(voc.god.scoreB).toBe(0);
+  });
+
+  it("keeps nonzero ties and signed-point cancellations separate from no-trigger zeros", () => {
+    expect(classifyRawMethodScores(76.4, 76.4)).toBe("EQUAL_SCORES");
+    expect(classifyRawMethodScores(-2.5, -2.5)).toBe("EQUAL_SCORES");
+    expect(classifyRawMethodScores(0, 0, "ordinary", 3)).toBe("EQUAL_SCORES");
+    expect(classifyRawMethodScores(0, 0, "ordinary", 0)).toBe("NO_QUALIFYING_CONDITION");
+    expect(classifyRawMethodScores(0, 0)).toBe("ZERO_NET_UNRESOLVED");
+    expect(classifyRawMethodScores(null, null)).toBe("MISSING_INPUT");
   });
 
   it("does not claim a natal Dasha calculation without a natal chart", () => {
