@@ -23,7 +23,7 @@ export type SingleMethodFrame = {
   frame: "God View" | "Agent View";
   scoreA: number | null;
   scoreB: number | null;
-  result: "A" | "B" | "EQUAL_SCORES" | "NO_QUALIFYING_CONDITION" | "MISSING_INPUT" | "EVIDENCE_ONLY";
+  result: "A" | "B" | "EQUAL_SCORES" | "NO_QUALIFYING_CONDITION" | "ZERO_NET_UNRESOLVED" | "MISSING_INPUT" | "EVIDENCE_ONLY";
   difference: number | null;
   formula: string;
   inputs: string[];
@@ -46,14 +46,23 @@ export type SingleMethodEventResult = {
   agent: SingleMethodFrame;
   combined: { scoreA: number | null; scoreB: number | null; difference: number | null; result: SingleMethodFrame["result"]; calculation: string };
   actualWinner: "A" | "B" | "TIE" | null;
-  comparison: "HIT" | "MISS" | "EQUAL_SCORES" | "NO_TRIGGER" | "NOT_EVALUABLE" | "UNVERIFIED";
+  comparison: "HIT" | "MISS" | "EQUAL_SCORES" | "NO_TRIGGER" | "ZERO_NET_UNRESOLVED" | "NOT_EVALUABLE" | "UNVERIFIED";
 };
 
 const round = (x: number) => Number(x.toFixed(5));
-const scoreOutcome = (a: number | null, b: number | null, kind: "ordinary" | "shared" = "ordinary"): SingleMethodFrame["result"] => {
+const scoreOutcome = (
+  a: number | null,
+  b: number | null,
+  kind: "ordinary" | "shared" = "ordinary",
+  knownQualifyingContributions: number | null = null,
+): SingleMethodFrame["result"] => {
   if (a === null || b === null) return "MISSING_INPUT";
   if (kind === "shared") return "EVIDENCE_ONLY";
-  if (a === 0 && b === 0) return "NO_QUALIFYING_CONDITION";
+  if (a === 0 && b === 0) {
+    if (knownQualifyingContributions === 0) return "NO_QUALIFYING_CONDITION";
+    if (knownQualifyingContributions !== null) return "EQUAL_SCORES"; // algebraic cancellation of actual signed points
+    return "ZERO_NET_UNRESOLVED"; // no proof whether contacts were absent or canceled
+  }
   if (Math.abs(a - b) < 1e-9) return "EQUAL_SCORES";
   return a > b ? "A" : "B";
 };
@@ -105,7 +114,9 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
       return {
         frame: frame === "god" ? "God View" : "Agent View",
         scoreA, scoreB,
-        result: scoreOutcome(scoreA, scoreB, l.ruleClass === "SHARED" ? "shared" : "ordinary"),
+        result: scoreOutcome(scoreA, scoreB, l.ruleClass === "SHARED" ? "shared" : "ordinary",
+          isolated.qualifyingScoreContributions ??
+            ((l.detail.startsWith("No ") || l.detail.startsWith("No scoring ")) ? 0 : null)),
         difference: scoreA !== null && scoreB !== null ? round(scoreA - scoreB) : null,
         formula: l.calculation?.formula ?? "MISSING FORMULA — audit required",
         inputs: l.calculation?.inputs ?? [],
@@ -152,12 +163,16 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     god.result !== "EVIDENCE_ONLY" && agent.result !== "EVIDENCE_ONLY";
   const a = ready ? round((god.scoreA! + agent.scoreA!) / 2) : null;
   const b = ready ? round((god.scoreB! + agent.scoreB!) / 2) : null;
-  const combinedResult: SingleMethodFrame["result"] = ready ? scoreOutcome(a, b)
-    : incomplete ? "MISSING_INPUT" : "EVIDENCE_ONLY";
+  const bothNoTrigger = god.result === "NO_QUALIFYING_CONDITION" && agent.result === "NO_QUALIFYING_CONDITION";
+  const eitherUnknownZero = god.result === "ZERO_NET_UNRESOLVED" || agent.result === "ZERO_NET_UNRESOLVED";
+  const combinedResult: SingleMethodFrame["result"] = !ready ? (incomplete ? "MISSING_INPUT" : "EVIDENCE_ONLY")
+    : a === 0 && b === 0 ? (bothNoTrigger ? "NO_QUALIFYING_CONDITION" : eitherUnknownZero ? "ZERO_NET_UNRESOLVED" : "EQUAL_SCORES")
+    : scoreOutcome(a, b);
   const actualWinner = input.actualWinner ?? null;
   const comparison: SingleMethodEventResult["comparison"] =
     !actualWinner ? "UNVERIFIED" :
     combinedResult === "NO_QUALIFYING_CONDITION" ? "NO_TRIGGER" :
+    combinedResult === "ZERO_NET_UNRESOLVED" ? "ZERO_NET_UNRESOLVED" :
     combinedResult === "EQUAL_SCORES" ? "EQUAL_SCORES" :
     (combinedResult !== "A" && combinedResult !== "B") ? "NOT_EVALUABLE" :
     combinedResult === actualWinner ? "HIT" : "MISS";
