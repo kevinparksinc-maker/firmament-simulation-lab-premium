@@ -13,7 +13,7 @@ function wilson95(hits: number, trials: number): [number, number] | null {
  */
 export function createSingleMethodAccumulator(methodId: string) {
   let games = 0, skippedUnverified = 0, researchEligible = 0, sourceVerified = 0;
-  let hits = 0, misses = 0, equalScoreResults = 0, noTriggers = 0, notEvaluable = 0;
+  let hits = 0, misses = 0, equalScoreResults = 0, noTriggers = 0, zeroNetUnresolved = 0, notEvaluable = 0;
   let noActual = 0, historicalFavoritesCorrect = 0;
   let rawEqualA = 0, rawEqualB = 0, rawEqualCount = 0;
   let godA = 0, godB = 0, agentA = 0, agentB = 0, godScored = 0, agentScored = 0;
@@ -35,6 +35,7 @@ export function createSingleMethodAccumulator(methodId: string) {
       if (actual === "A") historicalFavoritesCorrect++;
       const result = record.combined.result;
       if (result === "NO_QUALIFYING_CONDITION") { noTriggers++; return; }
+      if (result === "ZERO_NET_UNRESOLVED") { zeroNetUnresolved++; return; }
       if (result === "EQUAL_SCORES") {
         equalScoreResults++;
         rawEqualA += record.combined.scoreA!;
@@ -49,7 +50,7 @@ export function createSingleMethodAccumulator(methodId: string) {
       const directional = hits + misses;
       return {
         version: "ONE_METHOD_10000_RESEARCH_V1", methodId, games, sourceVerified, skippedUnverified, noActual,
-        researchEligible, hits, misses, equalScoreResults, noTriggers, notEvaluable,
+        researchEligible, hits, misses, equalScoreResults, noTriggers, zeroNetUnresolved, notEvaluable,
         coveragePercent: researchEligible ? Number((100 * directional / researchEligible).toFixed(2)) : null,
         directionalAccuracyPercent: directional ? Number((100 * hits / directional).toFixed(2)) : null,
         overallHitRatePercent: researchEligible ? Number((100 * hits / researchEligible).toFixed(2)) : null,
