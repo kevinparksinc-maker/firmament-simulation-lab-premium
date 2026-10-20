@@ -1,3 +1,4 @@
+import { synthesizeFramePredictions } from "./crossFrameSynthesis";
 import {
   generateFixedJ2000KPPrediction,
   generateFixedJ2000PlanetReadings,
@@ -296,6 +297,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const actualWinner = input.actualWinner;
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
+  const predictiveSynthesis = synthesizeFramePredictions([...dualFrame.god.foundation.layers,...dualFrame.god.addedLayers], [...dualFrame.agent.foundation.layers,...dualFrame.agent.addedLayers], dualFrame.parity.valid);
 
   return {
     id: input.id ?? `${favoredTeam}-${underdogTeam}-${input.startTime}`,
@@ -342,6 +344,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     godView: frameReport(dualFrame.god, actualWinner),
     agentView: frameReport(dualFrame.agent, actualWinner),
+    synthesisView: { ...predictiveSynthesis, verdict: verdictFor(predictiveSynthesis.winner, actualWinner) },
     frameParity: dualFrame.parity,
     comparison: {
       state: dualFrame.agreement.state,

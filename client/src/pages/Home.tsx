@@ -79,6 +79,7 @@ type Simulation = {
   baseline: { winner: Side; verdict: Verdict; combined: { scoreA: number; scoreB: number } };
   godView: Frame;
   agentView: Frame;
+  synthesisView: { version:string; valid:boolean; reason:string; winner:Side; verdict:Verdict; scoreA:number; scoreB:number; margin:number; formula:string; methods:Array<{name:string;winner:Side;scoreA:number;scoreB:number;godScoreA:number;godScoreB:number;agentScoreA:number;agentScoreB:number;formula:string}> };
   frameParity: { valid: boolean; methodParity: boolean; formulaParity: boolean; sourceParity: boolean; ruleClassParity: boolean; synthesisParity: boolean; reason: string; changedLayers: Array<{ name: string; differentialShift: number }> };
   chart: { godView: { ascendantLongitude: number; planets: Planet[] }; agentView: { ascendantLongitude: number; planets: Planet[] } };
   comparison: { state: string; winner: Side; actualWinner: Side | null; verified: boolean };
@@ -299,7 +300,7 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
   const summaries = [
     { key: "god" as const, label: "01 · GOD VIEW", hint: "Fixed 0° Aries", frame: god },
     { key: "agent" as const, label: "02 · AGENT VIEW", hint: "Event Ascendant", frame: agent },
-    { key: "synthesis" as const, label: "03 · SYNTHESIS", hint: "Compare the two frame results", frame: null },
+    { key: "synthesis" as const, label: "03 · SYNTHESIS", hint: "21 combined predictive methods", frame: null },
   ];
   const comparisonState = god.synthesis.winner === agent.synthesis.winner ? "AGREEMENT" : "DISAGREEMENT";
   const comparisons = compareFrameMethods(god.allLayers, agent.allLayers);
@@ -312,7 +313,7 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3" role="tablist" aria-label="Choose a simulation evidence section">
       {summaries.map(item => {
         const isSynthesis = item.key === "synthesis";
-        const conclusion = isSynthesis ? comparisonState : sideLabel(item.frame!.synthesis.winner, simulation);
+        const conclusion = isSynthesis ? sideLabel(simulation.synthesisView.winner, simulation) : sideLabel(item.frame!.synthesis.winner, simulation);
         return <button key={item.key} role="tab" aria-selected={section === item.key} aria-controls="frame-method-detail"
           onClick={() => { setSection(item.key); setShowMethods(false); setExpanded(null); }}
           className={`rounded-xl border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${section === item.key ? "border-amber-400 bg-amber-400/10" : "border-slate-600 bg-slate-900/70 hover:border-slate-400"}`}>
@@ -320,21 +321,27 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
           <strong className="mt-3 block text-lg text-white">{conclusion}</strong>
           <span className="mt-1 block text-xs text-slate-300">{item.hint}</span>
           {!isSynthesis && <span className="mt-2 block text-xs text-slate-300">{item.frame!.synthesis.scoreA.toFixed(1)} A / {item.frame!.synthesis.scoreB.toFixed(1)} B · {item.frame!.allLayers.length} methods</span>}
-          {isSynthesis && <span className="mt-2 block text-xs text-slate-300">{sideLabel(god.synthesis.winner, simulation)} / {sideLabel(agent.synthesis.winner, simulation)}</span>}
+          {isSynthesis && <span className="mt-2 block text-xs text-slate-300">{simulation.synthesisView.scoreA.toFixed(1)} A / {simulation.synthesisView.scoreB.toFixed(1)} B · 21 methods</span>}
         </button>;
       })}
     </div>
     <div id="frame-method-detail" role="tabpanel" className="mt-4 rounded-xl border border-slate-600 bg-slate-950/80 p-4 md:p-6">
       {section === "synthesis"
         ? <><p className="text-xs font-bold tracking-widest text-amber-300">SYNTHESIS · CROSS-FRAME COMPARISON</p>
-          <h3 className="mt-2 text-xl font-bold text-white">{comparisonState === "AGREEMENT" ? "Both frames favor the same side" : "The frames favor different sides"}</h3>
+          <h3 className="mt-2 text-xl font-bold text-white">Synthesis prediction: {sideLabel(simulation.synthesisView.winner, simulation)}</h3>
+          <p className="mt-2 text-sm text-amber-100">Independent combined result: {simulation.input.teamA} {simulation.synthesisView.scoreA.toFixed(2)} vs {simulation.input.teamB} {simulation.synthesisView.scoreB.toFixed(2)} · {simulation.synthesisView.valid ? "21 methods combined" : "Prediction withheld: invalid method parity"}</p>
+          <p className="mt-2 text-xs text-slate-400">{simulation.synthesisView.formula} This is a third predictive output derived from the two correlated frame evaluations, not independent astronomical data or proven accuracy.</p>
           <p className="mt-2 text-sm text-slate-300">God View: <strong>{sideLabel(god.synthesis.winner, simulation)}</strong> ({god.synthesis.scoreA.toFixed(2)} A / {god.synthesis.scoreB.toFixed(2)} B). Agent View: <strong>{sideLabel(agent.synthesis.winner, simulation)}</strong> ({agent.synthesis.scoreA.toFixed(2)} A / {agent.synthesis.scoreB.toFixed(2)} B).</p>
-          <p className="mt-2 text-sm text-slate-300">Parity: {simulation.frameParity.valid ? "Passed" : "Failed—review before relying on the comparison"}. These are two frame results; no third independent scoring engine is claimed.</p>
+          <p className="mt-2 text-sm text-slate-300">Parity: {simulation.frameParity.valid ? "Passed" : "Failed—review before relying on the comparison"}. Synthesis runs its own deterministic 21-method fusion, separately from the existing baseline.</p>
           <div className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4">
             <h4 className="text-lg font-semibold text-white">Method comparison · God vs Agent</h4>
             <p className="mt-1 text-sm text-slate-300">Compare each method with itself in the other frame. Agreement does not establish predictive accuracy. No method weights or picks are modified.</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[["Agree", methodSummary.agreements], ["Reverse", methodSummary.reversals], ["Neutral", methodSummary.neutral], ["Compared", methodSummary.compared]].map(([label, value]) => <div key={label} className="rounded-lg border border-white/10 bg-slate-900 p-2"><span className="block text-xs text-slate-400">{label}</span><strong className="text-xl text-white">{value}</strong></div>)}
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <h5 className="mb-2 text-sm font-semibold text-white">Synthesis predictions by method</h5>
+              <table className="w-full min-w-[550px] text-left text-sm"><thead><tr className="border-b border-white/15 text-xs text-slate-400"><th className="py-2">Method</th><th className="py-2">Synthesis pick</th><th className="py-2">Synthesis A</th><th className="py-2">Synthesis B</th></tr></thead><tbody>{simulation.synthesisView.methods.map(method=><tr key={method.name} className="border-b border-white/10"><td className="py-2 text-white">{method.name}</td><td className="py-2 text-amber-200">{sideLabel(method.winner,simulation)}</td><td className="py-2 text-slate-300">{method.scoreA.toFixed(2)}</td><td className="py-2 text-slate-300">{method.scoreB.toFixed(2)}</td></tr>)}</tbody></table>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[570px] text-left text-sm">
