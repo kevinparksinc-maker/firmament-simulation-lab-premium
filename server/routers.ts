@@ -7,7 +7,7 @@ import { executeSimulationRun } from "./batchRunner";
 import { executeSingleMethodRun } from "./singleMethodBatchRunner";
 import { selectIndependentGameCount, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./engine/batchSelection";
 import { runSingleMethodEvent, INDEPENDENT_METHOD_FIELDS } from "./engine/isolatedMethodRunner";
-import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
+import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, getSimulationResultPage, getSimulationResultDetail, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
 import { parseSimulationCsv } from "./simulationData";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -141,6 +141,25 @@ export const appRouter = router({
     live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),
   }),
   runs: router({
+    entries: publicProcedure.input(z.object({
+      runId: z.number().int().positive(),
+      offset: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(100).default(25),
+    })).query(async ({ input }) => {
+      const run = await getSimulationRun(input.runId);
+      if (!run) throw new TRPCError({ code: "NOT_FOUND", message: "Simulation run not found." });
+      const rows = await getSimulationResultPage(input.runId, input.offset, input.limit);
+      return { runId: input.runId, totalRequested: run.totalEvents, completed: run.completedEvents,
+        failed: run.failedEvents, offset: input.offset, limit: input.limit, rows };
+    }),
+    entry: publicProcedure.input(z.object({
+      runId: z.number().int().positive(),
+      resultId: z.number().int().positive(),
+    })).query(async ({ input }) => {
+      const row = await getSimulationResultDetail(input.runId, input.resultId);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Result not in this run." });
+      return row;
+    }),
     list: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(50).default(8) }).optional()).query(({ input }) => listSimulationRuns(input?.limit ?? 8)),
     start: publicProcedure.input(z.object({
       datasetId: z.number().int().positive(),
