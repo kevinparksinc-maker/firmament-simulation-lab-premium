@@ -288,10 +288,83 @@ function FrameExplanation({ simulation }: { simulation: Simulation | null }) {
 }
 
 function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
+  const [section, setSection] = useState<"god" | "agent" | "synthesis">("synthesis");
+  const [showMethods, setShowMethods] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  if (!simulation) return <section className="decision-breakdown"><div className="panel-heading"><div><p className="eyebrow">Decision breakdown</p><h2>Run a trace to see exactly why each frame selects a side.</h2><p>The breakdown will separate the final score from the individual methods that pushed toward or away from that side.</p></div></div></section>;
-  const frames: Array<[FrameName, Frame]> = [["God View", simulation.godView], ["Agent View", simulation.agentView]];
-  return <section className="decision-breakdown"><div className="panel-heading"><div><p className="eyebrow">Decision breakdown</p><h2>Why each frame selected its side</h2><p>This is an additive audit: final totals first, then every method-level push. Click any method to expose its full calculation detail.</p></div><span className="ledger-count">42 expandable methods</span></div><div className="breakdown-grid">{frames.map(([name, frame]) => { const winner = frame.synthesis.winner; const maxImpact = Math.max(...frame.allLayers.map((layer) => Math.abs(layer.scoreA - layer.scoreB)), 1); return <article className={`breakdown-card breakdown-${name === "God View" ? "god" : "agent"}`} key={name}><div className="breakdown-card-head"><div><p className="eyebrow">{name}</p><h3>{sideLabel(winner, simulation)}</h3></div><StatusPill verdict={frame.synthesis.verdict}>{verdictCopy(frame.synthesis.verdict)}</StatusPill></div><div className="breakdown-score"><div><span>{simulation.input.teamA}</span><strong>{frame.synthesis.scoreA.toFixed(1)}</strong></div><b>vs</b><div><span>{simulation.input.teamB}</span><strong>{frame.synthesis.scoreB.toFixed(1)}</strong></div></div><div className="breakdown-metrics"><div><span>Margin</span><strong>{Math.abs(frame.synthesis.margin).toFixed(1)}</strong></div><div><span>Methods</span><strong>{frame.allLayers.length}</strong></div><div><span>Support / conflict</span><strong>{frame.summary.hits} / {frame.summary.misses}</strong></div></div><div className="breakdown-context"><span>Calculation context</span><strong>{frame.coordinateFrame} · {frame.houseRule}</strong><small>{frame.ascendantModel} · {Math.round(frame.ascendantLongitude)}° ascendant</small></div><div className="breakdown-formula"><span>How the total is formed</span><code>{frame.synthesis.formula}</code></div><div className="full-method-audit"><div className="full-audit-heading"><span>Full method audit</span><small>Signed impact: A is positive · B is negative</small></div>{frame.allLayers.map((layer, index) => { const impact = layer.scoreA - layer.scoreB; const width = Math.min(50, Math.max(2, Math.abs(impact) / maxImpact * 50)); const key = `${name}-${layer.name}`; const isOpen = expanded === key; return <div className={`method-audit-row ${isOpen ? "method-audit-open" : ""}`} key={key}><button className="method-audit-trigger" onClick={() => setExpanded(isOpen ? null : key)} aria-expanded={isOpen}><span className="method-index">{String(index + 1).padStart(2, "0")}</span><span className="method-audit-name"><b>{layer.name}</b><small>{sideLabel(layer.winner, simulation)} · {verdictCopy(layer.verdict)}</small></span><span className="impact-track" aria-label={`Impact ${impact >= 0 ? "toward" : "toward"} ${impact >= 0 ? simulation.input.teamA : simulation.input.teamB}`}><i className="impact-mid" /><i className={`impact-bar ${impact >= 0 ? "impact-a" : "impact-b"}`} style={{ width: `${width}%` }} /></span><strong className={`impact-number ${impact >= 0 ? "number-a" : "number-b"}`}>{impact >= 0 ? "+" : ""}{impact.toFixed(2)}</strong><ChevronDown size={14} className="method-chevron" /></button>{isOpen && <div className="method-audit-detail"><div><span>Raw scores</span><strong>{simulation.input.teamA} {layer.scoreA.toFixed(2)} · {simulation.input.teamB} {layer.scoreB.toFixed(2)}</strong></div><div><span>Source</span><strong>{layer.source ?? "firmament-engine"}</strong></div>{layer.calculation ? <><div className="calculation-formula"><span>Formula</span><code>{layer.calculation.formula}</code></div><div className="calculation-list"><span>Inputs</span>{layer.calculation.inputs.map((input) => <small key={input}>{input}</small>)}</div><div className="calculation-list"><span>Arithmetic / decision steps</span>{layer.calculation.steps.map((step) => <small key={step}>{step}</small>)}</div></> : <p>{layer.detail}</p>}</div>}</div>; })}</div></article>; })}</div></section>;
+  if (!simulation) return <section className="decision-breakdown"><div className="panel-heading"><div><p className="eyebrow">Three independent readouts</p><h2>God View · Agent View · Synthesis</h2><p>Run a simulation to see the verdict from each frame and expand its underlying methods.</p></div></div></section>;
+  const god = simulation.godView;
+  const agent = simulation.agentView;
+  const active = section === "god" ? god : agent;
+  const summaries = [
+    { key: "god" as const, label: "01 · GOD VIEW", hint: "Fixed 0° Aries", frame: god },
+    { key: "agent" as const, label: "02 · AGENT VIEW", hint: "Event Ascendant", frame: agent },
+    { key: "synthesis" as const, label: "03 · SYNTHESIS", hint: "Compare the two frame results", frame: null },
+  ];
+  const comparisonState = god.synthesis.winner === agent.synthesis.winner ? "AGREEMENT" : "DISAGREEMENT";
+  const methodRows = section === "synthesis"
+    ? god.allLayers.map((layer, index) => ({ name: layer.name, god: layer, agent: agent.allLayers.find(candidate => candidate.name === layer.name), index }))
+    : active.allLayers.map((layer, index) => ({ name: layer.name, god: section === "god" ? layer : null, agent: section === "agent" ? layer : null, index }));
+  return <section className="decision-breakdown" id="three-frame-results">
+    <div className="panel-heading"><div><p className="eyebrow">The evidence, separated</p><h2>God View. Agent View. Synthesis.</h2><p>Each frame has its own verdict and method audit. Synthesis compares them without hiding disagreement.</p></div></div>
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3" role="tablist" aria-label="Choose a simulation evidence section">
+      {summaries.map(item => {
+        const isSynthesis = item.key === "synthesis";
+        const conclusion = isSynthesis ? comparisonState : sideLabel(item.frame!.synthesis.winner, simulation);
+        return <button key={item.key} role="tab" aria-selected={section === item.key} aria-controls="frame-method-detail"
+          onClick={() => { setSection(item.key); setShowMethods(false); setExpanded(null); }}
+          className={`rounded-xl border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${section === item.key ? "border-amber-400 bg-amber-400/10" : "border-slate-600 bg-slate-900/70 hover:border-slate-400"}`}>
+          <span className="block text-xs font-bold tracking-widest text-amber-300">{item.label}</span>
+          <strong className="mt-3 block text-lg text-white">{conclusion}</strong>
+          <span className="mt-1 block text-xs text-slate-300">{item.hint}</span>
+          {!isSynthesis && <span className="mt-2 block text-xs text-slate-300">{item.frame!.synthesis.scoreA.toFixed(1)} A / {item.frame!.synthesis.scoreB.toFixed(1)} B · {item.frame!.allLayers.length} methods</span>}
+          {isSynthesis && <span className="mt-2 block text-xs text-slate-300">{sideLabel(god.synthesis.winner, simulation)} / {sideLabel(agent.synthesis.winner, simulation)}</span>}
+        </button>;
+      })}
+    </div>
+    <div id="frame-method-detail" role="tabpanel" className="mt-4 rounded-xl border border-slate-600 bg-slate-950/80 p-4 md:p-6">
+      {section === "synthesis"
+        ? <><p className="text-xs font-bold tracking-widest text-amber-300">SYNTHESIS · CROSS-FRAME COMPARISON</p>
+          <h3 className="mt-2 text-xl font-bold text-white">{comparisonState === "AGREEMENT" ? "Both frames favor the same side" : "The frames favor different sides"}</h3>
+          <p className="mt-2 text-sm text-slate-300">God View: <strong>{sideLabel(god.synthesis.winner, simulation)}</strong> ({god.synthesis.scoreA.toFixed(2)} A / {god.synthesis.scoreB.toFixed(2)} B). Agent View: <strong>{sideLabel(agent.synthesis.winner, simulation)}</strong> ({agent.synthesis.scoreA.toFixed(2)} A / {agent.synthesis.scoreB.toFixed(2)} B).</p>
+          <p className="mt-2 text-sm text-slate-300">Parity: {simulation.frameParity.valid ? "Passed" : "Failed—review before relying on the comparison"}. These are two frame results; no third independent scoring engine is claimed.</p>
+        </>
+        : <><p className="text-xs font-bold tracking-widest text-amber-300">{section === "god" ? "GOD VIEW · FIXED REFERENCE" : "AGENT VIEW · ASCENDANT REFERENCE"}</p>
+          <h3 className="mt-2 text-xl font-bold text-white">Verdict: {sideLabel(active.synthesis.winner, simulation)}</h3>
+          <p className="mt-2 text-sm text-slate-300">Score: {simulation.input.teamA} {active.synthesis.scoreA.toFixed(2)} vs {simulation.input.teamB} {active.synthesis.scoreB.toFixed(2)} · Margin {Math.abs(active.synthesis.margin).toFixed(2)}</p>
+          <p className="mt-2 text-xs text-slate-400">{active.coordinateFrame} · {active.houseRule} · Ascendant {active.ascendantLongitude.toFixed(2)}°</p>
+          <div className="breakdown-formula mt-3"><span>How this frame synthesizes its methods</span><code>{active.synthesis.formula}</code></div>
+        </>}
+      <button className="mt-4 flex w-full items-center justify-between rounded-lg border border-amber-500/40 bg-amber-400/10 px-4 py-3 text-left font-semibold text-amber-100"
+        onClick={() => setShowMethods(value => !value)} aria-expanded={showMethods}>
+        <span>{showMethods ? "Hide" : "Show"} {section === "synthesis" ? "cross-frame method comparison" : "all methods"} ({methodRows.length})</span>
+        <ChevronDown size={18} className={showMethods ? "rotate-180" : ""}/>
+      </button>
+      {showMethods && <div className="mt-3 space-y-2">
+        {methodRows.map(({ name, god: godLayer, agent: agentLayer, index }) => {
+          const key = `${section}-${index}-${name}`;
+          const current = section === "god" ? godLayer : agentLayer;
+          const open = expanded === key;
+          return <div key={key} className="rounded-lg border border-slate-700/80 bg-slate-900/70">
+            <button className="flex w-full items-center gap-3 p-3 text-left" onClick={() => setExpanded(open ? null : key)} aria-expanded={open}>
+              <span className="w-7 shrink-0 text-xs text-amber-300">{String(index + 1).padStart(2, "0")}</span>
+              <span className="min-w-0 flex-1"><strong className="block text-sm text-white">{name}</strong>
+                <small className="block text-xs text-slate-300">{section === "synthesis"
+                  ? `God: ${godLayer?.winner ?? "N/A"} (${((godLayer?.scoreA ?? 0) - (godLayer?.scoreB ?? 0)).toFixed(2)}) · Agent: ${agentLayer?.winner ?? "N/A"} (${agentLayer ? (agentLayer.scoreA - agentLayer.scoreB).toFixed(2) : "N/A"})`
+                  : `${sideLabel(current!.winner, simulation)} · A ${current!.scoreA.toFixed(2)} / B ${current!.scoreB.toFixed(2)}`}</small>
+              </span><ChevronDown size={16} className={open ? "rotate-180 text-amber-300" : "text-slate-400"}/>
+            </button>
+            {open && <div className="space-y-2 border-t border-slate-700 p-3 text-sm text-slate-300">
+              {([["God View", godLayer], ["Agent View", agentLayer]] as const).filter(([, layer]) => layer).map(([label, layer]) => <div key={label}>
+                <strong className="text-amber-200">{label}: {layer!.winner}</strong>
+                <p>{layer!.detail}</p>
+                {layer!.calculation && <><p className="mt-1 break-words text-xs">Formula: {layer!.calculation.formula}</p>{layer!.calculation.steps.map((step, i) => <p className="text-xs" key={i}>{step}</p>)}</>}
+              </div>)}
+            </div>}
+          </div>;
+        })}
+      </div>}
+    </div>
+  </section>;
 }
 
 function MethodLedger({ layers, simulation, filter, onFilter, selected, onSelect }: { layers: OverlayLayer[]; simulation: Simulation | null; filter: Filter; onFilter: (filter: Filter) => void; selected: OverlayLayer | null; onSelect: (layer: OverlayLayer) => void }) {

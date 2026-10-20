@@ -89,7 +89,7 @@ describe("dual-frame house systems", () => {
       transitLatitude: 40.7128,
       transitLongitude: -74.006,
     });
-    expect(result.natal.godView.planets).toHaveLength(9);
+    expect(result.natal.godView.planets).toHaveLength(12);
     expect(result.transit.agentView.houses).toHaveLength(12);
     expect(result.geometry.orb).toBe(5);
     expect(result.geometry.planetaryAspects.every((relationship) => relationship.source.startsWith("Transit ") && relationship.target.startsWith("Natal "))).toBe(true);
