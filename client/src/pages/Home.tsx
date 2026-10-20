@@ -169,9 +169,9 @@ type LiveGame = {
 function LiveNowRail({ games, isLoading, selectedId, onRefresh, onSelect }: { games: LiveGame[]; isLoading: boolean; selectedId?: string; onRefresh: () => void; onSelect: (game: LiveGame) => void }) {
   const hasLiveGames = games.some((game) => game.isLive);
   return <section className="live-now-rail">
-    <div className="live-now-heading"><div><div className="live-kicker"><span />{hasLiveGames ? "LIVE NOW" : "NEXT UP"} · AUTO-REFRESH 30S</div><h2>{hasLiveGames ? "Games in play across the major sports" : "Next games across the major sports"}</h2><p>Scoreboard data is separate from the Firmament interpretation engine. Select a game when you want to open it as a research event.</p></div><button className="live-refresh" onClick={onRefresh}><LoaderCircle size={14} className={isLoading ? "spin" : ""} />{isLoading ? "Syncing" : "Refresh feed"}</button></div>
+    <div className="live-now-heading"><div><div className="live-kicker"><span />{hasLiveGames ? "LIVE NOW" : "NEXT UP"} · AUTO-REFRESH 60S</div><h2>{hasLiveGames ? "Games in play across the major sports" : "Next games across the major sports"}</h2><p>Tennis displays player matches and supplied scores. Scoreboard data is separate from the Firmament interpretation engine. Select a game when you want to open it as a research event.</p></div><button className="live-refresh" onClick={onRefresh}><LoaderCircle size={14} className={isLoading ? "spin" : ""} />{isLoading ? "Syncing" : "Refresh feed"}</button></div>
     <div className="live-game-track">{isLoading && games.length === 0 ? <div className="live-empty"><LoaderCircle size={18} className="spin" /><span>Checking the live scoreboard…</span></div> : games.length === 0 ? <div className="live-empty"><CircleDot size={18} /><span>No games were returned by the scoreboard sources.</span><small>Sources: MLB Stats API + ESPN scoreboard feeds</small></div> : games.map((game) => <button className={`live-game-card ${selectedId === game.id ? "live-game-card-selected" : ""}`} key={game.id} onClick={() => onSelect(game)}><div className="live-game-top"><StatusPill verdict={game.isLive ? "hit" : "unverified"}><i className={game.isLive ? "live-dot" : "upcoming-dot"} />{game.sport} · {game.isLive ? "LIVE" : "UPCOMING"}</StatusPill><span>{game.period ?? game.status}</span></div><div className="live-matchup"><div><strong>{game.teamA}</strong><b>{game.scoreA ?? "—"}</b></div><div><strong>{game.teamB}</strong><b>{game.scoreB ?? "—"}</b></div></div><div className="live-game-meta"><span><MapPin size={11} />{game.location}</span><em>{selectedId === game.id ? "Selected" : game.status}</em></div></button>)}</div>
-    <div className="live-source-line"><span>Coverage: MLB · NBA · NFL · NHL · MLS · NCAA football · NCAA basketball</span><span>Feed timestamp updates with each sync</span></div>
+    <div className="live-source-line"><span>Coverage: MLB · NBA · NFL · NHL · MLS · NCAA football · NCAA basketball · ATP/WTA tennis</span><span>Feed timestamp updates with each sync</span></div>
   </section>;
 }
 
@@ -416,7 +416,7 @@ export default function Home() {
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
   const simulate = trpc.simulate.event.useMutation();
   const [scheduleDate, setScheduleDate] = useState(() => { const local = new Date(); return `${local.getFullYear()}-${String(local.getMonth()+1).padStart(2,"0")}-${String(local.getDate()).padStart(2,"0")}`; });
-  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NCAAF">("NCAAF");
+  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NCAAF" | "TENNIS">("NCAAF");
   const liveDate = scheduleDate;
   const liveGames = trpc.schedules.list.useQuery({ date: liveDate, sport: scheduleSport }, { refetchInterval: 60_000, staleTime: 30_000 });
 
@@ -475,7 +475,7 @@ export default function Home() {
         teamA: live?.teamA ?? "Sample Team A",
         ...(live?.favoriteTeam && live?.underdogTeam ? { favoredTeam: live.favoriteTeam, underdogTeam: live.underdogTeam, roleAssignmentSource: "market-odds" as const } : { roleAssignmentSource: "legacy-side-order" as const }),
         teamB: live?.teamB ?? "Sample Team B",
-        sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" ? live.sport : "MLB",
+        sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" || live?.sport === "TENNIS" ? live.sport : "MLB",
         location: live?.location ?? "Houston, Texas (synthetic example)",
         latitude: live?.latitude ?? (live ? undefined : 29.7604),
         longitude: live?.longitude ?? (live ? undefined : -95.3698),
@@ -598,7 +598,7 @@ export default function Home() {
 
       {/* Live scoreboard feed */}
       <div id="live-scoreboard">
-        <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF")}><option value="NCAAF">College football</option><option value="ALL">All sports</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+        <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF" | "TENNIS")}><option value="NCAAF">College football</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
         <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
       </div>
 
