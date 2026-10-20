@@ -29,6 +29,7 @@ export type SimulationEventInput = {
   homeTeam?: string;
   awayTeam?: string;
   roleAssignmentSource?: "market-odds" | "expert-consensus" | "manual" | "legacy-side-order";
+  oddsSource?: string;
   sport: GameInput["gameType"];
   location: string;
   latitude?: number;
