@@ -145,7 +145,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
       })));
       return {
         frame: frame === "god" ? "God View" : "Agent View", scoreA, scoreB,
-        result: method.evaluable ? scoreOutcome(scoreA, scoreB) : "MISSING_INPUT",
+        result: method.evaluable ? classifyRawMethodScores(scoreA, scoreB) : "MISSING_INPUT",
         difference: scoreA !== null && scoreB !== null ? round(scoreA - scoreB) : null,
         formula: JSON.stringify(METHOD_REGISTRY.find(m => m.id === methodId)!.configuration),
         inputs: method.evidence.map(e => e.explanation), steps: [],
@@ -167,7 +167,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
   const eitherUnknownZero = god.result === "ZERO_NET_UNRESOLVED" || agent.result === "ZERO_NET_UNRESOLVED";
   const combinedResult: SingleMethodFrame["result"] = !ready ? (incomplete ? "MISSING_INPUT" : "EVIDENCE_ONLY")
     : a === 0 && b === 0 ? (bothNoTrigger ? "NO_QUALIFYING_CONDITION" : eitherUnknownZero ? "ZERO_NET_UNRESOLVED" : "EQUAL_SCORES")
-    : scoreOutcome(a, b);
+    : classifyRawMethodScores(a, b);
   const actualWinner = input.actualWinner ?? null;
   const comparison: SingleMethodEventResult["comparison"] =
     !actualWinner ? "UNVERIFIED" :
