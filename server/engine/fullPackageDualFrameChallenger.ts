@@ -579,6 +579,29 @@ function buildFrame(
 }
 
 /**
+ * Resolve Agent View from the SAME geometry routine that powers the core
+ * 21-layer frame. Registry methods must not independently assume the
+ * astronomical horizon when dawn-anchored or 180° ascending mode is selected.
+ */
+export function resolveAgentFrameGeometry(
+  input: GameInput,
+  options: DualFrameRunOptions = {},
+) {
+  const resolved = planetsForAgent(input,
+    options.agentViewRotation ?? "none",
+    options.agentViewModel ?? input.agentViewModel ?? "astronomical");
+  return {
+    ascendantLongitude: resolved.ascendantLongitude,
+    ascendantModel: resolved.ascendantModel,
+    sunriseTime: resolved.sunriseTime,
+    sunriseSource: resolved.sunriseSource,
+    planetPositions: resolved.planets.map(p => ({
+      planet: p.planet, longitude: p.backgroundWheelLongitude, house: p.house,
+    })),
+  };
+}
+
+/**
  * Standalone method runner for the 21 core slots. Computes only the requested
  * layer after creating its frame chart. Territorial slots 1-8 now execute
  * their own calculations, without invoking sibling methods. KP still depends
