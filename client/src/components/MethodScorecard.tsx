@@ -212,7 +212,7 @@ export function MethodScorecard({ fields, cache, signature, selectedId, expanded
                 <td colSpan={5} className="p-4 sm:p-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div><h4 className="text-lg font-semibold text-white">{field.name} — calculation breakdown</h4>
-                      <p className="mt-1 text-xs text-slate-400">Comparison with actual outcome: {result.comparison.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")} · Ascendant: {result.agentAscendantModelVersion.replaceAll("_"," ")}</p></div>
+                      <p className="mt-1 text-xs text-slate-400">Comparison with actual outcome: {result.comparison.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")} · Ascendant: {result.agentAscendantModelVersion.replaceAll("_"," ")} · Houses: {result.wheelGeometryVersion.replaceAll("_"," ")}</p></div>
                     <span className="rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-semibold text-amber-200">{result.frameMethodStatus.replaceAll("_"," ")}</span>
                   </div>
                   <div className="grid gap-3 xl:grid-cols-2">
