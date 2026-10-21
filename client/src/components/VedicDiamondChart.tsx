@@ -340,7 +340,7 @@ export function VedicDiamondChart({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-black/40 px-3 py-2 text-[11px] text-slate-400 border border-slate-800">
         <div>
           <span className="text-amber-300 font-semibold">Lagna (H1 Ascendant): </span>
-          <span>{ZODIAC_NAMES[lagnaSignIndex]} ({Math.round(ascendantLongitude % 30)}°)</span>
+          <span>{zodiacAt(ascendantLongitude).name} {zodiacAt(ascendantLongitude).degreeInSign.toFixed(6)}° (absolute {(((ascendantLongitude % 360) + 360) % 360).toFixed(6)}°)</span>
         </div>
         <div className="flex gap-3">
           <span>Side A: <strong className="text-cyan-300 font-semibold">{activeTeamA}</strong></span>
