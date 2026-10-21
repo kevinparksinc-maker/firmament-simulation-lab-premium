@@ -38,6 +38,7 @@ type Props = {
   chineseMansionEpoch?: string;
   showStars?: boolean;
   chineseMansionCalibration?: ChineseMansionCalibration | null;
+  showChineseMansions?: boolean;
 };
 
 export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean; chineseMansions?: boolean };
@@ -154,7 +155,7 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
                 <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#f69dcd" strokeOpacity=".95" strokeWidth="1.4"/>
               </g>;
             })}
-            {chineseArcs && chineseArcs.map((mansion) => {
+            {showChineseMansions && chineseArcs && chineseArcs.map((mansion) => {
               const point = polar(cx, cy, zodiacInner - 22, mansion.startLongitude);
               const end = polar(cx, cy, zodiacInner - 12, mansion.startLongitude);
               return <g key={`xiu-${mansion.index}`}>
