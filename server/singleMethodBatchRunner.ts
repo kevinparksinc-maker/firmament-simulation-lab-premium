@@ -3,6 +3,7 @@ import { createSingleMethodAccumulator } from "./engine/singleMethodPerformance"
 import { getSimulationEvents, insertSimulationResult, updateSimulationRun } from "./simulationDb";
 import { selectIndependentGameCount, historicalFixtureIdentity, type IndependentGameCount } from "./engine/batchSelection";
 import { ASCENDANT_HORIZON_VERSION } from "./engine/firmamentEngine";
+import { WHEEL_GEOMETRY_VERSION } from "./engine/houseFrameFoundation";
 
 /** Runs one requested method per game. No full 21/31 synthesis is invoked.
  * Per-game traces persist to the existing results table; summary keeps only
@@ -27,7 +28,7 @@ export async function executeSingleMethodRun(runId: number, datasetId: number, m
   }
   const summary = {
     mode: "INDIVIDUAL_METHOD_ONLY",
-    methodId, ascendantModelVersion: ASCENDANT_HORIZON_VERSION, requestedGameCount: gameCount, selectionPolicy: `First ${gameCount} validated CSV events in original row order, no replacement or fabrication`, total: events.length, completedEvents, failedEvents,
+    methodId, ascendantModelVersion: ASCENDANT_HORIZON_VERSION, wheelGeometryVersion: WHEEL_GEOMETRY_VERSION, requestedGameCount: gameCount, selectionPolicy: `First ${gameCount} validated CSV events in original row order, no replacement or fabrication`, total: events.length, completedEvents, failedEvents,
     methodPerformance: collector.summary(),
     warning: "An individual method is not historically or doctrinally certified by generating 10,000 results. Validate fixture odds, actual kickoff and independent holdout first.",
   };
