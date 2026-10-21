@@ -10,6 +10,7 @@ import {
   type HarmonicConfig,
 } from "./experimentalLayers";
 import type { Prediction } from "./firmamentEngine";
+import { DEFAULT_CHINESE_MANSIONS, buildChineseMansionEvidence } from "./chineseMansions";
 import { buildMethodChartSnapshot, type MethodChartSnapshot } from "./methodChartSnapshot";
 
 export type MethodMode = "PREDICTIVE" | "EVIDENCE_ONLY";
@@ -74,6 +75,19 @@ const withConfig = (config: readonly HarmonicConfig[]) => Object.freeze(config.m
 
 export const METHOD_REGISTRY: readonly MethodSpec[] = Object.freeze([
   {
+    id: "CHINESE_28_XIU_STELLAR_RA_V1",
+    name: "Chinese 28 mansions — determinative-star J2000 evidence",
+    family: "Chinese lunar mansions",
+    version: "1.0.0",
+    mode: "EVIDENCE_ONLY",
+    requiredInputs: ["prediction", "eventTime"],
+    configuration: { frame: "ICRS_J2000", source: DEFAULT_CHINESE_MANSIONS.source, count: 28 },
+    run: input => {
+      const trace = buildChineseMansionEvidence(input.prediction.planets.map(planet => ({ planet: planet.planet, house: planet.house, j2000RaDegrees: planet.j2000RaDegrees })), DEFAULT_CHINESE_MANSIONS);
+      return { methodId: "CHINESE_28_XIU_STELLAR_RA_V1", mode: "EVIDENCE_ONLY", evaluable: trace.assignments.length > 0, scoreA: null, scoreB: null, prediction: "NONE", confidence: null, evidence: trace.assignments.map(item => ({ type: "chinese-mansion", planet: item.planet, house: item.house, value: item.mansion.index, explanation: item.planet + " in " + item.mansion.pinyin + " (" + item.mansion.hanzi + "), " + item.mansion.quadrant + "; RA " + item.rightAscensionDegrees.toFixed(4) + "°, mansion distance " + item.degreesIntoMansion.toFixed(4) + "°" })), detail: "Each chart body is assigned through verified J2000 determinative-star right ascensions. No unvalidated predictive effects are inferred.", calculationVersion: "1.0.0" };
+    },
+  },
+  {
     id: "HARMONICS_V1",
     name: "H2-H12 harmonic family coherence (Gaussian, calibrated orbs)",
     family: "Harmonics",
@@ -81,7 +95,7 @@ export const METHOD_REGISTRY: readonly MethodSpec[] = Object.freeze([
     mode: "PREDICTIVE",
     requiredInputs: ["prediction", "eventTime"],
     configuration: { model: "GAUSSIAN", harmonics: withConfig(DEFAULT_HARMONICS) },
-    run: (input) => resultFromVerdict(METHOD_REGISTRY[0]!, calculateHarmonicSpectrum(input.prediction, DEFAULT_HARMONICS).verdict),
+    run: (input) => resultFromVerdict(METHOD_REGISTRY[1]!, calculateHarmonicSpectrum(input.prediction, DEFAULT_HARMONICS).verdict),
   },
   {
     id: "HARMONICS_V2",
@@ -91,7 +105,7 @@ export const METHOD_REGISTRY: readonly MethodSpec[] = Object.freeze([
     mode: "PREDICTIVE",
     requiredInputs: ["prediction", "eventTime"],
     configuration: { model: "LINEAR", maxOrbDeg: 5, harmonics: withConfig(DEFAULT_HARMONICS_V2) },
-    run: (input) => resultFromVerdict(METHOD_REGISTRY[1]!, calculateHarmonicSpectrumV2(input.prediction, DEFAULT_HARMONICS_V2).verdict),
+    run: (input) => resultFromVerdict(METHOD_REGISTRY[2]!, calculateHarmonicSpectrumV2(input.prediction, DEFAULT_HARMONICS_V2).verdict),
   },
   ...([3, 9, 10, 27, 30] as const).map((division) => ({
     id: `VARGA_D${division}_V1`,
