@@ -1,36 +1,41 @@
-# Chinese 28 Lunar Mansions — star-anchored 360° wheel foundation (research draft)
+# Firmament 360° wheel — Chinese 28 Xiù, star-anchored J2000 layer
 
-**Current status: reference catalog and safe overlay plumbing wired. REAL RA CALIBRATION STILL OUTSTANDING.** Do not claim the main chart displays verified mansion boundaries or computes real mansion placements until the 28-star right ascension catalog and a common epoch are explicitly supplied.
+**Implementation status:** all 28 modern Stellarium Chinese Xiù determinative stars have a real source-catalog **J2000 right-ascension**. The 28 unequal boundaries now render as pink spokes on the **Home page circular Astrolabe**, and both diamond and circle views expose a full 28-mansion star identification catalog. Reference projected planetary RA-to-mansion labels are visible through an expandable ledger. This is a geometry/reference-data implementation, **not** validated prediction doctrine.
 
-## Astronomical foundation
+## Sources and frozen reference convention
 
-Unlike Arabic Manazil or 27 equal Nakshatra sectors in this app, Chinese 28 Xiù are **unequal** sky sectors measured in **equatorial right ascension** between determinative stars (距星). Four groups of seven: East Azure Dragon/Wood, North Black Tortoise/Water, West White Tiger/Metal, South Vermilion Bird/Fire. These Chinese Five Phases are **not** the four Western zodiac elements and should not be merged.
+- Name/order/HIP determinate-star set: Stellarium Chinese sky-culture contemporary HIP series: https://stellarium.org/doc/25.0/classStelSkyCultureSkyPartition.html
+- **Actual J2000 RA positions**, in decimal degrees, from `starmap/data/stars.csv`, compiled from the Yale Bright Star Catalogue 5th Revised Edition, 1991, public domain: https://github.com/isene/starmap/blob/master/data/stars.csv
+- Traditional pole-to-pole equatorial/right-ascension reference sectors of **unequal width**, not 360/28 equal sectors: https://fossies.org/linux/stellarium/skycultures/chinese/description.md
+- Historical differences among Tang/Song/Ming/Qing determinative stars: https://kuangchujia.com/glossary/en/
 
-We adopted the *Stellarium Chinese sky-culture modern determinative-star HIP identifier series*: `65474,69427,72622,78265,80763,82514,88635,92041,100345,102618,106278,109074,113963,1067,4463,8903,12719,17499,20889,26207,26727,30343,41822,42313,46390,48356,53740,59803`.
+**Fixed scientific scope:** these are J2000 equatorial RA reference positions, a modern source-defined sky projection. They are not asserted to be the traditional star choices for every historical Chinese epoch. Proper motion and precession are not dynamically applied to these fixed reference positions.
 
-Historic determinative-star sets **vary**, and some references differ on which main star identifies a mansion. This is tagged as one modern catalog, not canonical for all dynasties.
+## Independent layers
 
-## What is now implemented
+Chinese Xiù coexists **without replacement** of the fixed zodiac signs (12×30°), exact-degree Equal Houses (ASC+n×30°), elemental-family decans (36×10°), 27 Vedic Nakshatras, 28 Arabic Manāzil, or the broader fixed-star catalog.
 
-- `shared/chineseMansions.ts`: all 28 Xiù names, Chinese names, Stellarium HIP anchors, four regional families, a strict ingestion contract for 28 **measured RA positions** (source, frame and epoch required), 28 **unequal** boundary calculations, the Zi/Shen order warning and full-circle integrity, a body-to-mansion resolver and optional mansion-to-equal-house arc-intersection resolver.
-- `client/src/components/EventChartWheel.tsx`: optional Chinese 28 Xiù RA spokes on the existing 360° wheel **ONLY IF** the verified catalog and the wheel's RA coordinate-frame metadata match. Otherwise an explicit `NOT_EVALUABLE` notice appears and no pretend 12.857° segments render.
-- `client/src/components/ChineseMansionCatalog.tsx`: expandable 28-star roster with source HIP numbers, grouped by four symbols, including calibration warning.
-- `client/src/pages/Home.tsx`: mounts the catalog beside the actually used diamond/circular chart pair. The existing live circle chart is a separate `Astrolabe` component and **does not yet draw the unequal reference spokes**; their plotting function is ready in `EventChartWheel`, but wiring that output into the live chart remains a separate integration step.
-- `server/engine/chineseMansions.test.ts`: validates all 28 IDs, rejects missing/mixed/invalid RA data and proves sector width conservation with a labeled **synthetic fixture used only for geometry testing**, not astronomical coordinates.
+Four Chinese directional families (NOT the Western zodiac's four elements):
+1. Azure Dragon — East — Wood — Jiao, Kang, Di, Fang, Xin, Wei, Ji
+2. Black Tortoise — North — Water — Dou, Niu, Nu, Xu, Wei, Shi, Bi
+3. White Tiger — West — Metal — Kui, Lou, Wei, Mao, Bi, Zi, Shen
+4. Vermilion Bird — South — Fire — Jing, Gui, Liu, Xing, Zhang, Yi, Zhen
 
-## Calibration required before asserting REAL sky positions
+## Files changed / wired
 
-1. Acquire the actual **HIP right-ascension degrees for each of the 28 IDs**, preferably in a stable J2000 Hipparcos catalogue with provenance. Never infer longitudes from Western zodiac signs, from 28 equal divisions, or from a guessed star position.
-2. Verify the app's 360° body-coordinate frame and house Ascendant frame against the same RA and epoch as those stars. In the current engine the planetary `backgroundWheelLongitude` is J2000 equatorial RA despite variable names implying tropical ecliptic longitude. The Ascendant derives from apparent local sidereal time of date; these reference frames are not yet independently reconciled. **Do not blend them silently.**
-3. Resolve known **Zi/Shen RA order inversion** with a declared epoch and a documented ordering policy. The code sorts real RA positions rather than granting a negative mansion width.
-4. Wire the measured Xiù spokes into the Home page's active `Astrolabe` renderer and visible per-body mansion labels. Test planet/cusp/mansion assignment on several verified dates.
-5. Keep this a **structural chart layer**, without new sports-prediction score or interpretive claims until the user asks for an interpretive method and provenance for its meanings.
+- `shared/chineseMansions.ts`: catalog of all 28 star HIP IDs, names, quadrants, epoch/frame strict validation; actual measured-RA sorted uneven sectors, 360° total conservation, degree-to-Xiù resolver, optional house-sector intersections. Invalid/partial catalog data returns NOT_EVALUABLE, **never invented positions**.
+- `shared/chineseMansionJ2000Stars.ts`: frozen real 28-star J2000 Yale-BSC-based HIP→RA coordinates, catalog provenance, reference sector list.
+- `client/src/pages/Home.tsx`: actual live main circular Astrolabe draws all 28 unequal reference-star boundary spokes; planet-to-Xiù readout from original J2000 projected longitudes; zodiac, house and planet positions advance counterclockwise to match core V3.
+- `client/src/components/ChineseMansionCatalog.tsx`: 28 names, glyphs, HIP source IDs, actual RA coordinates and quadrants displayed beside actual diamond and circle charts.
+- `client/src/components/EventChartWheel.tsx`: separately available detailed wheel component defaults to actual J2000 28-star positions, displays them with names/epoch and rejects mismatched catalog inputs.
+- `server/engine/chineseMansions.test.ts`: architecture contracts, invalid catalog guards and *explicitly synthetic* fixture.
+- `server/engine/chineseMansionSourceCatalog.test.ts`: actual source catalog checks (Spica HIP65474 RA201.2983°, Antares HIP80763 RA247.3517°), unequal sectors, complete 360° and RA-to-house width conservation.
 
-## Sources
+## Important limitations still outstanding
 
-- Stellarium's modern HIP reference series and star-boundary rules: https://stellarium.org/doc/25.0/classStelSkyCultureSkyPartition.html
-- Stellarium's sky-culture explanation: https://fossies.org/linux/stellarium/skycultures/chinese/description.md
-- Historical changes of reference stars: https://kuangchujia.com/glossary/en/
-- Unequal widths and equatorial methodology: https://www.starlodge.online/learn/measurement
+1. **Coordinate-frame matching**: The app's planet `backgroundWheelLongitude` is currently an equatorial J2000 RA-style projection, even if inaccurately named "ecliptic" in some engine fields. The eastern Ascendant uses the local apparent sidereal hour-angle *of date*. Before claiming historically accurate *event-local* Chinese mansion-to-house maps, align those reference epochs without changing the user's intentional zero-tilt convention.
+2. **Zi/Shen**: historical order of determinate stars sometimes differs; sort their *actual reference RA* for the selected epoch and report swap warnings instead of forcing negative widths. One choice has now been anchored to J2000 only.
+3. **Dynamical/historical options**: The current Chinese Xiù geometry is frozen J2000; historical traditional catalog variants and of-date stellar positions should be separate, opt-in versions if later researched.
+4. **Sports methodology**: no new scoring, weights or AI predictions are added. Descriptive layer only until user requests and separately verifies Chinese-mansion doctrine and interpretive applications.
 
-**Neither 28-sector geometry nor traditional Xiù interpretations may be scored as empirically validated sports predictions.**
+**Status:** source star references and main-chart geometry integrated on research draft PR #44; not deployed/merged to main. Retain all previous methods and overlays unchanged.
