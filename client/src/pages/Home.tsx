@@ -37,6 +37,7 @@ import { QuickGameSimBar, type QuickGameInput } from "@/components/QuickGameSimB
 import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
+import { ChineseMansionCatalog } from "@/components/ChineseMansionCatalog";
 import { ExpandedMethodPanel, type ExpandedMethodExperimentDisplay } from "@/components/ExpandedMethodPanel";
 import { IndependentMethodWorkbench } from "@/components/IndependentMethodWorkbench";
 
@@ -666,6 +667,8 @@ export default function Home() {
           ) : (
             <Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} />
           )}
+
+          <ChineseMansionCatalog />
 
           <EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} />
         </div>
