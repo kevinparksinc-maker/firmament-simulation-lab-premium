@@ -1,3 +1,5 @@
+> **ARCHIVED BEFORE CANONICAL V3 WHEEL (NOT CURRENT HOUSE GEOMETRY).** This record used the superseded H1→H12→H11 house progression. On the V3 wheel Pisces is behind Aries in House 12, Taurus is ahead in House 2, and all figures below must be recomputed using `ZODIAC_FORWARD_HOUSE_1_TO_12_V3`. See [the current wheel contract](../CORE-360-WHEEL-V3.md). Do not present the old planets-in-house ledger or game scores as current results.
+
 # Tyson–Douglas 1990: 31-method zero-tilt east/west horizon audit
 
 **Run:** GitHub Actions [Daily studio validation #39520329348](https://github.com/kevinparksinc-maker/firmament-simulation-lab-premium/actions/runs/39520329348).
