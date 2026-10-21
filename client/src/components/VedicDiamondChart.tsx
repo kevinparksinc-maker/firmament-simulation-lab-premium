@@ -37,7 +37,7 @@ const PLANET_SYMBOLS: Record<string, string> = {
 
 const ZODIAC_NAMES = ZODIAC_SIGNS;
 
-const ZODIAC_SIGNS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
+const ZODIAC_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 
 // North Indian Kundali House Polygons on a 400x400 SVG grid
 const HOUSE_GEOMETRY = [
@@ -240,7 +240,7 @@ export function VedicDiamondChart({
 
             // Sign in this house (1-based Rashi index, 1 = Aries, 12 = Pisces)
             const signNumber = zodiacAt(houseCusp(houseNum, isGodView ? "god" : "agent", ascendantLongitude)).index + 1;
-            const signSymbol = ZODIAC_SIGNS[signNumber - 1];
+            const signSymbol = ZODIAC_GLYPHS[signNumber - 1];
 
             const occupants = planetsByHouse.get(houseNum) ?? [];
 
