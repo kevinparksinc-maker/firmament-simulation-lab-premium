@@ -1,6 +1,5 @@
 import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
 import { ALL_36_DECANS, decanAtLongitude } from "../../../shared/firmamentDecans";
-import { CHINESE_28_MANSIONS, resolveChineseMansionArcs, type ChineseMansionCalibration } from "../../../shared/chineseLunarMansions";
 import {CHINESE_J2000_ANCHORS} from "../../../shared/chineseMansionJ2000Stars";
 import { useMemo } from "react";
 import {
@@ -37,8 +36,6 @@ type Props = {
   chineseMansionCoordinateFrame?: "equatorial";
   chineseMansionEpoch?: string;
   showStars?: boolean;
-  chineseMansionCalibration?: ChineseMansionCalibration | null;
-  showChineseMansions?: boolean;
 };
 
 export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean; chineseMansions?: boolean };
@@ -86,7 +83,6 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
   const planetRadius = 125;
   const background = mode === "god" ? "#071a26" : "#110e25";
   const accent = mode === "god" ? "#52e2ff" : "#c2a0ff";
-  const chineseArcs = useMemo(() => resolveChineseMansionArcs(chineseMansionCalibration), [chineseMansionCalibration]);
   const houseStart = mode === "god" ? 0 : ascendantLongitude;
   const planetPositions = useMemo(() => planets.map((planet, index) => {
     const longitude = normalize(planet.backgroundWheelLongitude ?? planet.tropicalLongitude ?? 0);
@@ -155,14 +151,6 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
                 <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#f69dcd" strokeOpacity=".95" strokeWidth="1.4"/>
               </g>;
             })}
-            {showChineseMansions && chineseArcs && chineseArcs.map((mansion) => {
-              const point = polar(cx, cy, zodiacInner - 22, mansion.startLongitude);
-              const end = polar(cx, cy, zodiacInner - 12, mansion.startLongitude);
-              return <g key={`xiu-${mansion.index}`}>
-                <title>{mansion.hanzi} {mansion.id} · {mansion.english} · {mansion.starName} · {mansion.angularWidth.toFixed(4)}°</title>
-                <line x1={point.x} y1={point.y} x2={end.x} y2={end.y} stroke="#e4a9ff" strokeWidth="1.5"/>
-              </g>;
-            })}
             {showDecans && ALL_36_DECANS.map((face) => {
               const boundary = polar(cx, cy, outer - 4, face.startLongitude);
               const rim = polar(cx, cy, outer + (face.face === 1 ? 5 : 2), face.startLongitude);
@@ -216,11 +204,6 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
           </svg>
         </div>
         <div className="space-y-3">
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <p className="eyebrow text-violet-200/80">Chinese star-anchored 28 Xiù</p>
-            <p className="mt-2 text-xs text-slate-300">{CHINESE_28_MANSIONS.length} real determinative-star entries, grouped into the Four Symbols. {chineseArcs ? "Verified J2000 RA boundaries loaded — purple ticks mark unequal mansions." : "Waiting for verified same-epoch stellar right ascensions. No fabricated equal-size mansion ticks are drawn."}</p>
-            <div className="mt-2 grid grid-cols-4 gap-1 text-[10px] text-violet-200/70"><span>Azure Dragon</span><span>Black Tortoise</span><span>White Tiger</span><span>Vermilion Bird</span></div>
-          </div>
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow text-cyan-200/70">Reading the wheel</p><p className="mt-2 text-sm leading-6 text-slate-300">The outer zodiac and overlay rings stay fixed. Only the house spokes change between God View and AgentView.</p></div>
           <div className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.035] p-3 text-xs text-slate-300">
             <strong className="text-fuchsia-200">Chinese Xiù · 28 determinative-star mansions</strong>
