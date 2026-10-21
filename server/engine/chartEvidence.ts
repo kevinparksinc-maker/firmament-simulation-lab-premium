@@ -1,4 +1,5 @@
 import type { PlanetReading, Prediction } from "./firmamentEngine";
+import { buildChineseMansionEvidence, type CompiledChineseMansions } from "./chineseMansions";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 
 type ExperimentalLayerResult = ReturnType<typeof calculateExperimentalLayers>;
@@ -12,6 +13,7 @@ export type MansionHouseCell = {
   dasha: { mahadasha?: string; antardasha?: string; pratyantardasha?: string; activation: number };
 };
 export type ChartEvidenceGraph = {
+  chineseMansions: { status: "READY"; evidence: ReturnType<typeof buildChineseMansionEvidence> } | { status: "AWAITING_VERIFIED_STELLAR_CATALOG"; evidence: null };
   houses: Array<{ house: number; sign: string; sav: number; planets: string[]; mansion: string | null }>;
   mansions: Array<{ mansion: string; houses: number[]; planets: string[]; activation: number }>;
   cells: MansionHouseCell[];
@@ -24,7 +26,7 @@ function houseSav(layers: ExperimentalLayerResult, house: number) {
 }
 function safeHouse(planet: PlanetReading) { return planet.house >= 1 && planet.house <= 12 ? planet.house : 0; }
 
-export function buildChartEvidence(prediction: Prediction, eventTime: Date): ChartEvidenceGraph {
+export function buildChartEvidence(prediction: Prediction, eventTime: Date, chineseCatalog?: CompiledChineseMansions): ChartEvidenceGraph {
   const layers = calculateExperimentalLayers(prediction, eventTime);
   const cells = new Map<string, MansionHouseCell>();
   const mansionMap = new Map<string, { houses: Set<number>; planets: Set<string>; activation: number }>();
@@ -79,6 +81,7 @@ export function buildChartEvidence(prediction: Prediction, eventTime: Date): Cha
     return { mansion: cell.mansion, house: cell.house, strength: Number(strength.toFixed(3)), reasons };
   }).sort((a, b) => b.strength - a.strength).slice(0, 10);
   return {
+    chineseMansions: chineseCatalog ? { status: "READY" as const, evidence: buildChineseMansionEvidence(prediction.planets.map(planet => ({planet: planet.planet, house: planet.house, j2000RaDegrees: planet.j2000RaDegrees})), chineseCatalog) } : { status: "AWAITING_VERIFIED_STELLAR_CATALOG" as const, evidence: null },
     houses: Array.from({ length: 12 }, (_, index) => { const house = index + 1; const housePlanets = planetsByHouse.get(house) ?? []; return { house, sign: prediction.houses[index]?.sign ?? "Unknown", sav: houseSav(layers, house), planets: housePlanets.map((planet) => planet.planet), mansion: housePlanets[0]?.nakshatra ?? null }; }),
     mansions: Array.from(mansionMap.entries()).map(([mansion, entry]) => ({ mansion, houses: Array.from(entry.houses).sort((a, b) => a - b), planets: Array.from(entry.planets), activation: Number(entry.activation.toFixed(3)) })),
     cells: cellList,
