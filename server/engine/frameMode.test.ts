@@ -48,10 +48,10 @@ describe("dual-frame house systems", () => {
     expect(agentMars.degreeInSign).toBeCloseTo(godMars.degreeInSign, 8);
   });
 
-  it("maps a 100-degree planet to reverse fixed H10 and exact-degree equal houses", () => {
-    expect(fixedEclipticHouseFromLongitude(100)).toMatchObject({ house: 10, sign: "Cancer", degreeInHouse: 10 });
+  it("maps a 100-degree planet to fixed Cancer H4 and exact-degree equal houses", () => {
+    expect(fixedEclipticHouseFromLongitude(100)).toMatchObject({ house: 4, sign: "Cancer", degreeInHouse: 10 });
     expect(fixedEclipticHouseFromLongitude(100 - 95).house).toBe(1);
-    expect(fixedEclipticHouseFromLongitude(100 - 119).house).toBe(2);
+    expect(fixedEclipticHouseFromLongitude(100 - 119).house).toBe(12);
   });
 
   it("keeps the 28 Arabic Manzil divisions fixed on the same wheel", () => {
