@@ -265,7 +265,7 @@ function houseLords(planets: FramePlanet[], ascendantLongitude: number): HouseLo
   for (let house = 1; house <= 12; house += 1) {
     const ruledSide = sideForHouse(house);
     if (ruledSide === "neutral") continue;
-    const cuspSign = signAt(ascendantLongitude + ((13 - house) % 12) * 30);
+    const cuspSign = signAt(ascendantLongitude + (house-1)*30);
     const lord = SIGN_RULERS[cuspSign];
     const placement = byName.get(lord);
     if (placement) entries.push({ house, ruledSide, lord, placement });
