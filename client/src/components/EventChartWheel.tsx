@@ -170,7 +170,7 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
             })}
             <circle cx={cx} cy={cy} r="34" fill="rgba(4,8,18,.82)" stroke={accent} strokeOpacity=".28" />
             <text x={cx} y={cy - 2} textAnchor="middle" fill={accent} fontSize="8" letterSpacing="1.3">{mode === "god" ? "GOD VIEW" : "AGENTVIEW"}</text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(226,232,240,.7)" fontSize="8">ASC {normalize(ascendantLongitude).toFixed(1)}°</text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(226,232,240,.7)" fontSize="8">ASC {normalize(ascendantLongitude).toFixed(6)}°</text>
           </svg>
         </div>
         <div className="space-y-3">
