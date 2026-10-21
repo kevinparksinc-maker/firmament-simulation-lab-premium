@@ -38,6 +38,8 @@ import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
 import { ChineseMansionCatalog } from "@/components/ChineseMansionCatalog";
+import { CHINESE_J2000_MANSIONS } from "../../../shared/chineseMansionJ2000Stars";
+import { chineseMansionForRA } from "../../../shared/chineseMansions";
 import { ExpandedMethodPanel, type ExpandedMethodExperimentDisplay } from "@/components/ExpandedMethodPanel";
 import { IndependentMethodWorkbench } from "@/components/IndependentMethodWorkbench";
 
@@ -259,16 +261,39 @@ function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kin
     <div className="wheel-wrap">
       <svg viewBox="0 0 220 220" aria-hidden="true">
         <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
-        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
-        {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
-        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero - index * 30 - 90) * Math.PI / 180; const center = (houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
-        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
+        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" />
+        {/* Chinese 28 Xiù: 28 UNEQUAL J2000 RA segments grounded in 28 HIP stars.
+            These are equatorial coordinate spokes, not 360/28 zodiac markers. */}
+        {CHINESE_J2000_MANSIONS.map(mansion=>{
+          const radians=(-mansion.startRa-90)*Math.PI/180;
+          return <g key={`xiu-${mansion.hip}`}>
+            <title>{mansion.chinese} {mansion.name} — {mansion.english}; {mansion.quadrant}; HIP {mansion.hip}; start RA {mansion.startRa.toFixed(4)}°, width {mansion.widthDegrees.toFixed(4)}°; reference J2000</title>
+            <line x1={110+Math.cos(radians)*90} y1={110+Math.sin(radians)*90} x2={110+Math.cos(radians)*102} y2={110+Math.sin(radians)*102} stroke="#f4a3d2" strokeWidth="0.9" strokeOpacity="0.95"/>
+          </g>;
+        })}<circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
+        {ZODIAC_SIGNS.map((sign, index) => { const angle = (-index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
+        {Array.from({ length: 12 }, (_, index) => { const boundary = (-houseZero - index * 30 - 90) * Math.PI / 180; const center = (-houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
+        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (-longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
         <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
       </svg>
       {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
     </div>
     <p className="astrolabe-caption">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "Overlay-ready; spatial readings appear after calculation."}</p>
-  </button><HouseKey /></div>;
+  </button><HouseKey />
+  <details className="mt-2 rounded-xl border border-fuchsia-300/15 bg-black/30 p-3 text-xs text-slate-300">
+    <summary className="cursor-pointer font-semibold text-fuchsia-200">28 Chinese Xiù — unequal measured J2000 star boundaries</summary>
+    <p className="mt-1 text-[11px] text-slate-400">Pink spokes mark the real HIP determinative-star J2000 right ascensions, not equal 12.857° divisions. This is an equatorial reference overlay; the event Ascendant uses a separate of-date clock and still requires epoch reconciliation.</p>
+    <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+      {displayPlanets.map(planet=>{
+        const hit=chineseMansionForRA(planet.backgroundWheelLongitude,CHINESE_J2000_MANSIONS,"J2000");
+        return <div key={planet.planet} className="flex justify-between gap-2 border-b border-white/5 pb-1 text-[11px]">
+          <span className="font-semibold">{planet.planet}</span>
+          <span className="text-fuchsia-200">{hit ? `${hit.chinese} ${hit.name} (HIP ${hit.hip})` : "Not evaluable"}</span>
+        </div>;
+      })}
+    </div>
+  </details>
+  </div>;
 }
 
 function EvidenceCard({ selected, simulation, onClear }: { selected: OverlayLayer | null; simulation: Simulation | null; onClear: () => void }) {
