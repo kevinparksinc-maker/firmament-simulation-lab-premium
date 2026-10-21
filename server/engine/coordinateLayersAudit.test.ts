@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateAscendantLongitude, generatePredictionForModel, kpDetailsFromCanonicalLongitude, manzilFromLongitude, NAKSHATRA_ARC_DEGREES, MANZIL_ARC_DEGREES, ARABIC_LUNAR_MANSIONS, NAKSHATRAS } from "./firmamentEngine";
-import { getChaldeanDecan } from "./territorialStack";
+import { getElementalDecan } from "./territorialStack";
 import { houseCusp, locateInHouse } from "./houseFrameFoundation";
 
 /**
@@ -47,7 +47,7 @@ describe("zero-tilt coordinate-layer diagnostics at Tokyo Dome",()=>{
     const deg=norm(planet.backgroundWheelLongitude);
     const stellar=kpDetailsFromCanonicalLongitude(deg,event.startTime,false);
     const manzil=manzilFromLongitude(deg);
-    const face=getChaldeanDecan(sign(deg),deg%30);
+    const face=getElementalDecan(sign(deg),deg%30);
     const godPlanet=god.planets.find(p=>p.planet===planet.planet)!;
     expect(planet.backgroundWheelLongitude).toBeCloseTo(godPlanet.backgroundWheelLongitude,10);
     expect(locateInHouse(deg,"agent",asc).house).toBe(planet.house);
