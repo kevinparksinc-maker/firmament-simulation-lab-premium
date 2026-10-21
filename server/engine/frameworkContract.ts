@@ -11,7 +11,7 @@ export const METHOD_NAMES=[
 "Cluster territory & house-lord placement",
 "Nakshatra influence",
 "Essential dignity",
-"Chaldean Decans",
+"Elemental Family Decans",
 "Planetary war",
 "Arabic Lots",
 "Arabic mansion context",
