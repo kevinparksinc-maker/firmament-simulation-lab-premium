@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
-  ALL_36_DECANS, CHALDEAN_DECAN_RULERS, decanAtLongitude,
+  ALL_36_DECANS, ELEMENTAL_DECAN_RULERS, decanAtLongitude,
   decanForSignDegree, decanHouseOverlaps,
 } from "../../shared/firmamentDecans";
 import { ZODIAC_SIGNS, locateInHouse } from "../../shared/firmamentWheel";
-import { getChaldeanDecan } from "./territorialStack";
+import { getElementalDecan } from "./territorialStack";
 import { runSingleMethodEvent } from "./isolatedMethodRunner";
 import { generatePredictionForModel } from "./firmamentEngine";
 
-describe("Firmament exact-degree Chaldean decans: all 36 on fixed zodiac wheel",()=>{
-  it("has 36 consecutive, gap-free 10-degree faces, correct 12-sign traditional rulers",()=>{
+describe("Firmament exact-degree elemental-family decans: all 36 on fixed zodiac wheel",()=>{
+  it("has 36 consecutive, gap-free 10-degree faces, correct 12-sign elemental sign-family rulers",()=>{
     const documentedRulers=[
-      ["Mars","Sun","Venus"],["Mercury","Moon","Saturn"],
-      ["Jupiter","Mars","Sun"],["Venus","Mercury","Moon"],
-      ["Saturn","Jupiter","Mars"],["Sun","Venus","Mercury"],
-      ["Moon","Saturn","Jupiter"],["Mars","Sun","Venus"],
-      ["Mercury","Moon","Saturn"],["Jupiter","Mars","Sun"],
-      ["Venus","Mercury","Moon"],["Saturn","Jupiter","Mars"],
+      ["Mars","Sun","Jupiter"],["Venus","Mercury","Saturn"],
+      ["Mercury","Venus","Saturn"],["Moon","Mars","Jupiter"],
+      ["Sun","Jupiter","Mars"],["Mercury","Saturn","Venus"],
+      ["Venus","Saturn","Mercury"],["Mars","Jupiter","Moon"],
+      ["Jupiter","Mars","Sun"],["Saturn","Venus","Mercury"],
+      ["Saturn","Mercury","Venus"],["Jupiter","Moon","Mars"],
     ];
-    expect(CHALDEAN_DECAN_RULERS).toEqual(documentedRulers);
+    expect(ELEMENTAL_DECAN_RULERS).toEqual(documentedRulers);
     expect(ALL_36_DECANS).toHaveLength(36);
     for(let i=0;i<36;i++){
       const d=ALL_36_DECANS[i]!;
@@ -33,19 +33,19 @@ describe("Firmament exact-degree Chaldean decans: all 36 on fixed zodiac wheel",
     }
   });
   it("does not misplace boundary degrees 9.999→10, 19.999→20, 29.999→next sign",()=>{
-    expect(decanForSignDegree("Taurus",9.999999)).toMatchObject({decan:1,ruler:"Mercury"});
-    expect(decanForSignDegree("Taurus",10)).toMatchObject({decan:2,ruler:"Moon"});
+    expect(decanForSignDegree("Taurus",9.999999)).toMatchObject({decan:1,ruler:"Venus"});
+    expect(decanForSignDegree("Taurus",10)).toMatchObject({decan:2,ruler:"Mercury"});
     expect(decanForSignDegree("Taurus",20)).toMatchObject({decan:3,ruler:"Saturn"});
     expect(decanAtLongitude(59.999999).ruler).toBe("Saturn");
-    expect(decanAtLongitude(60).ruler).toBe("Jupiter");
+    expect(decanAtLongitude(60).ruler).toBe("Mercury");
     expect(decanAtLongitude(359.999999).ruler).toBe("Mars");
     expect(decanAtLongitude(360)).toMatchObject({sign:"Aries",face:1,ruler:"Mars"});
   });
   it("rejects impossible sign-relative positions instead of silently clamping to a ruler",()=>{
     for(const degree of [-0.00001,30,360,Number.NaN,Number.POSITIVE_INFINITY]){
-      expect(()=>getChaldeanDecan("Taurus",degree)).toThrow(RangeError);
+      expect(()=>getElementalDecan("Taurus",degree)).toThrow(RangeError);
     }
-    expect(()=>getChaldeanDecan("Unlisted",5)).toThrow(RangeError);
+    expect(()=>getElementalDecan("Unlisted",5)).toThrow(RangeError);
   });
   it("holds a Taurus third-face ruler fixed while its 10-degree arc crosses H12/H1",()=>{
     // Exact Ascendant Taurus 25°. Taurus face 3: absolute [50°,60°).
@@ -81,7 +81,7 @@ describe("Firmament exact-degree Chaldean decans: all 36 on fixed zodiac wheel",
       const face=decanAtLongitude(planet.backgroundWheelLongitude);
       const corresponding=method.agent.chart.bodies.find(p=>p.planet===planet.planet)!;
       expect(corresponding.house).toBe(locateInHouse(planet.backgroundWheelLongitude,"agent",chart.ascendantLongitude).house);
-      expect(getChaldeanDecan(planet.sign,planet.degreeInSign)).toMatchObject({decan:face.face,ruler:face.ruler});
+      expect(getElementalDecan(planet.sign,planet.degreeInSign)).toMatchObject({decan:face.face,ruler:face.ruler});
       return {
         body:planet.planet,longitude:Number(planet.backgroundWheelLongitude.toFixed(6)),
         sign:face.sign,degreeInSign:Number((planet.backgroundWheelLongitude%30).toFixed(6)),
