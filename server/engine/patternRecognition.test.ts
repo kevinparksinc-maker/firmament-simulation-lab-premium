@@ -20,20 +20,22 @@ describe("Pattern Recognition & Causal Forensics Engine", () => {
     expect(sample.tokens.some((t: string) => t.startsWith("MOON:"))).toBe(true);
   });
 
-  it("mines recurring winning formulas and upset traps", () => {
+  it("does not promote legacy unsourced results into verified winning formulas", () => {
     const memory = getDefaultHistoricalMemory();
-    const discovery = discoverPatterns(memory, { minSupport: 2 });
-    expect(discovery.rules.length).toBeGreaterThan(0);
-    expect(discovery.winningFormulas.length).toBeGreaterThan(0);
-    expect(discovery.upsetTraps.length).toBeGreaterThan(0);
-
-    const hitFormula = discovery.winningFormulas[0];
-    expect(hitFormula.baselineAccuracy).toBeGreaterThanOrEqual(0.7);
-    expect(hitFormula.ruleType).toBe("WINNING_FORMULA");
-
-    const upsetTrap = discovery.upsetTraps[0];
-    expect(upsetTrap.baselineAccuracy).toBeLessThanOrEqual(0.4);
-    expect(upsetTrap.ruleType).toBe("UPSET_TRAP");
+    const unverified = memory.map(row => ({ ...row, roleVerified: false }));
+    const blocked = discoverPatterns(unverified, { minSupport: 2 });
+    expect(blocked.rules).toHaveLength(0);
+    expect(blocked.winningFormulas).toHaveLength(0);
+    expect(blocked.upsetTraps).toHaveLength(0);
+    // Memory can still supply chart similarities and forensic evidence. Pattern
+    // winner hit-rates must wait for recorded point-in-time sportsbook sources.
+    const actualDiscovery = discoverPatterns(memory, { minSupport: 2 });
+    const sourceCount = memory.filter(row => row.roleVerified && row.actualWinner && row.actualWinner !== "TIE").length;
+    if (sourceCount === 0) {
+      expect(actualDiscovery.rules).toHaveLength(0);
+    } else {
+      expect(actualDiscovery.rules.every(rule => rule.verified > 0)).toBe(true);
+    }
   });
 
   it("produces deep causal attribution post-mortem explaining why it happened", () => {

@@ -1,5 +1,5 @@
 import type { Prediction } from "./firmamentEngine";
-import { houseCusp, locateInHouse, type FirmamentFrame } from "./houseFrameFoundation";
+import { WHEEL_GEOMETRY_VERSION, houseCusp, locateInHouse, type FirmamentFrame } from "./houseFrameFoundation";
 
 /**
  * Methods receive one completed, read-only celestial snapshot per frame.
@@ -11,7 +11,7 @@ export type MethodChartSnapshot = Readonly<{
   eventTime: Date;
   ascendantLongitude: number;
   prediction: Prediction;
-  coordinateConvention: "aries-zero-360-equal-houses-v1";
+  coordinateConvention: typeof WHEEL_GEOMETRY_VERSION;
 }>;
 
 function freezeTree(value: unknown, seen = new WeakSet<object>()): void {
@@ -32,6 +32,10 @@ export function buildMethodChartSnapshot(
   if (!Number.isFinite(eventTime.getTime())) throw new RangeError("Invalid snapshot time");
   const clone = structuredClone(prediction);
   const anchor = frame === "god" ? 0 : ascendantLongitude;
+  // The snapshot's Lagna/Ascendant must match the house chart that each method
+  // receives; otherwise a sign-based method silently projects onto Agent
+  // houses even when it is supposedly running God View.
+  clone.ascendantLongitude = anchor;
   // Reproject the single ephemeris position into this frame once, BEFORE
   // handing the chart to any method. Methods never do this themselves.
   for (const planet of clone.planets) {
@@ -48,6 +52,6 @@ export function buildMethodChartSnapshot(
     eventTime: new Date(eventTime),
     ascendantLongitude: anchor,
     prediction: clone,
-    coordinateConvention: "aries-zero-360-equal-houses-v1" as const,
+    coordinateConvention: WHEEL_GEOMETRY_VERSION,
   });
 }

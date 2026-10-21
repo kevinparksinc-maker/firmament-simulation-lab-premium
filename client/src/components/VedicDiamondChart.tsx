@@ -1,3 +1,5 @@
+import { ZODIAC_SIGNS, zodiacAt, houseCusp, locateInHouse } from "../../../shared/firmamentWheel";
+import { decanAtLongitude } from "../../../shared/firmamentDecans";
 import { useMemo } from "react";
 
 export type PlanetItem = {
@@ -34,13 +36,9 @@ const PLANET_SYMBOLS: Record<string, string> = {
   Ketu: "☋",
 };
 
-const ZODIAC_NAMES = [
-  "Aries", "Taurus", "Gemini", "Cancer",
-  "Leo", "Virgo", "Libra", "Scorpio",
-  "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-];
+const ZODIAC_NAMES = ZODIAC_SIGNS;
 
-const ZODIAC_SIGNS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
+const ZODIAC_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 
 // North Indian Kundali House Polygons on a 400x400 SVG grid
 const HOUSE_GEOMETRY = [
@@ -171,13 +169,17 @@ export function VedicDiamondChart({
       map.set(h, []);
     }
     planets.forEach((p) => {
-      const h = p.house >= 1 && p.house <= 12 ? p.house : 1;
+      const rawLongitude = p.backgroundWheelLongitude ?? p.tropicalLongitude;
+      const h = rawLongitude === undefined
+        ? p.house
+        : locateInHouse(rawLongitude, frameName === "God View" ? "god" : "agent", ascendantLongitude).house;
+      if(h < 1 || h > 12) throw new RangeError("Planet has no valid house");
       const list = map.get(h) ?? [];
       list.push(p);
       map.set(h, list);
     });
     return map;
-  }, [planets]);
+  }, [planets, frameName, ascendantLongitude]);
 
   const isGodView = frameName === "God View";
 
@@ -238,8 +240,8 @@ export function VedicDiamondChart({
             const isRoleA = hGeom.role === "A";
 
             // Sign in this house (1-based Rashi index, 1 = Aries, 12 = Pisces)
-            const signNumber = ((lagnaSignIndex + (houseNum - 1)) % 12) + 1;
-            const signSymbol = ZODIAC_SIGNS[signNumber - 1];
+            const signNumber = zodiacAt(houseCusp(houseNum, isGodView ? "god" : "agent", ascendantLongitude)).index + 1;
+            const signSymbol = ZODIAC_GLYPHS[signNumber - 1];
 
             const occupants = planetsByHouse.get(houseNum) ?? [];
 
@@ -335,11 +337,33 @@ export function VedicDiamondChart({
         </svg>
       </div>
 
+      {/* Unlike a whole-sign chart, a 30° equal house may overlap two
+          zodiac signs and several fixed decans. Never infer decans from
+          the cusp sign alone; inspect each body's exact longitude. */}
+      <details className="mt-3 rounded-lg border border-amber-300/15 bg-black/20 px-3 py-2">
+        <summary className="cursor-pointer text-xs font-semibold text-amber-200">Exact-degree planet and 36-decan ledger ({planets.length} bodies)</summary>
+        <p className="mt-2 text-[11px] text-slate-400">House symbols display their cusp sign only. Decans are fixed 10° zodiac sectors; one decan may span two houses. No whole-sign approximation.</p>
+        <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {planets.map(planet => {
+            const longitude = planet.backgroundWheelLongitude ?? planet.tropicalLongitude;
+            if(longitude === undefined) return <div key={planet.planet} className="text-xs text-amber-200">{planet.planet}: missing absolute longitude — decan not evaluable</div>;
+            const face = decanAtLongitude(longitude);
+            const house = locateInHouse(longitude, isGodView ? "god" : "agent", ascendantLongitude).house;
+            return <div key={planet.planet} className="rounded-md border border-white/10 p-2 text-[11px]">
+              <strong className="text-slate-100">{planet.planet}</strong>
+              <span className="ml-2 text-slate-400">H{house}</span>
+              <p className="text-slate-300">{face.sign} {(((longitude%30)+30)%30).toFixed(6)}° · fixed wheel {(((longitude%360)+360)%360).toFixed(6)}°</p>
+              <p className="text-amber-200">Decan {face.face} of {face.sign} · {face.ruler} rules</p>
+            </div>;
+          })}
+        </div>
+      </details>
+
       {/* Bottom Summary Bar */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-black/40 px-3 py-2 text-[11px] text-slate-400 border border-slate-800">
         <div>
           <span className="text-amber-300 font-semibold">Lagna (H1 Ascendant): </span>
-          <span>{ZODIAC_NAMES[lagnaSignIndex]} ({Math.round(ascendantLongitude % 30)}°)</span>
+          <span>{zodiacAt(ascendantLongitude).name} {zodiacAt(ascendantLongitude).degreeInSign.toFixed(6)}° (absolute {(((ascendantLongitude % 360) + 360) % 360).toFixed(6)}°)</span>
         </div>
         <div className="flex gap-3">
           <span>Side A: <strong className="text-cyan-300 font-semibold">{activeTeamA}</strong></span>

@@ -1,3 +1,4 @@
+import { ZODIAC_SIGNS, houseCusp } from "./houseFrameFoundation";
 import {
   fixedEclipticHouseFromLongitude,
   generateFixedJ2000KPPrediction,
@@ -7,7 +8,7 @@ import {
   type ManzilReading,
   type PlanetReading,
 } from "./firmamentEngine";
-import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
+import { calculateRestoredTerritorial, calculateIndividualTerritorialLayer, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
 import {completeChartLedger} from "./completeChartLedger";
 import {buildFamilyAudit,attachFamilyAudit} from "./collectiveFamilyAudit";
 import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
@@ -24,7 +25,7 @@ type FrameName = "God View" | "Agent’s View";
  */
 export type RuleClass = "SHARED" | "SIDE_SPECIFIC" | "ROLE_MODIFIER" | "OUTCOME";
 
-const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"] as const;
+const SIGNS = ZODIAC_SIGNS;
 const SIGN_RULERS: Record<(typeof SIGNS)[number], string> = {
   Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon", Leo: "Sun", Virgo: "Mercury",
   Libra: "Venus", Scorpio: "Mars", Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter",
@@ -265,7 +266,7 @@ function houseLords(planets: FramePlanet[], ascendantLongitude: number): HouseLo
   for (let house = 1; house <= 12; house += 1) {
     const ruledSide = sideForHouse(house);
     if (ruledSide === "neutral") continue;
-    const cuspSign = signAt(ascendantLongitude + ((13 - house) % 12) * 30);
+    const cuspSign = signAt(houseCusp(house, "agent", ascendantLongitude));
     const lord = SIGN_RULERS[cuspSign];
     const placement = byName.get(lord);
     if (placement) entries.push({ house, ruledSide, lord, placement });
@@ -575,6 +576,94 @@ function buildFrame(
     fullChartLedger:completeChartLedger(raw.planets),
     addedLayers:auditedLayers,
     synthesis: { scoreA, scoreB, margin, winner, noCall: winner === "TIE", formula: "Current eight-layer Territorial foundation + each recovered archive addition + current full KP win-fit; all coefficients are fixed at 1.0 and were not tuned to outcomes." },
+  };
+}
+
+/**
+ * Resolve Agent View from the SAME geometry routine that powers the core
+ * 21-layer frame. Registry methods must not independently assume the
+ * astronomical horizon when dawn-anchored or 180° ascending mode is selected.
+ */
+export function resolveAgentFrameGeometry(
+  input: GameInput,
+  options: DualFrameRunOptions = {},
+) {
+  const resolved = planetsForAgent(input,
+    options.agentViewRotation ?? "none",
+    options.agentViewModel ?? input.agentViewModel ?? "astronomical");
+  return {
+    ascendantLongitude: resolved.ascendantLongitude,
+    ascendantModel: resolved.ascendantModel,
+    sunriseTime: resolved.sunriseTime,
+    sunriseSource: resolved.sunriseSource,
+    planetPositions: resolved.planets.map(p => ({
+      planet: p.planet, longitude: p.backgroundWheelLongitude, house: p.house,
+    })),
+  };
+}
+
+/**
+ * Standalone method runner for the 21 core slots. Computes only the requested
+ * layer after creating its frame chart. Territorial slots 1-8 now execute
+ * their own calculations, without invoking sibling methods. KP still depends
+ * on upstream family resolution.
+ * No other core method is scored or blended into this result.
+ */
+export function runIsolatedCoreLayer(
+  input: GameInput,
+  index: number,
+  frame: "god" | "agent",
+  options: DualFrameRunOptions = {},
+) {
+  if (!Number.isInteger(index) || index < 0 || index >= 21) throw new RangeError("Core method index must be 0..20");
+  const raw = frame === "god"
+    ? planetsForGod(input)
+    : planetsForAgent(input, options.agentViewRotation ?? "none", options.agentViewModel ?? "astronomical");
+  const entriesNeeded = [8, 15, 16, 17, 18].includes(index);
+  const entries = entriesNeeded ? houseLords(raw.planets, raw.ascendantLongitude) : [];
+  let layer: FullPackageFoundationLayerEvidence | FullPackageLayerEvidence;
+  let qualifyingScoreContributions: number | null = null;
+  if (index < 8) {
+    const single = calculateIndividualTerritorialLayer(
+      raw.planets, raw.ascendantLongitude,
+      (longitude) => fixedEclipticHouseFromLongitude(longitude - raw.ascendantLongitude).house,
+      frame, index,
+    );
+    layer = { ...single, source: "current-eight-layer-territorial" as const, ruleClass: "SIDE_SPECIFIC" as const };
+    qualifyingScoreContributions = single.qualifyingScoreContributions;
+  } else {
+    switch (index) {
+      case 8: layer = fixedStarLayer(entries); break;
+      case 9: layer = retrogradeLayer(raw.planets); break;
+      case 10: layer = lunarLayer(raw.planets); break;
+      case 11: layer = chartAspectLayer(raw.planets); break;
+      case 12: layer = moonPhaseLayer(raw.planets); break;
+      case 13: layer = nodesLayer(raw.planets); break;
+      case 14: layer = upachayaLayer(raw.planets); break;
+      case 15: layer = viaCombustaLayer(entries); break;
+      case 16: layer = besiegementLayer(entries, raw.planets); break;
+      case 17: layer = mutualReceptionLayer(entries, raw.planets); break;
+      case 18: layer = translationLayer(entries, raw.planets); break;
+      case 19: layer = frictionLayer(raw.planets); break;
+      case 20: {
+        const frameKp = runAgentGodFullLayerExperiment(input);
+        layer = kpLayer((frame === "god" ? frameKp.god : frameKp.agent).kp);
+        break;
+      }
+      default: throw new RangeError("Unknown core method index");
+    }
+  }
+  return {
+    layer,
+    frame,
+    qualifyingScoreContributions,
+    ascendantLongitude: raw.ascendantLongitude,
+    chart: completeChartLedger(raw.planets),
+    calculationScope: index < 8
+      ? "Targeted Territorial evaluator executes only the chosen component, using the canonical chart and preserved original coefficients."
+      : index === 20
+        ? "KP family resolution uses its upstream shared KP calculation; only the KP layer is selected."
+        : "Only the selected method evaluator is executed after generating the astronomical frame.",
   };
 }
 

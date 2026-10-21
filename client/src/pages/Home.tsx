@@ -37,6 +37,11 @@ import { QuickGameSimBar, type QuickGameInput } from "@/components/QuickGameSimB
 import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
+import { ChineseMansionCatalog } from "@/components/ChineseMansionCatalog";
+import { CHINESE_J2000_MANSIONS } from "../../../shared/chineseMansionJ2000Stars";
+import { chineseMansionForRA } from "../../../shared/chineseMansions";
+import { ExpandedMethodPanel, type ExpandedMethodExperimentDisplay } from "@/components/ExpandedMethodPanel";
+import { IndependentMethodWorkbench } from "@/components/IndependentMethodWorkbench";
 
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
@@ -80,6 +85,7 @@ type Simulation = {
   godView: Frame;
   agentView: Frame;
   synthesisView: { version:string; valid:boolean; reason:string; winner:Side; verdict:Verdict; scoreA:number; scoreB:number; margin:number; formula:string; methods:Array<{name:string;winner:Side;scoreA:number;scoreB:number;godScoreA:number;godScoreB:number;agentScoreA:number;agentScoreB:number;formula:string}> };
+  expandedExperiment?: ExpandedMethodExperimentDisplay;
   frameParity: { valid: boolean; methodParity: boolean; formulaParity: boolean; sourceParity: boolean; ruleClassParity: boolean; synthesisParity: boolean; reason: string; changedLayers: Array<{ name: string; differentialShift: number }> };
   chart: { godView: { ascendantLongitude: number; planets: Planet[] }; agentView: { ascendantLongitude: number; planets: Planet[] } };
   comparison: { state: string; winner: Side; actualWinner: Side | null; verified: boolean };
@@ -255,16 +261,39 @@ function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kin
     <div className="wheel-wrap">
       <svg viewBox="0 0 220 220" aria-hidden="true">
         <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
-        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
-        {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
-        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero - index * 30 - 90) * Math.PI / 180; const center = (houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
-        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
+        <circle cx="110" cy="110" r="95" className="wheel-ring-outer" />
+        {/* Chinese 28 Xiù: 28 UNEQUAL J2000 RA segments grounded in 28 HIP stars.
+            These are equatorial coordinate spokes, not 360/28 zodiac markers. */}
+        {CHINESE_J2000_MANSIONS.map(mansion=>{
+          const radians=(-mansion.startRa-90)*Math.PI/180;
+          return <g key={`xiu-${mansion.hip}`}>
+            <title>{mansion.chinese} {mansion.name} — {mansion.english}; {mansion.quadrant}; HIP {mansion.hip}; start RA {mansion.startRa.toFixed(4)}°, width {mansion.widthDegrees.toFixed(4)}°; reference J2000</title>
+            <line x1={110+Math.cos(radians)*90} y1={110+Math.sin(radians)*90} x2={110+Math.cos(radians)*102} y2={110+Math.sin(radians)*102} stroke="#f4a3d2" strokeWidth="0.9" strokeOpacity="0.95"/>
+          </g>;
+        })}<circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
+        {ZODIAC_SIGNS.map((sign, index) => { const angle = (-index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
+        {Array.from({ length: 12 }, (_, index) => { const boundary = (-houseZero - index * 30 - 90) * Math.PI / 180; const center = (-houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
+        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (-longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
         <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
       </svg>
       {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
     </div>
     <p className="astrolabe-caption">{frame ? `${frame.coordinateFrame} · ${frame.houseRule}` : "Overlay-ready; spatial readings appear after calculation."}</p>
-  </button><HouseKey /></div>;
+  </button><HouseKey />
+  <details className="mt-2 rounded-xl border border-fuchsia-300/15 bg-black/30 p-3 text-xs text-slate-300">
+    <summary className="cursor-pointer font-semibold text-fuchsia-200">28 Chinese Xiù — unequal measured J2000 star boundaries</summary>
+    <p className="mt-1 text-[11px] text-slate-400">Pink spokes mark the real HIP determinative-star J2000 right ascensions, not equal 12.857° divisions. This is an equatorial reference overlay; the event Ascendant uses a separate of-date clock and still requires epoch reconciliation.</p>
+    <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+      {displayPlanets.map(planet=>{
+        const hit=chineseMansionForRA(planet.backgroundWheelLongitude,CHINESE_J2000_MANSIONS,"J2000");
+        return <div key={planet.planet} className="flex justify-between gap-2 border-b border-white/5 pb-1 text-[11px]">
+          <span className="font-semibold">{planet.planet}</span>
+          <span className="text-fuchsia-200">{hit ? `${hit.chinese} ${hit.name} (HIP ${hit.hip})` : "Not evaluable"}</span>
+        </div>;
+      })}
+    </div>
+  </details>
+  </div>;
 }
 
 function EvidenceCard({ selected, simulation, onClear }: { selected: OverlayLayer | null; simulation: Simulation | null; onClear: () => void }) {
@@ -325,6 +354,7 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
         </button>;
       })}
     </div>
+    {simulation.expandedExperiment && <ExpandedMethodPanel experiment={simulation.expandedExperiment} teamA={simulation.input.teamA} teamB={simulation.input.teamB} />}
     <div id="frame-method-detail" role="tabpanel" className="mt-4 rounded-xl border border-slate-600 bg-slate-950/80 p-4 md:p-6">
       {section === "synthesis"
         ? <><p className="text-xs font-bold tracking-widest text-amber-300">SYNTHESIS · CROSS-FRAME COMPARISON</p>
@@ -522,12 +552,13 @@ export default function Home() {
         <a href="#live-scoreboard"><CircleDot size={17} />Live scoreboard</a>
         <a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a>
         <a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a>
+        <a href="#independent-methods"><Beaker size={17} />31 individual method fields</a>
         <a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a>
         <a href="#chart-telemetry"><Compass size={17} />Diamond chart wheel</a>
         <a href="#audit-ledger"><Activity size={17} />Decision ledger</a>
         <a href="/daily"><Flame size={17} />Daily slate studio</a>
       </div>
-      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · 40 methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
+      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · 40 methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>Pattern research · source limited</small></div></div></div>
       <div className="sidebar-rule"><ShieldCheck size={16} /><p>Research interface. Calls remain visibly separated from verified results and should not be treated as wagering advice.</p></div>
     </aside>
 
@@ -569,7 +600,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
+      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Pattern memory</span><strong>Historical fixtures · provenance review</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
         <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run a fixture to populate the evidence field with actual calculations."}</span></div></div></section>
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
@@ -583,6 +614,8 @@ export default function Home() {
           activeSimulationTeamB={simulation?.input.teamB}
         />
       </div>
+
+      <IndependentMethodWorkbench />
 
       {/* SPORTSBOOK GAME CALL BANNER - Clear, unambiguous prediction outcome */}
       {simulation && (
@@ -659,6 +692,8 @@ export default function Home() {
           ) : (
             <Astrolabe frame={frameForWheel} kind={activeFrame} active onSelect={() => setActiveFrame(activeFrame === "god" ? "agent" : "god")} />
           )}
+
+          <ChineseMansionCatalog />
 
           <EvidenceCard selected={selected} simulation={simulation} onClear={() => setSelected(null)} />
         </div>

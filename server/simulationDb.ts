@@ -65,6 +65,10 @@ export async function insertSimulationEvents(datasetId: number, events: Simulati
         eventId: event.id ?? `row-${index + 2}`,
         teamA: event.teamA,
         teamB: event.teamB,
+        favoredTeam: event.favoredTeam ?? null,
+        underdogTeam: event.underdogTeam ?? null,
+        roleAssignmentSource: event.roleAssignmentSource ?? "legacy-side-order",
+        oddsSource: event.oddsSource ?? null,
         sport: event.sport,
         location: event.location,
         latitude: event.latitude?.toString() ?? null,
@@ -85,6 +89,10 @@ export async function insertSimulationEvents(datasetId: number, events: Simulati
     eventId: event.id ?? `row-${index + 2}`,
     teamA: event.teamA,
     teamB: event.teamB,
+    favoredTeam: event.favoredTeam,
+    underdogTeam: event.underdogTeam,
+    roleAssignmentSource: event.roleAssignmentSource,
+    oddsSource: event.oddsSource,
     sport: event.sport,
     location: event.location,
     latitude: event.latitude?.toString(),
@@ -105,6 +113,10 @@ export async function getSimulationEvents(datasetId: number) {
         id: row.eventId,
         teamA: row.teamA,
         teamB: row.teamB,
+        favoredTeam: row.favoredTeam ?? undefined,
+        underdogTeam: row.underdogTeam ?? undefined,
+        roleAssignmentSource: (row.roleAssignmentSource ?? "legacy-side-order") as SimulationEventInput["roleAssignmentSource"],
+        oddsSource: row.oddsSource ?? undefined,
         sport: row.sport as SimulationEventInput["sport"],
         location: row.location,
         latitude: row.latitude === null ? undefined : Number(row.latitude),
@@ -121,6 +133,10 @@ export async function getSimulationEvents(datasetId: number) {
       id: row.eventId,
       teamA: row.teamA,
       teamB: row.teamB,
+      favoredTeam: row.favoredTeam ?? undefined,
+      underdogTeam: row.underdogTeam ?? undefined,
+      roleAssignmentSource: (row.roleAssignmentSource ?? "legacy-side-order") as SimulationEventInput["roleAssignmentSource"],
+      oddsSource: row.oddsSource ?? undefined,
       sport: row.sport as SimulationEventInput["sport"],
       location: row.location,
       latitude: row.latitude === null ? undefined : Number(row.latitude),
@@ -221,4 +237,65 @@ export async function listSimulationDatasets() {
     return list;
   }
   return db.select().from(simulationDatasets).orderBy(simulationDatasets.createdAt);
+}
+
+/**
+ * Paginate persisted per-event proofs so a 10,000-game experiment doesn't
+ * materialize 10,000 full chart ledgers in one browser response.
+ */
+export async function getSimulationResultPage(runId: number, offset: number, pageSize = 25) {
+  if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new RangeError("Invalid run result page.");
+  }
+  const db = await getDb();
+  const rows = db
+    ? await db.select().from(simulationResults).where(eq(simulationResults.runId, runId)).orderBy(simulationResults.id).limit(pageSize).offset(offset)
+    : (inMemoryResults.get(runId) ?? []).slice(offset, offset + pageSize);
+  return rows.map(row => {
+    let parsed: {
+      methodId?: string;
+      event?: { teamA?: string; teamB?: string; startTime?: string };
+      actualWinner?: string | null;
+      god?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      agent?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      combined?: { scoreA?: number | null; scoreB?: number | null; result?: string };
+      comparison?: string;
+      frameMethodStatus?: string;
+    } | null = null;
+    try { parsed = row.outputJson ? JSON.parse(row.outputJson) : null; }
+    catch { parsed = null; }
+    return {
+      id: row.id,
+      eventId: row.eventId,
+      status: row.status,
+      errorMessage: row.errorMessage,
+      fixture: parsed?.event ? {
+        teamA: parsed.event.teamA ?? "Unknown",
+        teamB: parsed.event.teamB ?? "Unknown",
+        startTime: parsed.event.startTime ?? "",
+      } : null,
+      methodId: parsed?.methodId ?? null,
+      god: parsed?.god ? { scoreA: parsed.god.scoreA ?? null, scoreB: parsed.god.scoreB ?? null, result: parsed.god.result ?? null } : null,
+      agent: parsed?.agent ? { scoreA: parsed.agent.scoreA ?? null, scoreB: parsed.agent.scoreB ?? null, result: parsed.agent.result ?? null } : null,
+      combined: parsed?.combined ? { scoreA: parsed.combined.scoreA ?? null, scoreB: parsed.combined.scoreB ?? null, result: parsed.combined.result ?? null } : null,
+      comparison: parsed?.comparison ?? null,
+      actualWinner: parsed?.actualWinner ?? null,
+      frameMethodStatus: parsed?.frameMethodStatus ?? null,
+    };
+  });
+}
+
+export async function getSimulationResultDetail(runId: number, resultId: number) {
+  const db = await getDb();
+  const matching = db
+    ? await db.select().from(simulationResults).where(eq(simulationResults.id, resultId)).limit(1)
+    : (inMemoryResults.get(runId) ?? []).filter(result => result.id === resultId);
+  const row = matching[0];
+  if (!row || row.runId !== runId) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    errorMessage: row.errorMessage,
+    output: row.outputJson ? JSON.parse(row.outputJson) as unknown : null,
+  };
 }

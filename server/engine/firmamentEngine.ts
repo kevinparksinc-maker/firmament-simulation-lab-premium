@@ -1,4 +1,4 @@
-import { houseCusp, locateInHouse } from "./houseFrameFoundation";
+import { ZODIAC_SIGNS, houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { createRequire } from "node:module";
 import type { Body } from "astronomy-engine";
 import { calculateRestoredTerritorial, type TerritorialEvidence } from "./territorialStack";
@@ -20,10 +20,7 @@ export const DESCENDANT_CLUSTER = [4, 5, 7, 8, 9, 12] as const;
 export const NEUTRAL_HOUSES: readonly number[] = [];
 export const NAKSHATRA_ARC_MINUTES = 800;
 
-const SIGNS = [
-  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
-] as const;
+const SIGNS = ZODIAC_SIGNS;
 
 export const NAKSHATRAS = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
@@ -259,7 +256,7 @@ export type AgentGodFullLayerExperiment = {
     "Cluster territory & house-lord placement",
     "Nakshatra influence",
     "Essential dignity",
-    "Chaldean Decans",
+    "Elemental Family Decans",
     "Planetary war",
     "Arabic Lots",
     "Nine-planet influence",
@@ -626,9 +623,8 @@ export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: D
 /** East = H1 / Aries; 30° sectors proceed counter-clockwise through the fixed dome. */
 export function fixedDomeHouseFromAzimuth(azimuth: number) {
   const delta = normalize(90 - azimuth);
-  const sector = Math.floor(delta / 30);
-  const house = sector === 0 ? 1 : 13 - sector;
-  return { house, degreeInHouse: delta % 30, sign: SIGNS[sector] };
+  const placement = locateInHouse(delta, "god", 0);
+  return { house: placement.house, degreeInHouse: placement.degreeInHouse, sign: SIGNS[Math.floor(delta / 30)] };
 }
 
 /**
@@ -639,9 +635,8 @@ export function fixedDomeHouseFromAzimuth(azimuth: number) {
 export function fixedFirmamentHouseFromRA(firmamentRA: number) {
   // Compatibility name retained; the fixed dome maps raw longitude directly.
   const normalizedLongitude = normalize(firmamentRA);
-  const sector = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees);
-  const house = sector === 0 ? 1 : 13 - sector;
-  return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[sector] };
+  const placement = locateInHouse(normalizedLongitude, "god", 0);
+  return { house: placement.house, degreeInHouse: placement.degreeInHouse, sectorSign: SIGNS[Math.floor(normalizedLongitude / 30)] };
 }
 
 /**
@@ -696,12 +691,30 @@ function signForLongitude(longitude: number) {
   return SIGNS[Math.floor(normalize(longitude) / 30)];
 }
 
-export function calculateAscendantLongitude(date: Date, _latitude: number, longitude: number) {
-  // Local horizon intersection with the permanent zero-tilt dome. Latitude
-  // drops out when the dome equator and ecliptic are coincident; longitude and
-  // time still make the local Ascendant individualized.
+/**
+ * Zero-obliquity, equatorial-wheel horizon model.
+ *
+ * East/rising horizon has local hour angle H=-90°. Since H=LST-RA,
+ * RA(east)=LST+90°. West/setting horizon has H=+90° and RA=LST+270°.
+ *
+ * Latitude cancels ONLY under this explicitly deliberate zero-tilt model;
+ * this is not a standard oblique-ecliptic tropical Ascendant. Keep all
+ * compared planet angles on the same zero-tilt equatorial reference wheel.
+ */
+export const ASCENDANT_HORIZON_VERSION = "ZERO_TILT_EASTERN_HORIZON_V2" as const;
+
+/** Historical pre-correction setting-horizon anchor, for reproducible audits.
+ * NEVER use this as the primary Ascendant; it points 180° away from the east.
+ */
+export function calculateLegacyWestHorizonLongitude(date: Date, _latitude: number, longitude: number) {
   const gstHours = Astronomy.SiderealTime(Astronomy.MakeTime(date));
   return normalize(gstHours * 15 + longitude + 270);
+}
+
+/** Correct eastern-horizon rising anchor under the fixed zero-tilt model. */
+export function calculateAscendantLongitude(date: Date, _latitude: number, longitude: number) {
+  const gstHours = Astronomy.SiderealTime(Astronomy.MakeTime(date));
+  return normalize(gstHours * 15 + longitude + 90);
 }
 
 function nodeLongitude(date: Date) {
@@ -844,8 +857,13 @@ function layerWinner(scoreA: number, scoreB: number): "A" | "B" | "TIE" {
   return scoreA > scoreB ? "A" : "B";
 }
 
-function territorialVerdict(planets: PlanetReading[], ascendantLongitude: number, lotHouseFromLongitude: (longitude: number) => number): LayerVerdict {
-  const restored = calculateRestoredTerritorial(planets, ascendantLongitude, lotHouseFromLongitude);
+function territorialVerdict(
+  planets: PlanetReading[],
+  ascendantLongitude: number,
+  lotHouseFromLongitude: (longitude: number) => number,
+  frame: "god" | "agent",
+): LayerVerdict {
+  const restored = calculateRestoredTerritorial(planets, ascendantLongitude, lotHouseFromLongitude, frame);
   const rationale = restored.evidence.layers.map((layer) => `${layer.name}: ${layer.scoreA >= 0 ? "+" : ""}${layer.scoreA.toFixed(2)} Ascendant / ${layer.scoreB >= 0 ? "+" : ""}${layer.scoreB.toFixed(2)} Descendant. ${layer.detail}`);
   return { scoreA: restored.scoreA, scoreB: restored.scoreB, winner: layerWinner(restored.scoreA, restored.scoreB), rationale, evidence: restored.evidence };
 }
@@ -866,7 +884,7 @@ function fixedClusterSignifications(planet: string, positionHouse: number) {
 function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
   const densityFor = (cluster: readonly number[]) => {
     const cuspSubLords = cluster.map((house) => {
-      const cusp = kpDetailsFromCanonicalLongitude((house - 1) * 30, new Date("2000-01-01T12:00:00Z"), false);
+      const cusp = kpDetailsFromCanonicalLongitude(houseCusp(house, "god", 0), new Date("2000-01-01T12:00:00Z"), false);
       const placement = planets.find((planet) => planet.planet === cusp.subLord) ?? planets[0]!;
       const significations = fixedClusterSignifications(cusp.subLord, placement.house);
       const connections = significations.filter((signification) => cluster.includes(signification)).length;
@@ -1101,7 +1119,7 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
   });
   const houseAnchor = domeModel === "fixed-zodiac-wheel" ? 0 : ascendantLongitude;
   const lotHouseFromLongitude = (longitude: number) => locateInHouse(longitude, domeModel === "fixed-zodiac-wheel" ? "god" : "agent", houseAnchor).house;
-  const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude);
+  const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude, domeModel === "fixed-zodiac-wheel" ? "god" : "agent");
   const kpStellar = kpVerdict(houses, planets, domeModel);
   const territorialWeight = 0.4;
   const kpWeight = 0.6;
@@ -1510,7 +1528,7 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
       degreeInSign: signPosition.degreeInHouse,
     };
   });
-  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => locateInHouse(longitude, "agent", ascendantLongitude).house);
+  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => locateInHouse(longitude, "agent", ascendantLongitude).house, "agent");
   const ascendant = resonanceAuditForSide(localPlanets, "A", config, ascendantLongitude, true);
   const descendant = resonanceAuditForSide(localPlanets, "B", config, ascendantLongitude, true);
   const margin = Number(Math.abs(territorial.scoreA - territorial.scoreB).toFixed(2));
@@ -1571,7 +1589,7 @@ export function runAgentGodFullLayerExperiment(
       "Cluster territory & house-lord placement",
       "Nakshatra influence",
       "Essential dignity",
-      "Chaldean Decans",
+      "Elemental Family Decans",
       "Planetary war",
       "Arabic Lots",
       "Nine-planet influence",

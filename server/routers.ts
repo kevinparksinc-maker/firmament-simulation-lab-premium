@@ -4,7 +4,10 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { runSimulationBatch, runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
 import { executeSimulationRun } from "./batchRunner";
-import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
+import { executeSingleMethodRun } from "./singleMethodBatchRunner";
+import { selectIndependentGameCount, historicalFixtureIdentity, SUPPORTED_INDEPENDENT_GAME_COUNTS } from "./engine/batchSelection";
+import { runSingleMethodEvent, INDEPENDENT_METHOD_FIELDS } from "./engine/isolatedMethodRunner";
+import { createSimulationDataset, createSimulationRun, getSimulationEvents, getSimulationRun, getSimulationResultPage, getSimulationResultDetail, insertSimulationEvents, listSimulationDatasets, listSimulationRuns, updateSimulationRun } from "./simulationDb";
 import { parseSimulationCsv } from "./simulationData";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -21,6 +24,7 @@ const eventInput = z.object({
   favoredTeam: z.string().min(1).optional(),
   underdogTeam: z.string().min(1).optional(),
   roleAssignmentSource: z.enum(["market-odds","expert-consensus","manual","legacy-side-order"]).optional(),
+  oddsSource: z.string().min(1).max(255).optional(),
   sport: z.enum(["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS", "boxing"]),
   location: z.string().min(1),
   latitude: z.number().min(-90).max(90).optional(),
@@ -137,16 +141,58 @@ export const appRouter = router({
     live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),
   }),
   runs: router({
+    entries: publicProcedure.input(z.object({
+      runId: z.number().int().positive(),
+      offset: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(100).default(25),
+    })).query(async ({ input }) => {
+      const run = await getSimulationRun(input.runId);
+      if (!run) throw new TRPCError({ code: "NOT_FOUND", message: "Simulation run not found." });
+      const rows = await getSimulationResultPage(input.runId, input.offset, input.limit);
+      return { runId: input.runId, totalRequested: run.totalEvents, completed: run.completedEvents,
+        failed: run.failedEvents, offset: input.offset, limit: input.limit, rows };
+    }),
+    entry: publicProcedure.input(z.object({
+      runId: z.number().int().positive(),
+      resultId: z.number().int().positive(),
+    })).query(async ({ input }) => {
+      const row = await getSimulationResultDetail(input.runId, input.resultId);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Result not in this run." });
+      return row;
+    }),
     list: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(50).default(8) }).optional()).query(({ input }) => listSimulationRuns(input?.limit ?? 8)),
-    start: publicProcedure.input(z.object({ datasetId: z.number().int().positive() })).mutation(async ({ input }) => {
+    start: publicProcedure.input(z.object({
+      datasetId: z.number().int().positive(),
+      methodId: z.string().optional(),
+      gameCount: z.union([z.literal(1), z.literal(200), z.literal(10000)]).optional(),
+    })).mutation(async ({ input }) => {
+      if (input.methodId && !INDEPENDENT_METHOD_FIELDS.some(m => m.id === input.methodId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown individual method field." });
+      }
+      if (input.gameCount !== undefined && !input.methodId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "1/200/10000 game selection requires an individual method." });
+      }
+      if (input.methodId && input.gameCount === undefined) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Choose exactly 1, 200, or 10000 games before starting an independent method batch." });
+      }
       const events = await getSimulationEvents(input.datasetId);
       if (events.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No valid events found in this dataset." });
-      const runId = await createSimulationRun(input.datasetId, events.length);
+      const count = input.methodId ? input.gameCount! : events.length;
+      if (input.methodId) {
+        try { selectIndependentGameCount(events, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number], row => historicalFixtureIdentity(row.input)); }
+        catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Insufficient dataset games." });
+        }
+      }
+      const runId = await createSimulationRun(input.datasetId, count);
       if (!runId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Database is not available for run persistence." });
-      void executeSimulationRun(runId, input.datasetId).catch(async (error) => {
+      await updateSimulationRun(runId, { summaryJson: JSON.stringify({ mode: input.methodId ? "INDIVIDUAL_METHOD_ONLY" : "LEGACY_ALL_METHODS", methodId: input.methodId ?? null, requestedGameCount: count }) });
+      void (input.methodId
+        ? executeSingleMethodRun(runId, input.datasetId, input.methodId, count as (typeof SUPPORTED_INDEPENDENT_GAME_COUNTS)[number])
+        : executeSimulationRun(runId, input.datasetId)).catch(async (error) => {
         await updateSimulationRun(runId, { status: "failed", finishedAt: new Date(), summaryJson: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown batch error" }) });
       });
-      return { runId, status: "running" as const, totalEvents: events.length };
+      return { runId, status: "running" as const, totalEvents: count, methodId: input.methodId ?? null };
     }),
     get: publicProcedure.input(z.object({ runId: z.number().int().positive() })).query(async ({ input }) => {
       const run = await getSimulationRun(input.runId);
@@ -159,6 +205,11 @@ export const appRouter = router({
     }),
   }),
   simulate: router({
+    methodFields: publicProcedure.query(() => INDEPENDENT_METHOD_FIELDS.map(({ id, name, family, kind }) => ({ id, name, family, kind }))),
+    method: publicProcedure.input(z.object({ event: eventInput, methodId: z.string().min(1) })).mutation(({ input }) => {
+      if (!INDEPENDENT_METHOD_FIELDS.some(m => m.id === input.methodId)) throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown individual method." });
+      return runSingleMethodEvent(input.event, input.methodId);
+    }),
     event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
   }),

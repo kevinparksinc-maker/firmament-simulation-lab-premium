@@ -1,4 +1,5 @@
 import { DASHA_SEQUENCE, DASHA_YEARS, NAKSHATRAS, kpSubSubDetailsFromCanonicalLongitude, type PlanetReading, type Prediction } from "./firmamentEngine";
+import { ZODIAC_SIGNS, projectSignValuesToEqualHouses, zodiacAt } from "./houseFrameFoundation";
 
 export const EXPERIMENTAL_LAYER_STATUS = "experimental-read-only" as const;
 export const DEFAULT_HARMONICS = Object.freeze([
@@ -49,7 +50,7 @@ export const DEFAULT_HOUSE_FAMILIES: HouseFamilyConfig = Object.freeze({
   sideB: [4, 5, 7, 8, 9, 12],
 });
 
-const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"] as const;
+const SIGN_NAMES = ZODIAC_SIGNS;
 const SIGN_LORDS = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"] as const;
 const VARGA_METHODS = {
   3: "PARASHARI",
@@ -274,7 +275,10 @@ export type Sarvashtakavarga = {
   bindus: number[];
   total: number;
   average: number;
-  houses: Array<{ house: number; sign: string; bindus: number; side: Side }>;
+  houses: Array<{
+    house: number; sign: string; bindus: number; side: Side;
+    exactDegreeOverlaps: Array<{sign:string;degrees:number;fractionOfHouse:number;contribution:number}>;
+  }>;
 };
 
 export function calculateAshtakavargaLayer(prediction: Prediction, families = DEFAULT_HOUSE_FAMILIES) {
@@ -296,18 +300,29 @@ export function calculateAshtakavargaLayer(prediction: Prediction, families = DE
       return sum + (support[reference]?.includes(relative) ? 1 : 0);
     }, 0));
     const total = bindus.reduce((sum, value) => sum + value, 0);
-    const houseBindu = (house: number) => bindus[(ascendantSign + ((13 - house) % 12)) % 12]!;
+    // Leave classical BAV values on their 12 signs; project proportionally
+    // into precisely 30° equal houses, respecting a sign straddling two houses.
+    const houseProjection = projectSignValuesToEqualHouses(bindus, "agent", prediction.ascendantLongitude);
+    const houseBindu = (house: number) => houseProjection[house - 1]!.weightedValue;
     const sideA = families.sideA.reduce((sum, house) => sum + houseBindu(house), 0);
     const sideB = families.sideB.reduce((sum, house) => sum + houseBindu(house), 0);
     rows.push({ planet: targetName, bindus, total, expectedTotal: CLASSICAL_BAV_TOTALS[targetName], sideA, sideB });
   }
 
   const savBindus = Array.from({ length: 12 }, (_, signIndex) => rows.reduce((sum, row) => sum + row.bindus[signIndex]!, 0));
-  const savHouses = Array.from({ length: 12 }, (_, index) => {
-    const house = index + 1;
-    const signIndex = (ascendantSign + ((12 - index) % 12)) % 12;
-    return { house, sign: SIGN_NAMES[signIndex]!, bindus: savBindus[signIndex]!, side: sideForHouse(house, families) };
-  });
+  const savProjection = projectSignValuesToEqualHouses(savBindus, "agent", prediction.ascendantLongitude);
+  const savHouses = savProjection.map((segment) => ({
+    house: segment.house,
+    sign: zodiacAt(segment.startLongitude).name,
+    bindus: segment.weightedValue,
+    side: sideForHouse(segment.house, families),
+    exactDegreeOverlaps: segment.signContributions.map(entry => ({
+      sign: entry.sign,
+      degrees: entry.degrees,
+      fractionOfHouse: entry.fractionOfHouse,
+      contribution: entry.weightedContribution,
+    })),
+  }));
   const scoreA = families.sideA.length ? families.sideA.reduce((sum, house) => sum + savHouses[house - 1]!.bindus, 0) / families.sideA.length : 0;
   const scoreB = families.sideB.length ? families.sideB.reduce((sum, house) => sum + savHouses[house - 1]!.bindus, 0) / families.sideB.length : 0;
   const classicalChecks = rows.every((row) => row.total === row.expectedTotal);
@@ -319,6 +334,7 @@ export function calculateAshtakavargaLayer(prediction: Prediction, families = DE
       scoreA: round(scoreA), scoreB: round(scoreB), winner: winnerFor(scoreA, scoreB), confidence: confidence(scoreA, scoreB), status: EXPERIMENTAL_LAYER_STATUS,
       rationale: [
         "BAV is calculated by zodiac sign distance, not by the chart's local house numbers.",
+        "BAV/SAV house-family totals use exact-degree sign-to-house overlap. A zodiac sign can straddle two 30-degree equal houses; original sign bindus are never reassigned wholesale.",
         "Each target uses the seven classical grahas plus Lagna as the eight reference points; Rahu and Ketu are excluded.",
         classicalChecks ? "All seven BAV row totals match the classical checksum totals." : "A classical BAV checksum failed; inspect the longitude frame or contribution table before using the layer.",
         "A/B scores are an application-specific house-family projection of the classical SAV map, not a classical Ashtakavarga verdict.",

@@ -1,17 +1,26 @@
 import { runSimulationEvent, type SimulationEventInput } from "./engine/simulationAdapter";
 import { extractPattern, discoverPatterns, evaluatePatternHoldout } from "./engine/patternRecognition";
 import { getSimulationEvents, insertSimulationResult, updateSimulationRun } from "./simulationDb";
+import { createMethodPerformanceAccumulator } from "./engine/methodPerformance";
 
 export async function executeSimulationRun(runId: number, datasetId: number) {
   const events = await getSimulationEvents(datasetId);
   let completedEvents = 0;
   let failedEvents = 0;
-  const results: ReturnType<typeof runSimulationEvent>[] = [];
+  const performance = createMethodPerformanceAccumulator();
+  const patternRows: ReturnType<typeof extractPattern>[] = [];
+  let verifiedCount = 0;
+  let baselineHits = 0;
 
   for (const event of events) {
     try {
       const result = runSimulationEvent(event.input as SimulationEventInput);
-      results.push(result);
+      performance.observe(result);
+      patternRows.push(extractPattern(result));
+      if (result.comparison.verified) {
+        verifiedCount++;
+        if (result.baseline.verdict === "hit") baselineHits++;
+      }
       await insertSimulationResult(runId, event.dbId, result);
       completedEvents += 1;
     } catch (error) {
@@ -22,19 +31,20 @@ export async function executeSimulationRun(runId: number, datasetId: number) {
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
 
-  const verified = results.filter((result) => result.comparison.verified);
-  const baselineHits = verified.filter((result) => result.baseline.verdict === "hit").length;
-  const patternRows = results.map(extractPattern);
+
   const patternDiscovery = discoverPatterns(patternRows, { minSupport: 5, maxRules: 50 });
   const patternHoldout = evaluatePatternHoldout(patternRows, 0.2, 5);
   const summary = {
     patternRecognition: { discovery: patternDiscovery, holdout: patternHoldout },
-    total: results.length,
-    verified: verified.length,
-    unverified: results.length - verified.length,
+    total: completedEvents + failedEvents,
+    completedEvents,
+    failedEvents,
+    verified: verifiedCount,
+    unverified: completedEvents - verifiedCount,
     baselineHits,
-    baselineMisses: verified.length - baselineHits,
-    baselineAccuracy: verified.length ? Number(((baselineHits / verified.length) * 100).toFixed(1)) : null,
+    baselineMisses: verifiedCount - baselineHits,
+    baselineAccuracy: verifiedCount ? Number(((baselineHits / verifiedCount) * 100).toFixed(1)) : null,
+    methodPerformance: performance.summary(),
   };
   await updateSimulationRun(runId, {
     status: failedEvents > 0 ? "partial" : "complete",

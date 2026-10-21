@@ -42,7 +42,7 @@ describe("simulation adapter", () => {
   });
 
   it("uses explicit favored and underdog teams instead of home-away order", () => {
-    const result = runSimulationEvent({ ...fixture, teamA: "Home Team", teamB: "Away Team", favoredTeam: "Away Team", underdogTeam: "Home Team", homeTeam: "Home Team", awayTeam: "Away Team", roleAssignmentSource: "market-odds" });
+    const result = runSimulationEvent({ ...fixture, teamA: "Home Team", teamB: "Away Team", favoredTeam: "Away Team", underdogTeam: "Home Team", homeTeam: "Home Team", awayTeam: "Away Team", roleAssignmentSource: "market-odds", oddsSource: "Sportsbook fixture from archive (test only)" });
     expect(result.input.teamA).toBe("Away Team");
     expect(result.input.teamB).toBe("Home Team");
     expect(result.evaluationFramework.primaryResearchEligible).toBe(true);

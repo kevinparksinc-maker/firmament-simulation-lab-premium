@@ -1,4 +1,11 @@
+import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
+import { ALL_36_DECANS, decanAtLongitude } from "../../../shared/firmamentDecans";
+import {CHINESE_J2000_ANCHORS} from "../../../shared/chineseMansionJ2000Stars";
 import { useMemo } from "react";
+import {
+  buildChineseMansionSectors, CHINESE_MANSION_CATALOG,
+  type ChineseMansionAnchor,
+} from "../../../shared/chineseMansions";
 
 type Planet = {
   planet: string;
@@ -24,38 +31,49 @@ type Props = {
   showManzils?: boolean;
   showNakshatras?: boolean;
   showDecans?: boolean;
+  showChineseMansions?: boolean;
+  chineseMansionAnchors?: readonly ChineseMansionAnchor[];
+  chineseMansionCoordinateFrame?: "equatorial";
+  chineseMansionEpoch?: string;
   showStars?: boolean;
 };
 
-export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean };
+export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean; chineseMansions?: boolean };
 
 export function ChartControls({ eventTime, stepMinutes, onStep, playing, onTogglePlaying, overlays, onToggleOverlay, disabled }: { eventTime: string; stepMinutes: number; onStep: (minutes: number) => void; playing: boolean; onTogglePlaying: () => void; overlays: ChartOverlayState; onToggleOverlay: (key: keyof ChartOverlayState) => void; disabled?: boolean }) {
-  const toggleLabels: Array<[keyof ChartOverlayState, string]> = [["aspects", "Aspects · 5° orb"], ["manzils", "28 Manzils"], ["nakshatras", "27 Nakshatras"], ["decans", "36 Decans"], ["stars", "Fixed stars"]];
+  const toggleLabels: Array<[keyof ChartOverlayState, string]> = [["aspects", "Aspects · 5° orb"], ["manzils", "28 Manzils"], ["nakshatras", "27 Nakshatras"], ["decans", "36 Decans"], ["chineseMansions", "28 Chinese Xiù"], ["stars", "Fixed stars"]];
   return <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/15 p-3"><div className="flex flex-wrap items-center gap-2"><span className="eyebrow mr-1">Time navigator</span><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-40)}>−40 min</button><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-30)}>−30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(30)}>+30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(40)}>+40 min</button><button className="button-secondary ml-auto px-3 py-1.5 text-[10px]" disabled={disabled} onClick={onTogglePlaying}>{playing ? "Pause motion" : "Play motion"}</button></div><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Step {stepMinutes} min</span><span className="text-[10px] text-slate-500">{new Date(eventTime).toLocaleString()}</span><span className="mx-1 h-3 w-px bg-white/10" />{toggleLabels.map(([key, text]) => <button key={key} onClick={() => onToggleOverlay(key)} className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.11em] transition ${overlays[key] ? "border-cyan-300/25 bg-cyan-300/[0.09] text-cyan-200" : "border-white/10 bg-white/[0.025] text-slate-600"}`}>{text}</button>)}</div><p className="mt-2 text-[10px] leading-4 text-slate-600">Motion recalculates the ephemeris and ascendant at each selected time. Houses move with the selected frame; the fixed overlays remain anchored to the 360° wheel.</p></div>;
 }
 
-const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+const SIGNS = ZODIAC_SIGNS;
 const SYMBOLS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 const GLYPHS: Record<string, string> = { Sun: "☉", Moon: "☽", Mercury: "☿", Venus: "♀", Mars: "♂", Jupiter: "♃", Saturn: "♄", Rahu: "☊", Ketu: "☋" };
 const COLORS: Record<string, string> = { Sun: "#f3c878", Moon: "#d9e8ff", Mercury: "#85e6d1", Venus: "#f4b5d5", Mars: "#ff8e86", Jupiter: "#b8a6ff", Saturn: "#91b7dc", Rahu: "#c4a6ff", Ketu: "#a8a3c4" };
 const ASPECTS = [0, 30, 45, 60, 72, 90, 108, 120, 135, 144, 150, 180];
 const normalize = (value: number) => ((value % 360) + 360) % 360;
 const polar = (cx: number, cy: number, radius: number, longitude: number) => {
-  const angle = ((longitude - 90) * Math.PI) / 180;
+  const angle = ((-longitude - 90) * Math.PI) / 180;
   return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
 };
 const arcPath = (cx: number, cy: number, radius: number, start: number, end: number) => {
   const a = polar(cx, cy, radius, start);
   const b = polar(cx, cy, radius, end);
   const large = end - start > 180 ? 1 : 0;
-  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 1 ${b.x} ${b.y}`;
+  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 0 ${b.x} ${b.y}`;
 };
 const separation = (a: number, b: number) => {
   const d = Math.abs(normalize(a) - normalize(b));
   return Math.min(d, 360 - d);
 };
 
-export function EventChartWheel({ label, mode, ascendantLongitude, planets, houses, showAspects = true, showManzils = true, showNakshatras = true, showDecans = true, showStars = true }: Props) {
+export function EventChartWheel({ label, mode, ascendantLongitude, planets, houses, showAspects = true, showManzils = true, showNakshatras = true, showDecans = true, showChineseMansions = true, chineseMansionAnchors, chineseMansionCoordinateFrame, chineseMansionEpoch, showStars = true }: Props) {
+  // Chinese Xiù are not equal-width. They render only when a complete,
+  // epoch-matched determinative-star RA catalog is explicitly supplied.
+  const chineseMansions = useMemo(() => buildChineseMansionSectors(chineseMansionAnchors ?? CHINESE_J2000_ANCHORS), [chineseMansionAnchors]);
+  const chineseMansionCalibrated =
+    chineseMansions.status === "READY" &&
+    (chineseMansionCoordinateFrame ?? "equatorial") === "equatorial" &&
+    chineseMansions.sectors.every(s => s.epoch === (chineseMansionEpoch ?? "J2000"));
   const cx = 260;
   const cy = 260;
   const outer = 226;
@@ -125,20 +143,31 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               const b = polar(cx, cy, nakshatraInner + 6, longitude);
               return <line key={`nakshatra-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e3bb73" strokeOpacity=".55" strokeWidth={index % 3 === 0 ? 1.3 : .6} />;
             })}
-            {showDecans && Array.from({ length: 36 }, (_, index) => {
-              const longitude = index * 10;
-              const a = polar(cx, cy, outer - 4, longitude);
-              const b = polar(cx, cy, outer + (index % 3 === 0 ? 5 : 2), longitude);
-              return <line key={`decan-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,.35)" strokeWidth={index % 3 === 0 ? 1 : .45} />;
+            {showChineseMansions && chineseMansionCalibrated && chineseMansions.sectors.map(sector=>{
+              const a=polar(cx,cy,nakshatraInner-26,sector.startRa);
+              const b=polar(cx,cy,nakshatraInner-12,sector.startRa);
+              return <g key={`chinese-${sector.hip}`}>
+                <title>{sector.chinese} {sector.name} ({sector.english}), {sector.quadrant}, HIP {sector.hip}; {sector.widthDegrees.toFixed(4)}° measured RA, epoch {sector.epoch}</title>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#f69dcd" strokeOpacity=".95" strokeWidth="1.4"/>
+              </g>;
+            })}
+            {showDecans && ALL_36_DECANS.map((face) => {
+              const boundary = polar(cx, cy, outer - 4, face.startLongitude);
+              const rim = polar(cx, cy, outer + (face.face === 1 ? 5 : 2), face.startLongitude);
+              const label = polar(cx, cy, zodiacInner + 3, face.startLongitude + 5);
+              const abbreviations: Record<string,string> = {Mars:"Ma",Sun:"Su",Venus:"Ve",Mercury:"Me",Moon:"Mo",Saturn:"Sa",Jupiter:"Ju"};
+              return <g key={`decan-${face.number}`}>
+                <title>{face.sign} decan {face.face}: {face.ruler}, {face.startLongitude}°–{face.endLongitude}° on the fixed wheel</title>
+                <line x1={boundary.x} y1={boundary.y} x2={rim.x} y2={rim.y} stroke="rgba(255,255,255,.5)" strokeWidth={face.face === 1 ? 1.3 : .7} />
+                <text x={label.x} y={label.y+2} textAnchor="middle" fontSize="6.5" fontWeight="600" fill="rgba(250,232,184,.88)">{abbreviations[face.ruler]}</text>
+              </g>;
             })}
             {houses.map((house) => {
-              // Houses advance counterclockwise from the frame anchor (0° for God View, ascendantLongitude for Agent View)
-              // while constellations, signs, and planets orbit clockwise.
-              const houseAnchor = mode === "god" ? 0 : ascendantLongitude;
-              const cuspAngle = houseAnchor - (house.house - 1) * 30;
+              // Houses and signs advance TOGETHER counterclockwise. H12 is behind H1.
+              const cuspAngle = houseCusp(house.house, mode, ascendantLongitude);
               const a = polar(cx, cy, 12, cuspAngle);
               const b = polar(cx, cy, nakshatraInner - 7, cuspAngle);
-              const labelPoint = polar(cx, cy, 92, cuspAngle - 15);
+              const labelPoint = polar(cx, cy, 92, cuspAngle + 15);
               return (
                 <g key={`house-${house.house}`}>
                   <line
@@ -171,13 +200,40 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
             })}
             <circle cx={cx} cy={cy} r="34" fill="rgba(4,8,18,.82)" stroke={accent} strokeOpacity=".28" />
             <text x={cx} y={cy - 2} textAnchor="middle" fill={accent} fontSize="8" letterSpacing="1.3">{mode === "god" ? "GOD VIEW" : "AGENTVIEW"}</text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(226,232,240,.7)" fontSize="8">ASC {normalize(ascendantLongitude).toFixed(1)}°</text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(226,232,240,.7)" fontSize="8">ASC {normalize(ascendantLongitude).toFixed(6)}°</text>
           </svg>
         </div>
         <div className="space-y-3">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow text-cyan-200/70">Reading the wheel</p><p className="mt-2 text-sm leading-6 text-slate-300">The outer zodiac and overlay rings stay fixed. Only the house spokes change between God View and AgentView.</p></div>
+          <div className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.035] p-3 text-xs text-slate-300">
+            <strong className="text-fuchsia-200">Chinese Xiù · 28 determinative-star mansions</strong>
+            <p className="mt-1 text-slate-400">
+              {chineseMansionCalibrated
+                ? `28 unequal equatorial RA sectors from ${chineseMansions.sectors[0]?.catalogSource} (${chineseMansionEpoch ?? "J2000"}).`
+                : "Invalid or mismatched 28-star RA/epoch input. No fabricated 12.857° segments are drawn."}
+            </p>
+            {showChineseMansions && !chineseMansionCalibrated && <span className="mt-1 block text-amber-200">Coordinates not evaluable until the 28-star source is calibrated.</span>}
+            <span className="mt-1 block text-slate-500">Regions: Azure Dragon · Black Tortoise · White Tiger · Vermilion Bird. {CHINESE_MANSION_CATALOG.length} source-star identifiers registered.</span>
+          </div>
           <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.12em]"><div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-cyan-200"><span className="block h-1.5 w-7 rounded-full bg-cyan-300/70" />28 Manzils</div><div className="rounded-lg border border-amber-300/15 bg-amber-300/[0.05] p-3 text-amber-200"><span className="block h-1.5 w-7 rounded-full bg-amber-300/70" />27 Nakshatras</div><div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-slate-300"><span className="block h-1.5 w-7 rounded-full bg-white/50" />36 Decans</div><div className="rounded-lg border border-violet-300/15 bg-violet-300/[0.05] p-3 text-violet-200"><span className="block h-1.5 w-7 rounded-full bg-violet-300/70" />Aspects</div></div>
-          <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4"><p className="eyebrow">Planet key</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">{planetPositions.map((planet) => <div key={`key-${planet.planet}`} className="flex items-center gap-2 text-xs text-slate-300"><span style={{ color: COLORS[planet.planet] ?? accent }} className="w-4 text-center font-serif text-base">{GLYPHS[planet.planet] ?? "•"}</span><span>{planet.planet}</span><span className="ml-auto text-slate-600">H{planet.house}</span></div>)}</div></div>
+          <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4">
+            <p className="eyebrow">Exact-degree planet & decan key</p>
+            <p className="mt-1 text-[10px] text-slate-400">The decan belongs to the fixed zodiac sign; only the house changes with the Ascendant.</p>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {planetPositions.map(planet => {
+                const face = decanAtLongitude(planet.longitude);
+                return <div key={`key-${planet.planet}`} className="flex items-start gap-2 rounded-lg border border-white/[0.05] p-2 text-xs text-slate-300">
+                  <span style={{ color: COLORS[planet.planet] ?? accent }} className="w-4 shrink-0 text-center font-serif text-base">{GLYPHS[planet.planet] ?? "•"}</span>
+                  <div className="min-w-0">
+                    <strong className="block text-white">{planet.planet}</strong>
+                    <span className="block text-[10px]">{face.sign} {(planet.longitude%30).toFixed(4)}°</span>
+                    <span className="block text-[10px] text-amber-200">Decan {face.face} · {face.ruler}</span>
+                  </div>
+                  <span className="ml-auto shrink-0 text-slate-400">H{planet.house}</span>
+                </div>;
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </section>

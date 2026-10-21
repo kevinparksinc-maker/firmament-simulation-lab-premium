@@ -14,9 +14,14 @@ import {
   NAKSHATRA_ARC_DEGREES,
 } from "./index";
 import { calculateExperimentalLayers } from "./experimentalLayers";
-import { houseCusp, locateInHouse } from "./houseFrameFoundation";
+import { WHEEL_GEOMETRY_VERSION, houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
+import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
+import { createMethodPerformanceAccumulator } from "./methodPerformance";
+import { resolveEventContract } from "./eventPipelineContract";
+import { ASCENDANT_HORIZON_VERSION } from "./firmamentEngine";
+import { resolveAgentFrameGeometry } from "./fullPackageDualFrameChallenger";
 
 export type SimulationEventInput = {
   id?: string;
@@ -27,6 +32,7 @@ export type SimulationEventInput = {
   homeTeam?: string;
   awayTeam?: string;
   roleAssignmentSource?: "market-odds" | "expert-consensus" | "manual" | "legacy-side-order";
+  oddsSource?: string;
   sport: GameInput["gameType"];
   location: string;
   latitude?: number;
@@ -324,32 +330,20 @@ function frameReport(
 }
 
 export function runSimulationEvent(input: SimulationEventInput) {
-  const startTime = new Date(input.startTime);
-  if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
-  const favoredTeam = input.favoredTeam ?? input.teamA;
-  const underdogTeam = input.underdogTeam ?? input.teamB;
-  const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? "manual" : "legacy-side-order");
-  const gameInput: GameInput = {
-    teamA: favoredTeam,
-    teamB: underdogTeam,
-    gameType: input.sport,
-    location: input.location,
-    startTime,
-    ...(input.sunriseTime ? { sunriseTime: new Date(input.sunriseTime) } : {}),
-    ...(input.sunriseSource ? { sunriseSource: input.sunriseSource } : {}),
-    ...(input.agentViewModel ? { agentViewModel: input.agentViewModel } : {}),
-    ...(input.latitude !== undefined && input.longitude !== undefined
-      ? { coordinates: { latitude: input.latitude, longitude: input.longitude } }
-      : {}),
-  };
+  const { gameInput, startTime, favoredTeam, underdogTeam, roleAssignmentSource, provenanceWarning } = resolveEventContract(input);
 
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
-  const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
-  const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
-  const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
+  const frameOptions = { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" } as const;
+  const dualFrame = runFullPackageDualFrameChallenger(gameInput, frameOptions);
+  // The public dual-frame display rounds the Ascendant to 2 decimals.
+  // NEVER feed that display value into 30° house geometry, SAV overlays,
+  // planets or registered methods. Exact degrees must survive unrounded.
+  const agentGeometry = resolveAgentFrameGeometry(gameInput, frameOptions);
   const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
-  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
+  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", agentGeometry.ascendantLongitude);
+  const godExperimental = calculateExperimentalLayers(godMethodSnapshot.prediction, startTime);
+  const agentExperimental = calculateExperimentalLayers(agentMethodSnapshot.prediction, startTime);
   const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
   const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
   // Additional registered techniques are displayed explicitly beside the 21 core
@@ -390,6 +384,13 @@ export function runSimulationEvent(input: SimulationEventInput) {
   const baselineWinner = activePrediction.combined.winner as Winner;
   const baselineVerdict = verdictFor(baselineWinner, actualWinner);
   const predictiveSynthesis = synthesizeFramePredictions([...dualFrame.god.foundation.layers,...dualFrame.god.addedLayers], [...dualFrame.agent.foundation.layers,...dualFrame.agent.addedLayers], dualFrame.parity.valid);
+  const expandedExperiment = buildExpandedMethodExperiment(
+    predictiveSynthesis,
+    godMethodResults,
+    agentMethodResults,
+    dualFrame.god.fullChartLedger.houses.length,
+    dualFrame.god.fullChartLedger.bodies.length,
+  );
 
   return {
     id: input.id ?? `${favoredTeam}-${underdogTeam}-${input.startTime}`,
@@ -400,12 +401,15 @@ export function runSimulationEvent(input: SimulationEventInput) {
       actualWinnerMeaning: "A means favored won; B means underdog won; TIE means no decisive result.",
       homeAwayIsMetadataOnly: true,
       roleAssignmentSource,
-      primaryResearchEligible: roleAssignmentSource !== "legacy-side-order",
+      provenanceWarning,
+      primaryResearchEligible: roleAssignmentSource === "market-odds" && Boolean(input.oddsSource) && Boolean(input.actualWinner),
     },
     engine: {
       source: "firmament-engine",
+      agentAscendantModelVersion: input.agentViewModel === "fixed-earth-dawn-anchored" ? "DAWN_ANCHORED_APPROX_V1" : ASCENDANT_HORIZON_VERSION,
       calculationPath: "generateFixedJ2000KPPrediction + celestialGeometry + runFullPackageDualFrameChallenger",
       fixedBackground: "fixed Aries-zero zodiac wheel",
+      wheelGeometryVersion: WHEEL_GEOMETRY_VERSION,
       hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
     },
     chart: {
@@ -423,11 +427,12 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
-      snapshotConvention: "reverse-numbered-360-equal-houses-v2",
+      snapshotConvention: WHEEL_GEOMETRY_VERSION,
       godView: godMethodResults,
       agentView: agentMethodResults,
     },
     additionalMethods,
+    expandedExperiment,
     baseline: {
       territorial: activePrediction.territorial,
       kpStellar: activePrediction.kpStellar,
@@ -450,6 +455,8 @@ export function runSimulationEvent(input: SimulationEventInput) {
 
 export function runSimulationBatch(events: SimulationEventInput[]) {
   const results = events.map((event) => runSimulationEvent(event));
+  const performance = createMethodPerformanceAccumulator();
+  for (const result of results) performance.observe(result);
   const verified = results.filter((result) => result.comparison.verified);
   const hits = verified.filter((result) => result.baseline.verdict === "hit").length;
   return {
@@ -461,6 +468,7 @@ export function runSimulationBatch(events: SimulationEventInput[]) {
       baselineHits: hits,
       baselineMisses: verified.length - hits,
       baselineAccuracy: verified.length ? Number(((hits / verified.length) * 100).toFixed(1)) : null,
+      methodPerformance: performance.summary(),
     },
   };
 }
