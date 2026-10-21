@@ -1,4 +1,5 @@
 import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
+import { ALL_36_DECANS, decanAtLongitude } from "../../../shared/firmamentDecans";
 import { useMemo } from "react";
 
 type Planet = {
@@ -126,11 +127,16 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               const b = polar(cx, cy, nakshatraInner + 6, longitude);
               return <line key={`nakshatra-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e3bb73" strokeOpacity=".55" strokeWidth={index % 3 === 0 ? 1.3 : .6} />;
             })}
-            {showDecans && Array.from({ length: 36 }, (_, index) => {
-              const longitude = index * 10;
-              const a = polar(cx, cy, outer - 4, longitude);
-              const b = polar(cx, cy, outer + (index % 3 === 0 ? 5 : 2), longitude);
-              return <line key={`decan-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,.35)" strokeWidth={index % 3 === 0 ? 1 : .45} />;
+            {showDecans && ALL_36_DECANS.map((face) => {
+              const boundary = polar(cx, cy, outer - 4, face.startLongitude);
+              const rim = polar(cx, cy, outer + (face.face === 1 ? 5 : 2), face.startLongitude);
+              const label = polar(cx, cy, zodiacInner + 3, face.startLongitude + 5);
+              const abbreviations: Record<string,string> = {Mars:"Ma",Sun:"Su",Venus:"Ve",Mercury:"Me",Moon:"Mo",Saturn:"Sa",Jupiter:"Ju"};
+              return <g key={`decan-${face.number}`}>
+                <title>{face.sign} decan {face.face}: {face.ruler}, {face.startLongitude}°–{face.endLongitude}° on the fixed wheel</title>
+                <line x1={boundary.x} y1={boundary.y} x2={rim.x} y2={rim.y} stroke="rgba(255,255,255,.5)" strokeWidth={face.face === 1 ? 1.3 : .7} />
+                <text x={label.x} y={label.y+2} textAnchor="middle" fontSize="6.5" fontWeight="600" fill="rgba(250,232,184,.88)">{abbreviations[face.ruler]}</text>
+              </g>;
             })}
             {houses.map((house) => {
               // Houses and signs advance TOGETHER counterclockwise. H12 is behind H1.
@@ -176,7 +182,24 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
         <div className="space-y-3">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow text-cyan-200/70">Reading the wheel</p><p className="mt-2 text-sm leading-6 text-slate-300">The outer zodiac and overlay rings stay fixed. Only the house spokes change between God View and AgentView.</p></div>
           <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.12em]"><div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-cyan-200"><span className="block h-1.5 w-7 rounded-full bg-cyan-300/70" />28 Manzils</div><div className="rounded-lg border border-amber-300/15 bg-amber-300/[0.05] p-3 text-amber-200"><span className="block h-1.5 w-7 rounded-full bg-amber-300/70" />27 Nakshatras</div><div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-slate-300"><span className="block h-1.5 w-7 rounded-full bg-white/50" />36 Decans</div><div className="rounded-lg border border-violet-300/15 bg-violet-300/[0.05] p-3 text-violet-200"><span className="block h-1.5 w-7 rounded-full bg-violet-300/70" />Aspects</div></div>
-          <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4"><p className="eyebrow">Planet key</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">{planetPositions.map((planet) => <div key={`key-${planet.planet}`} className="flex items-center gap-2 text-xs text-slate-300"><span style={{ color: COLORS[planet.planet] ?? accent }} className="w-4 text-center font-serif text-base">{GLYPHS[planet.planet] ?? "•"}</span><span>{planet.planet}</span><span className="ml-auto text-slate-600">H{planet.house}</span></div>)}</div></div>
+          <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4">
+            <p className="eyebrow">Exact-degree planet & decan key</p>
+            <p className="mt-1 text-[10px] text-slate-400">The decan belongs to the fixed zodiac sign; only the house changes with the Ascendant.</p>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {planetPositions.map(planet => {
+                const face = decanAtLongitude(planet.longitude);
+                return <div key={`key-${planet.planet}`} className="flex items-start gap-2 rounded-lg border border-white/[0.05] p-2 text-xs text-slate-300">
+                  <span style={{ color: COLORS[planet.planet] ?? accent }} className="w-4 shrink-0 text-center font-serif text-base">{GLYPHS[planet.planet] ?? "•"}</span>
+                  <div className="min-w-0">
+                    <strong className="block text-white">{planet.planet}</strong>
+                    <span className="block text-[10px]">{face.sign} {(planet.longitude%30).toFixed(4)}°</span>
+                    <span className="block text-[10px] text-amber-200">Decan {face.face} · {face.ruler}</span>
+                  </div>
+                  <span className="ml-auto shrink-0 text-slate-400">H{planet.house}</span>
+                </div>;
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </section>
