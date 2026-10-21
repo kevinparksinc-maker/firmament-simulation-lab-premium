@@ -1,4 +1,4 @@
-import { houseCusp, locateInHouse } from "./houseFrameFoundation";
+import { ZODIAC_SIGNS, houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { createRequire } from "node:module";
 import type { Body } from "astronomy-engine";
 import { calculateRestoredTerritorial, type TerritorialEvidence } from "./territorialStack";
@@ -20,10 +20,7 @@ export const DESCENDANT_CLUSTER = [4, 5, 7, 8, 9, 12] as const;
 export const NEUTRAL_HOUSES: readonly number[] = [];
 export const NAKSHATRA_ARC_MINUTES = 800;
 
-const SIGNS = [
-  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
-] as const;
+const SIGNS = ZODIAC_SIGNS;
 
 export const NAKSHATRAS = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
@@ -626,9 +623,8 @@ export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: D
 /** East = H1 / Aries; 30° sectors proceed counter-clockwise through the fixed dome. */
 export function fixedDomeHouseFromAzimuth(azimuth: number) {
   const delta = normalize(90 - azimuth);
-  const sector = Math.floor(delta / 30);
-  const house = sector + 1;
-  return { house, degreeInHouse: delta % 30, sign: SIGNS[sector] };
+  const placement = locateInHouse(delta, "god", 0);
+  return { house: placement.house, degreeInHouse: placement.degreeInHouse, sign: SIGNS[Math.floor(delta / 30)] };
 }
 
 /**
@@ -639,9 +635,8 @@ export function fixedDomeHouseFromAzimuth(azimuth: number) {
 export function fixedFirmamentHouseFromRA(firmamentRA: number) {
   // Compatibility name retained; the fixed dome maps raw longitude directly.
   const normalizedLongitude = normalize(firmamentRA);
-  const sector = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees);
-  const house = sector + 1;
-  return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[sector] };
+  const placement = locateInHouse(normalizedLongitude, "god", 0);
+  return { house: placement.house, degreeInHouse: placement.degreeInHouse, sectorSign: SIGNS[Math.floor(normalizedLongitude / 30)] };
 }
 
 /**
