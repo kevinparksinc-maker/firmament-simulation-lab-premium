@@ -77,7 +77,7 @@ export function BatchGameResultsPanel({ runId, methodId, runStatus }: Props) {
       {detail.isLoading && <p className="mt-2 text-sm text-slate-400">Loading method evidence…</p>}
       {detail.error && <p role="alert" className="mt-2 text-sm text-red-300">{detail.error.message}</p>}
       {showDetail && <div className="mt-3 space-y-4">
-        <p className="text-xs text-amber-200">{result.frameMethodStatus.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")} · {result.comparison.replaceAll("_"," ")} · Ascendant {result.agentAscendantModelVersion.replaceAll("_"," ")}</p>
+        <p className="text-xs text-amber-200">{result.frameMethodStatus.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")} · {result.comparison.replaceAll("_"," ")} · Ascendant {result.agentAscendantModelVersion.replaceAll("_"," ")} · Houses {result.wheelGeometryVersion.replaceAll("_"," ")}</p>
         <div className="grid gap-3 md:grid-cols-3">
           {([result.god,result.agent] as const).map(frame => <div key={frame.frame} className="min-w-0 rounded-lg border border-white/10 p-3">
             <h6 className="font-semibold text-cyan-200">{frame.frame}</h6>
