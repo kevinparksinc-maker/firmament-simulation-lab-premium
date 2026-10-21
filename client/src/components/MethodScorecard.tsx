@@ -212,7 +212,7 @@ export function MethodScorecard({ fields, cache, signature, selectedId, expanded
                 <td colSpan={5} className="p-4 sm:p-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div><h4 className="text-lg font-semibold text-white">{field.name} — calculation breakdown</h4>
-                      <p className="mt-1 text-xs text-slate-400">Comparison with actual outcome: {result.comparison.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")}</p></div>
+                      <p className="mt-1 text-xs text-slate-400">Comparison with actual outcome: {result.comparison.replaceAll("_"," ")} · {result.certification.replaceAll("_"," ")} · Ascendant: {result.agentAscendantModelVersion.replaceAll("_"," ")}</p></div>
                     <span className="rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-semibold text-amber-200">{result.frameMethodStatus.replaceAll("_"," ")}</span>
                   </div>
                   <div className="grid gap-3 xl:grid-cols-2">
@@ -224,6 +224,7 @@ export function MethodScorecard({ fields, cache, signature, selectedId, expanded
                     <p className="mt-2 font-mono text-sm text-white">A {formatScore(result.combined.scoreA)} · B {formatScore(result.combined.scoreB)} · Δ {formatScore(result.combined.difference)}</p>
                     <p className="mt-1 text-sm text-amber-200">{briefStatus(result.combined.result)}</p>
                     <p className="mt-2 text-xs text-slate-300">{result.combined.calculation}</p>
+                <p className="mt-2 text-xs text-cyan-200">Ascendant model: {result.agentAscendantModelVersion.replaceAll("_"," ")}</p>
                     {result.methodologyNotes.map((note, i) => <p key={i} className="mt-2 text-xs text-amber-200">{note}</p>)}
                   </div>
                 </td>
