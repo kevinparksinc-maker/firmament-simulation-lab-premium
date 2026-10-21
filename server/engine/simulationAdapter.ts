@@ -21,6 +21,7 @@ import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
 import { createMethodPerformanceAccumulator } from "./methodPerformance";
 import { resolveEventContract } from "./eventPipelineContract";
 import { ASCENDANT_HORIZON_VERSION } from "./firmamentEngine";
+import { resolveAgentFrameGeometry } from "./fullPackageDualFrameChallenger";
 
 export type SimulationEventInput = {
   id?: string;
@@ -333,11 +334,16 @@ export function runSimulationEvent(input: SimulationEventInput) {
 
   const activePrediction = generateFixedJ2000KPPrediction(gameInput);
   const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
-  const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
-  const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
-  const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
+  const frameOptions = { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" } as const;
+  const dualFrame = runFullPackageDualFrameChallenger(gameInput, frameOptions);
+  // The public dual-frame display rounds the Ascendant to 2 decimals.
+  // NEVER feed that display value into 30° house geometry, SAV overlays,
+  // planets or registered methods. Exact degrees must survive unrounded.
+  const agentGeometry = resolveAgentFrameGeometry(gameInput, frameOptions);
   const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
-  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
+  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", agentGeometry.ascendantLongitude);
+  const godExperimental = calculateExperimentalLayers(godMethodSnapshot.prediction, startTime);
+  const agentExperimental = calculateExperimentalLayers(agentMethodSnapshot.prediction, startTime);
   const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
   const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
   // Additional registered techniques are displayed explicitly beside the 21 core
