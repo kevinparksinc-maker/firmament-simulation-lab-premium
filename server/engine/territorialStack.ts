@@ -1,3 +1,4 @@
+import { decanForSignDegree } from "../../shared/firmamentDecans";
 import { ZODIAC_SIGNS, houseCusp } from "./houseFrameFoundation";
 export type TerritorialSide = "A" | "B" | "neutral";
 
@@ -69,11 +70,7 @@ const SIGN_RULERS: Record<string, string> = { Aries: "Mars", Taurus: "Venus", Ge
 const EXALTATIONS: Record<string, string> = { Sun: "Aries", Moon: "Taurus", Mercury: "Virgo", Venus: "Pisces", Mars: "Capricorn", Jupiter: "Cancer", Saturn: "Libra" };
 const DEBILITATIONS: Record<string, string> = { Sun: "Libra", Moon: "Scorpio", Mercury: "Pisces", Venus: "Virgo", Mars: "Cancer", Jupiter: "Capricorn", Saturn: "Aries" };
 const WAR_PRIORITY: Record<string, number> = { Saturn: 5, Jupiter: 4, Rahu: 3.5, Ketu: 3.5, Mars: 3, Sun: 2, Venus: 2, Mercury: 2, Moon: 1.5 };
-const CHALDEAN_DECANS: Record<string, [string, string, string]> = {
-  Aries: ["Mars", "Sun", "Venus"], Taurus: ["Mercury", "Moon", "Saturn"], Gemini: ["Jupiter", "Mars", "Sun"], Cancer: ["Venus", "Mercury", "Moon"],
-  Leo: ["Saturn", "Jupiter", "Mars"], Virgo: ["Sun", "Venus", "Mercury"], Libra: ["Moon", "Saturn", "Jupiter"], Scorpio: ["Mars", "Sun", "Venus"],
-  Sagittarius: ["Mercury", "Moon", "Saturn"], Capricorn: ["Jupiter", "Mars", "Sun"], Aquarius: ["Venus", "Mercury", "Moon"], Pisces: ["Saturn", "Jupiter", "Mars"],
-};
+// Chaldean face rulers are centralized in shared/firmamentDecans.ts.
 
 type Trait = "L" | "M" | "H" | "E";
 type StellarProfile = [gana: "Deva" | "Manushya" | "Rakshasa", yoni: string, traits: [Trait, Trait, Trait, Trait]];
@@ -112,10 +109,7 @@ function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: 
 
 /** Traditional Chaldean faces: 0°–<10°, 10°–<20°, and 20°–<30° in each of the 12 signs. */
 export function getChaldeanDecan(sign: string, degreeInSign: number) {
-  const decanIndex = Math.min(2, Math.max(0, Math.floor(degreeInSign / 10)));
-  const rulers = CHALDEAN_DECANS[sign];
-  if (!rulers) throw new Error(`Unknown decan mapping for sign: ${sign}`);
-  return { decan: (decanIndex + 1) as 1 | 2 | 3, ruler: rulers[decanIndex]! };
+  return decanForSignDegree(sign, degreeInSign);
 }
 
 function dignity(planet: string, sign: string) {
