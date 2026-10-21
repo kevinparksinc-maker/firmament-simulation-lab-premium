@@ -56,7 +56,7 @@ describe("Zero-tilt eastern horizon Ascendant correction, version 2", () => {
     const date=new Date(fixture.startTime);
     const corrected=calculateAscendantLongitude(date,fixture.latitude,fixture.longitude);
     expect(full.godView.ascendantLongitude).toBe(0);
-    expect(full.agentView.ascendantLongitude).toBeCloseTo(corrected,5);
+    expect(full.agentView.ascendantLongitude).toBeCloseTo(corrected,2); // Public frame rounds the displayed angle to 2 decimals.
     const direct=generatePredictionForModel({
       teamA:fixture.teamA,teamB:fixture.teamB,gameType:"MLB",
       location:fixture.location,startTime:date,
