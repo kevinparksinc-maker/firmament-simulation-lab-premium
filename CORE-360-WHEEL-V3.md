@@ -68,3 +68,11 @@ This V3 change does **not** change the deliberate zero-tilt astronomical model; 
 ## Tests
 
 `server/engine/zodiacForwardCore.test.ts` verifies zodiac order, Pisces behind Aries, Taurus ahead, the Scorpio variant, exact-degree Ascendant shift, source-arc conservation, and counterclockwise angular mapping. Other geometry and 31-method pipeline tests must pass before any merge.
+
+## Exact-degree rule — explicit anti-whole-sign enforcement
+
+**Equal houses are never equivalent to whole-sign houses unless the Ascendant is exactly at a sign boundary (0° of a sign).** If the Ascendant is 25° Taurus, H12 contains Aries 25°→Taurus 25°; H1 contains Taurus 25°→Gemini 25°; H2 contains Gemini 25°→Cancer 25°. Therefore **Taurus occupies parts of Houses 12 and 1**. Every planet uses its exact absolute longitude, so one Taurus planet can occupy House 12 and another Taurus planet House 1. There is no rounding Ascendant to Taurus 0°.
+
+The common `projectSignValuesToEqualHouses(signValues,frame,asc)` utility preserves any original fixed per-sign data yet allocates sign-derived support **by exact measured overlap** to all 30° house sectors. For Ascendant 25° Taurus, the H1 result is 5/30 of Taurus's value plus 25/30 of Gemini's value. This is a *research projection*, not part of historical/classical Ashtakavarga doctrine; the BAV/SAV sign totals are preserved. The Ashtakavarga house-family score now uses this overlap rather than assigning the whole Taurus sign to H1. Frozen method snapshots also explicitly set their Ascendant to God 0° or Agent's true angle so the two frames do not silently reuse each other's house baselines.
+
+**Test evidence:** `server/engine/exactDegreeEqualHouse.test.ts` checks individual planet placement on both sides of a sign-crossing cusp, exact 5°/25° support fractions, conservation of per-sign totals, and frame-specific immutable method snapshots. Do not call this a general proof of the accuracy of astrology or ephemerides.
