@@ -1,5 +1,5 @@
 import type { Prediction } from "./firmamentEngine";
-import { houseCusp, locateInHouse, type FirmamentFrame } from "./houseFrameFoundation";
+import { WHEEL_GEOMETRY_VERSION, houseCusp, locateInHouse, type FirmamentFrame } from "./houseFrameFoundation";
 
 /**
  * Methods receive one completed, read-only celestial snapshot per frame.
@@ -11,7 +11,7 @@ export type MethodChartSnapshot = Readonly<{
   eventTime: Date;
   ascendantLongitude: number;
   prediction: Prediction;
-  coordinateConvention: "aries-zero-360-equal-houses-v1";
+  coordinateConvention: typeof WHEEL_GEOMETRY_VERSION;
 }>;
 
 function freezeTree(value: unknown, seen = new WeakSet<object>()): void {
@@ -48,6 +48,6 @@ export function buildMethodChartSnapshot(
     eventTime: new Date(eventTime),
     ascendantLongitude: anchor,
     prediction: clone,
-    coordinateConvention: "aries-zero-360-equal-houses-v1" as const,
+    coordinateConvention: WHEEL_GEOMETRY_VERSION,
   });
 }
