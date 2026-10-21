@@ -14,7 +14,7 @@ import {
   NAKSHATRA_ARC_DEGREES,
 } from "./index";
 import { calculateExperimentalLayers } from "./experimentalLayers";
-import { houseCusp, locateInHouse } from "./houseFrameFoundation";
+import { WHEEL_GEOMETRY_VERSION, houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
 import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
@@ -403,6 +403,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
       agentAscendantModelVersion: input.agentViewModel === "fixed-earth-dawn-anchored" ? "DAWN_ANCHORED_APPROX_V1" : ASCENDANT_HORIZON_VERSION,
       calculationPath: "generateFixedJ2000KPPrediction + celestialGeometry + runFullPackageDualFrameChallenger",
       fixedBackground: "fixed Aries-zero zodiac wheel",
+      wheelGeometryVersion: WHEEL_GEOMETRY_VERSION,
       hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
     },
     chart: {
@@ -420,7 +421,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
-      snapshotConvention: "reverse-numbered-360-equal-houses-v2",
+      snapshotConvention: WHEEL_GEOMETRY_VERSION,
       godView: godMethodResults,
       agentView: agentMethodResults,
     },
