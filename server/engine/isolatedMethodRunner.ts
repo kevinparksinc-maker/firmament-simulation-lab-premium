@@ -11,6 +11,7 @@ import { completeChartLedger } from "./completeChartLedger";
 import type { SimulationEventInput } from "./simulationAdapter";
 import { resolveEventContract } from "./eventPipelineContract";
 import { getMethodCertificationGate } from "./methodCertificationPolicy";
+import { WHEEL_GEOMETRY_VERSION } from "./houseFrameFoundation";
 
 /** A method field runs ONE named method across the two physical frames.
  * Zero from a real arithmetic operation is recorded as data, never disguised
@@ -38,6 +39,7 @@ export type SingleMethodFrame = {
 
 export type SingleMethodEventResult = {
   version: "SINGLE_METHOD_RESEARCH_V1";
+  wheelGeometryVersion: typeof WHEEL_GEOMETRY_VERSION;
   agentAscendantModelVersion: typeof ASCENDANT_HORIZON_VERSION | "DAWN_ANCHORED_APPROX_V1";
   methodId: string;
   methodName: string;
@@ -180,6 +182,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     combinedResult === actualWinner ? "HIT" : "MISS";
   return {
     version: "SINGLE_METHOD_RESEARCH_V1",
+    wheelGeometryVersion: WHEEL_GEOMETRY_VERSION,
     agentAscendantModelVersion: input.agentViewModel === "fixed-earth-dawn-anchored" ? "DAWN_ANCHORED_APPROX_V1" : ASCENDANT_HORIZON_VERSION,
     methodId, methodName: spec.name, methodFamily: spec.family,
     frameMethodStatus: status,
