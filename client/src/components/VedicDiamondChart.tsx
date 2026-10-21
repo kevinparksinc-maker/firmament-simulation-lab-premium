@@ -1,3 +1,4 @@
+import { ZODIAC_SIGNS, zodiacAt, houseCusp, locateInHouse } from "../../../shared/firmamentWheel";
 import { useMemo } from "react";
 
 export type PlanetItem = {
@@ -34,11 +35,7 @@ const PLANET_SYMBOLS: Record<string, string> = {
   Ketu: "☋",
 };
 
-const ZODIAC_NAMES = [
-  "Aries", "Taurus", "Gemini", "Cancer",
-  "Leo", "Virgo", "Libra", "Scorpio",
-  "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-];
+const ZODIAC_NAMES = ZODIAC_SIGNS;
 
 const ZODIAC_SIGNS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 
@@ -171,13 +168,17 @@ export function VedicDiamondChart({
       map.set(h, []);
     }
     planets.forEach((p) => {
-      const h = p.house >= 1 && p.house <= 12 ? p.house : 1;
+      const rawLongitude = p.backgroundWheelLongitude ?? p.tropicalLongitude;
+      const h = rawLongitude === undefined
+        ? p.house
+        : locateInHouse(rawLongitude, frameName === "God View" ? "god" : "agent", ascendantLongitude).house;
+      if(h < 1 || h > 12) throw new RangeError("Planet has no valid house");
       const list = map.get(h) ?? [];
       list.push(p);
       map.set(h, list);
     });
     return map;
-  }, [planets]);
+  }, [planets, frameName, ascendantLongitude]);
 
   const isGodView = frameName === "God View";
 
@@ -238,7 +239,7 @@ export function VedicDiamondChart({
             const isRoleA = hGeom.role === "A";
 
             // Sign in this house (1-based Rashi index, 1 = Aries, 12 = Pisces)
-            const signNumber = ((lagnaSignIndex + (houseNum - 1)) % 12) + 1;
+            const signNumber = zodiacAt(houseCusp(houseNum, isGodView ? "god" : "agent", ascendantLongitude)).index + 1;
             const signSymbol = ZODIAC_SIGNS[signNumber - 1];
 
             const occupants = planetsByHouse.get(houseNum) ?? [];
