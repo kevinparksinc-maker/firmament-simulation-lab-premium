@@ -32,6 +32,10 @@ export function buildMethodChartSnapshot(
   if (!Number.isFinite(eventTime.getTime())) throw new RangeError("Invalid snapshot time");
   const clone = structuredClone(prediction);
   const anchor = frame === "god" ? 0 : ascendantLongitude;
+  // The snapshot's Lagna/Ascendant must match the house chart that each method
+  // receives; otherwise a sign-based method silently projects onto Agent
+  // houses even when it is supposedly running God View.
+  clone.ascendantLongitude = anchor;
   // Reproject the single ephemeris position into this frame once, BEFORE
   // handing the chart to any method. Methods never do this themselves.
   for (const planet of clone.planets) {
