@@ -95,3 +95,61 @@ export function legacyReverseHouse(longitude:number, frame:FirmamentFrame, ascen
 export function counterclockwiseWheelAngle(longitude:number):number {
   return -(normalizeLongitude(longitude)+90);
 }
+
+/**
+ * Project an unchanged 12-sign dataset into exact-degree 30° equal houses.
+ * This is a MEASURED OVERLAP of signs with houses, not a whole-sign mapping.
+ * When Ascendant is 25° Taurus, H1 contains Taurus 25°..30° (5°)
+ * AND Gemini 0°..25° (25°). Each sign's original value stays unchanged.
+ *
+ * For any array of per-sign values, conservation holds:
+ *   Σ house weightedValue === Σ source sign values.
+ */
+export function projectSignValuesToEqualHouses(
+  signValues: readonly number[],
+  frame: FirmamentFrame,
+  ascendantLongitude: number,
+): Array<{
+  house: number;
+  startLongitude: number;
+  weightedValue: number;
+  signContributions: Array<{
+    sign: typeof ZODIAC_SIGNS[number];
+    signIndex: number;
+    degrees: number;
+    fractionOfHouse: number;
+    rawSignValue: number;
+    weightedContribution: number;
+  }>;
+}> {
+  if (signValues.length !== 12 || !signValues.every(Number.isFinite))
+    throw new RangeError("Must provide exactly 12 finite, fixed zodiac sign values");
+  const result = Array.from({ length: 12 }, (_, i) => ({
+    house: i+1,
+    startLongitude: houseCusp(i+1, frame, ascendantLongitude),
+    weightedValue: 0,
+    signContributions: [] as Array<{
+      sign: typeof ZODIAC_SIGNS[number];signIndex:number;degrees:number;
+      fractionOfHouse:number;rawSignValue:number;weightedContribution:number;
+    }>,
+  }));
+  for (let signIndex=0;signIndex<12;signIndex++) {
+    const value=signValues[signIndex]!;
+    const overlaps=arcHouseOverlaps({
+      startLongitude:signIndex*HOUSE_ARC_DEGREES,
+      endLongitude:(signIndex+1)*HOUSE_ARC_DEGREES,
+    },frame,ascendantLongitude);
+    for (const overlap of overlaps) {
+      const fraction=overlap.degrees/HOUSE_ARC_DEGREES;
+      const weightedContribution=value*fraction;
+      const record=result[overlap.house-1]!;
+      record.weightedValue+=weightedContribution;
+      record.signContributions.push({
+        sign:ZODIAC_SIGNS[signIndex]!,signIndex,
+        degrees:overlap.degrees,fractionOfHouse:fraction,
+        rawSignValue:value,weightedContribution,
+      });
+    }
+  }
+  return result;
+}
