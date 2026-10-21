@@ -1,6 +1,7 @@
 import {
   generateFixedJ2000KPPrediction,
   generatePredictionForModel,
+  ASCENDANT_HORIZON_VERSION,
   type GameInput,
 } from "./firmamentEngine";
 import { runIsolatedCoreLayer, resolveAgentFrameGeometry } from "./fullPackageDualFrameChallenger";
@@ -37,6 +38,7 @@ export type SingleMethodFrame = {
 
 export type SingleMethodEventResult = {
   version: "SINGLE_METHOD_RESEARCH_V1";
+  agentAscendantModelVersion: typeof ASCENDANT_HORIZON_VERSION | "DAWN_ANCHORED_APPROX_V1";
   methodId: string;
   methodName: string;
   methodFamily: string;
@@ -178,6 +180,7 @@ export function runSingleMethodEvent(input: SimulationEventInput, methodId: stri
     combinedResult === actualWinner ? "HIT" : "MISS";
   return {
     version: "SINGLE_METHOD_RESEARCH_V1",
+    agentAscendantModelVersion: input.agentViewModel === "fixed-earth-dawn-anchored" ? "DAWN_ANCHORED_APPROX_V1" : ASCENDANT_HORIZON_VERSION,
     methodId, methodName: spec.name, methodFamily: spec.family,
     frameMethodStatus: status,
     certification: "NOT_CERTIFIED",
