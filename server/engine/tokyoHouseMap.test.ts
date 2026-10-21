@@ -7,7 +7,7 @@ it("reports Tokyo Dome corrected house map for territorial audit",()=>{
   const bodies=r.agent.chart.bodies;
   expect(bodies).toHaveLength(12);
   const asc=55.673653;
-  for(const h of [1,12,11,10,9,8,7,6,5,4,3,2]){
+  for(const h of [1,2,3,4,5,6,7,8,9,10,11,12]){
     console.log("TOKYO_CHART_HOUSE "+JSON.stringify({house:h,cusp:houseCusp(h,"agent",asc),side:r.agent.chart.houses[h-1]!.side,bodies:bodies.filter(p=>p.house===h)}));
   }
 });
