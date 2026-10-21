@@ -70,7 +70,7 @@ const SIGN_RULERS: Record<string, string> = { Aries: "Mars", Taurus: "Venus", Ge
 const EXALTATIONS: Record<string, string> = { Sun: "Aries", Moon: "Taurus", Mercury: "Virgo", Venus: "Pisces", Mars: "Capricorn", Jupiter: "Cancer", Saturn: "Libra" };
 const DEBILITATIONS: Record<string, string> = { Sun: "Libra", Moon: "Scorpio", Mercury: "Pisces", Venus: "Virgo", Mars: "Cancer", Jupiter: "Capricorn", Saturn: "Aries" };
 const WAR_PRIORITY: Record<string, number> = { Saturn: 5, Jupiter: 4, Rahu: 3.5, Ketu: 3.5, Mars: 3, Sun: 2, Venus: 2, Mercury: 2, Moon: 1.5 };
-// Chaldean face rulers are centralized in shared/firmamentDecans.ts.
+// Elemental decan rulers are centralized in shared/firmamentDecans.ts.
 
 type Trait = "L" | "M" | "H" | "E";
 type StellarProfile = [gana: "Deva" | "Manushya" | "Rakshasa", yoni: string, traits: [Trait, Trait, Trait, Trait]];
@@ -108,7 +108,7 @@ function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: 
 }
 
 /** Traditional Chaldean faces: 0°–<10°, 10°–<20°, and 20°–<30° in each of the 12 signs. */
-export function getChaldeanDecan(sign: string, degreeInSign: number) {
+export function getElementalDecan(sign: string, degreeInSign: number) {
   return decanForSignDegree(sign, degreeInSign);
 }
 
@@ -194,7 +194,7 @@ export function calculateIndividualTerritorialLayer(
 ) {
   if (!Number.isInteger(methodIndex) || methodIndex < 0 || methodIndex > 7) throw new RangeError("Territorial method must be 0..7");
   const names = ["Cluster territory & house-lord placement", "Nakshatra influence", "Essential dignity",
-    "Chaldean Decans", "Planetary war", "Arabic Lots", "Arabic mansion context", "Nine-planet influence"];
+    "Elemental Family Decans", "Planetary war", "Arabic Lots", "Arabic mansion context", "Nine-planet influence"];
   const byName = new Map(planets.map(p => [p.planet, p]));
   const inputs: string[] = [];
   const steps: string[] = [];
@@ -246,7 +246,7 @@ export function calculateIndividualTerritorialLayer(
       if (!Number.isFinite(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: missing longitude`);
       const degree = normalize(planet.tropicalLongitude) % 30;
       if (planet.sign !== signForLongitude(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
-      const face = getChaldeanDecan(planet.sign, degree);
+      const face = getElementalDecan(planet.sign, degree);
       const ruler = byName.get(face.ruler);
       if (!ruler) throw new Error(`Decan ${planet.planet}: missing ruler ${face.ruler}`);
       const side = sideForHouse(planet.house), rulerSide = sideForHouse(ruler.house);
@@ -292,7 +292,7 @@ export function calculateIndividualTerritorialLayer(
     "Σ house-lord base points by ruled side",
     "Σ ruler Nakshatra trait score including dignity modifier",
     "Σ ruler dignity by ruled side",
-    "Σ face dignity and decan-ruler side allegiance across all bodies",
+    "Σ decan self-rulership and decan-ruler side allegiance across all bodies",
     "Σ ruler war winner/loser points by ruled side; conjunction threshold 3° (policy conflict)",
     "Σ sect-aware Arabic Lots with angular ×2 and Nemesis sign",
     "Σ same-side manzil pair resonance within 5°; cross-side recorded but unscored",
@@ -368,7 +368,7 @@ export function calculateRestoredTerritorial(
     if (!Number.isFinite(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: missing finite zodiac longitude`);
     const degreeInSign = normalize(planet.tropicalLongitude) % 30;
     if (planet.sign !== signForLongitude(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
-    const decan = getChaldeanDecan(planet.sign, degreeInSign);
+    const decan = getElementalDecan(planet.sign, degreeInSign);
     const rulerPlacement = planetsByName.get(decan.ruler);
     if (!rulerPlacement) throw new Error(`Decan ${planet.planet}: missing ruler ${decan.ruler}`);
     const rulerHouse = rulerPlacement.house;
@@ -408,7 +408,7 @@ export function calculateRestoredTerritorial(
     { name: "Cluster territory & house-lord placement", scoreA: round(components.baseA), scoreB: round(components.baseB), detail: "Own-cluster support and opponent-cluster displacement, including angular displacement penalties.", calculation: { formula: "Σ house-lord base points by ruled side", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord} placed H${entry.placementHouse}: base ${entry.base}`), steps: houseLords.map((entry) => `H${entry.house} (${entry.side}) → ${entry.base >= 0 ? "+" : ""}${entry.base} base`) } },
     { name: "Nakshatra influence", scoreA: round(components.nakA), scoreB: round(components.nakB), detail: "27-profile stellar influence using traits, Gana, Yoni, and dignity-linked lord synergy.", calculation: { formula: "round((((average trait weight + Gana bonus) × Yoni multiplier × (1 + dignity × 0.05)) − 1) × 5)", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord}: ${entry.nakshatra.name}, dignity ${entry.dignity.score}, contribution ${entry.nakshatra.score}`), steps: houseLords.map((entry) => `H${entry.house} → ${entry.nakshatra.name}: ${entry.nakshatra.score >= 0 ? "+" : ""}${entry.nakshatra.score} to ${entry.side}`) } },
     { name: "Essential dignity", scoreA: round(components.dignA), scoreB: round(components.dignB), detail: "Exaltation +2, own sign +1, neutral 0, debilitation −2.", calculation: { formula: "Σ dignity(lord, placement sign)", inputs: houseLords.map((entry) => `H${entry.house} ${entry.lord} in ${entry.placementSign}: ${entry.dignity.status} = ${entry.dignity.score}`), steps: houseLords.map((entry) => `H${entry.house} → ${entry.dignity.status}: ${entry.dignity.score >= 0 ? "+" : ""}${entry.dignity.score} to ${entry.side}`) } },
-    { name: "Chaldean Decans", scoreA: round(decanA), scoreB: round(decanB), detail: "0°/10°/20° faces across all 12 signs: +1 own-face dignity and ±0.5 from the decan ruler’s cluster allegiance.", calculation: { formula: "Σ (face dignity + ruler allegiance)", inputs: decans.map((entry) => `${entry.planet} ${entry.sign} ${entry.degreeInSign.toFixed(2)}° → decan ${entry.decan}, ruler ${entry.ruler} H${entry.rulerHouse}: ${entry.score}`), steps: decans.map((entry) => `${entry.planet}: face ${entry.faceDignity >= 0 ? "+" : ""}${entry.faceDignity} + allegiance ${entry.allegiance} = ${entry.score} to ${entry.targetSide}`) } },
+    { name: "Elemental Family Decans", scoreA: round(decanA), scoreB: round(decanB), detail: "0°/10°/20° faces across all 12 signs: +1 own-decan self-rulership and ±0.5 from the decan ruler’s cluster allegiance.", calculation: { formula: "Σ (decan self-rulership + ruler allegiance)", inputs: decans.map((entry) => `${entry.planet} ${entry.sign} ${entry.degreeInSign.toFixed(2)}° → decan ${entry.decan}, ruler ${entry.ruler} H${entry.rulerHouse}: ${entry.score}`), steps: decans.map((entry) => `${entry.planet}: face ${entry.faceDignity >= 0 ? "+" : ""}${entry.faceDignity} + allegiance ${entry.allegiance} = ${entry.score} to ${entry.targetSide}`) } },
     { name: "Planetary war", scoreA: round(components.warA), scoreB: round(components.warB), detail: "Conjunctions within 3° award +1 to the priority winner and −1 to the loser.", calculation: { formula: "Σ (+1 winner, −1 loser) for conjunctions within 3°", inputs: wars.map((war) => `${war.winner} over ${war.loser}: ${war.degreeDifference.toFixed(2)}°`), steps: wars.map((war) => `${war.winner}: +1; ${war.loser}: −1`) } },
     { name: "Arabic Lots", scoreA: round(lotA), scoreB: round(lotB), detail: `${arabicLots.length} source-tagged lots are calculated once per chart and scored by house side.`, calculation: { formula: "Σ lot score by house side; angular houses ×2; Nemesis is negative", inputs: arabicLots.map((lot) => `${lot.name}: ${lot.formulaDay} | night: ${lot.formulaNight}; ${lot.longitude.toFixed(2)}° ${lot.sign}, H${lot.house}, ${lot.side}, score ${lot.score}; source ${lot.source}, ${lot.work}`), steps: arabicLots.map((lot) => `${lot.name} → ${lot.side}: ${lot.score >= 0 ? "+" : ""}${lot.score}; ${lot.reversal}`) } },
     { name: "Arabic mansion context", scoreA: round(mansionA), scoreB: round(mansionB), detail: mansionPairs.length ? mansionPairs.join("; ") : "No pair shares a manzil within the 5° orb. Each body still has its own mansion placement.", calculation: { formula: "Exploratory: all 28 Arabic manzil sectors, all bodies; for same-mansion pairs within 5°, same-side 1 − orb/5; cross-side context only.", inputs: planets.map((planet) => `${planet.planet}: ${planet.manzil?.name ?? "unavailable"}, H${planet.house}, ${sideForHouse(planet.house)}`), steps: mansionPairs.length ? mansionPairs : ["No qualifying co-mansion pair inside 5° orb; legitimate 0/0."] } },
