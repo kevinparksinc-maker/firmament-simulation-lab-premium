@@ -627,7 +627,7 @@ export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: D
 export function fixedDomeHouseFromAzimuth(azimuth: number) {
   const delta = normalize(90 - azimuth);
   const sector = Math.floor(delta / 30);
-  const house = sector === 0 ? 1 : 13 - sector;
+  const house = sector + 1;
   return { house, degreeInHouse: delta % 30, sign: SIGNS[sector] };
 }
 
@@ -640,7 +640,7 @@ export function fixedFirmamentHouseFromRA(firmamentRA: number) {
   // Compatibility name retained; the fixed dome maps raw longitude directly.
   const normalizedLongitude = normalize(firmamentRA);
   const sector = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees);
-  const house = sector === 0 ? 1 : 13 - sector;
+  const house = sector + 1;
   return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[sector] };
 }
 
@@ -884,7 +884,7 @@ function fixedClusterSignifications(planet: string, positionHouse: number) {
 function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
   const densityFor = (cluster: readonly number[]) => {
     const cuspSubLords = cluster.map((house) => {
-      const cusp = kpDetailsFromCanonicalLongitude((house - 1) * 30, new Date("2000-01-01T12:00:00Z"), false);
+      const cusp = kpDetailsFromCanonicalLongitude(houseCusp(house, "god", 0), new Date("2000-01-01T12:00:00Z"), false);
       const placement = planets.find((planet) => planet.planet === cusp.subLord) ?? planets[0]!;
       const significations = fixedClusterSignifications(cusp.subLord, placement.house);
       const connections = significations.filter((signification) => cluster.includes(signification)).length;
