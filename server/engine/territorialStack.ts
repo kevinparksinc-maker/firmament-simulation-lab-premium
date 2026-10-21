@@ -107,7 +107,7 @@ function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: 
   return SIGN_RULERS[houseSign]!;
 }
 
-/** Traditional Chaldean faces: 0°–<10°, 10°–<20°, and 20°–<30° in each of the 12 signs. */
+/** Elemental-family decans: 0°–<10°, 10°–<20°, and 20°–<30° in each of the 12 signs. */
 export function getElementalDecan(sign: string, degreeInSign: number) {
   return decanForSignDegree(sign, degreeInSign);
 }
