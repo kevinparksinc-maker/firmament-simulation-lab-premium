@@ -1,3 +1,4 @@
+import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
 import { useMemo } from "react";
 
 type Planet = {
@@ -34,21 +35,21 @@ export function ChartControls({ eventTime, stepMinutes, onStep, playing, onToggl
   return <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/15 p-3"><div className="flex flex-wrap items-center gap-2"><span className="eyebrow mr-1">Time navigator</span><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-40)}>−40 min</button><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-30)}>−30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(30)}>+30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(40)}>+40 min</button><button className="button-secondary ml-auto px-3 py-1.5 text-[10px]" disabled={disabled} onClick={onTogglePlaying}>{playing ? "Pause motion" : "Play motion"}</button></div><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Step {stepMinutes} min</span><span className="text-[10px] text-slate-500">{new Date(eventTime).toLocaleString()}</span><span className="mx-1 h-3 w-px bg-white/10" />{toggleLabels.map(([key, text]) => <button key={key} onClick={() => onToggleOverlay(key)} className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.11em] transition ${overlays[key] ? "border-cyan-300/25 bg-cyan-300/[0.09] text-cyan-200" : "border-white/10 bg-white/[0.025] text-slate-600"}`}>{text}</button>)}</div><p className="mt-2 text-[10px] leading-4 text-slate-600">Motion recalculates the ephemeris and ascendant at each selected time. Houses move with the selected frame; the fixed overlays remain anchored to the 360° wheel.</p></div>;
 }
 
-const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+const SIGNS = ZODIAC_SIGNS;
 const SYMBOLS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 const GLYPHS: Record<string, string> = { Sun: "☉", Moon: "☽", Mercury: "☿", Venus: "♀", Mars: "♂", Jupiter: "♃", Saturn: "♄", Rahu: "☊", Ketu: "☋" };
 const COLORS: Record<string, string> = { Sun: "#f3c878", Moon: "#d9e8ff", Mercury: "#85e6d1", Venus: "#f4b5d5", Mars: "#ff8e86", Jupiter: "#b8a6ff", Saturn: "#91b7dc", Rahu: "#c4a6ff", Ketu: "#a8a3c4" };
 const ASPECTS = [0, 30, 45, 60, 72, 90, 108, 120, 135, 144, 150, 180];
 const normalize = (value: number) => ((value % 360) + 360) % 360;
 const polar = (cx: number, cy: number, radius: number, longitude: number) => {
-  const angle = ((longitude - 90) * Math.PI) / 180;
+  const angle = ((-longitude - 90) * Math.PI) / 180;
   return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
 };
 const arcPath = (cx: number, cy: number, radius: number, start: number, end: number) => {
   const a = polar(cx, cy, radius, start);
   const b = polar(cx, cy, radius, end);
   const large = end - start > 180 ? 1 : 0;
-  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 1 ${b.x} ${b.y}`;
+  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 0 ${b.x} ${b.y}`;
 };
 const separation = (a: number, b: number) => {
   const d = Math.abs(normalize(a) - normalize(b));
@@ -132,13 +133,11 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               return <line key={`decan-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,.35)" strokeWidth={index % 3 === 0 ? 1 : .45} />;
             })}
             {houses.map((house) => {
-              // Houses advance counterclockwise from the frame anchor (0° for God View, ascendantLongitude for Agent View)
-              // while constellations, signs, and planets orbit clockwise.
-              const houseAnchor = mode === "god" ? 0 : ascendantLongitude;
-              const cuspAngle = houseAnchor - (house.house - 1) * 30;
+              // Houses and signs advance TOGETHER counterclockwise. H12 is behind H1.
+              const cuspAngle = houseCusp(house.house, mode, ascendantLongitude);
               const a = polar(cx, cy, 12, cuspAngle);
               const b = polar(cx, cy, nakshatraInner - 7, cuspAngle);
-              const labelPoint = polar(cx, cy, 92, cuspAngle - 15);
+              const labelPoint = polar(cx, cy, 92, cuspAngle + 15);
               return (
                 <g key={`house-${house.house}`}>
                   <line
