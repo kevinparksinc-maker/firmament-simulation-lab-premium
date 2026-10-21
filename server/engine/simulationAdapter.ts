@@ -20,6 +20,7 @@ import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMetho
 import { buildExpandedMethodExperiment } from "./expandedMethodExperiment";
 import { createMethodPerformanceAccumulator } from "./methodPerformance";
 import { resolveEventContract } from "./eventPipelineContract";
+import { ASCENDANT_HORIZON_VERSION } from "./firmamentEngine";
 
 export type SimulationEventInput = {
   id?: string;
@@ -399,6 +400,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     engine: {
       source: "firmament-engine",
+      agentAscendantModelVersion: input.agentViewModel === "fixed-earth-dawn-anchored" ? "DAWN_ANCHORED_APPROX_V1" : ASCENDANT_HORIZON_VERSION,
       calculationPath: "generateFixedJ2000KPPrediction + celestialGeometry + runFullPackageDualFrameChallenger",
       fixedBackground: "fixed Aries-zero zodiac wheel",
       hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
