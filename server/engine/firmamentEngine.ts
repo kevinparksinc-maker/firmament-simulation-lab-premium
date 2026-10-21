@@ -696,12 +696,30 @@ function signForLongitude(longitude: number) {
   return SIGNS[Math.floor(normalize(longitude) / 30)];
 }
 
-export function calculateAscendantLongitude(date: Date, _latitude: number, longitude: number) {
-  // Local horizon intersection with the permanent zero-tilt dome. Latitude
-  // drops out when the dome equator and ecliptic are coincident; longitude and
-  // time still make the local Ascendant individualized.
+/**
+ * Zero-obliquity, equatorial-wheel horizon model.
+ *
+ * East/rising horizon has local hour angle H=-90°. Since H=LST-RA,
+ * RA(east)=LST+90°. West/setting horizon has H=+90° and RA=LST+270°.
+ *
+ * Latitude cancels ONLY under this explicitly deliberate zero-tilt model;
+ * this is not a standard oblique-ecliptic tropical Ascendant. Keep all
+ * compared planet angles on the same zero-tilt equatorial reference wheel.
+ */
+export const ASCENDANT_HORIZON_VERSION = "ZERO_TILT_EASTERN_HORIZON_V2" as const;
+
+/** Historical pre-correction setting-horizon anchor, for reproducible audits.
+ * NEVER use this as the primary Ascendant; it points 180° away from the east.
+ */
+export function calculateLegacyWestHorizonLongitude(date: Date, _latitude: number, longitude: number) {
   const gstHours = Astronomy.SiderealTime(Astronomy.MakeTime(date));
   return normalize(gstHours * 15 + longitude + 270);
+}
+
+/** Correct eastern-horizon rising anchor under the fixed zero-tilt model. */
+export function calculateAscendantLongitude(date: Date, _latitude: number, longitude: number) {
+  const gstHours = Astronomy.SiderealTime(Astronomy.MakeTime(date));
+  return normalize(gstHours * 15 + longitude + 90);
 }
 
 function nodeLongitude(date: Date) {
