@@ -1,30 +1,30 @@
 /**
- * Fixed 36 Chaldean / Egyptian decan faces on the exact 360° zodiac wheel.
+ * Fixed 36 elemental-family sign-ruler decans on the exact 360° zodiac wheel.
  * The decan never moves with the Ascendant; only its house overlap changes.
  *
- * This catalog is independent of the chosen astronomical coordinate frame.
+ * Ruler order: own sign, then next and third sign in same element in zodiac order.\n * This catalog is independent of the chosen astronomical coordinate frame.
  * A caller must first provide a trusted longitude in the common zodiac wheel.
  */
 import {
   ZODIAC_SIGNS, arcHouseOverlaps, normalizeLongitude, type FirmamentFrame,
 } from "./firmamentWheel";
 
-export const CHALDEAN_DECAN_RULERS = [
-  ["Mars", "Sun", "Venus"],
-  ["Mercury", "Moon", "Saturn"],
-  ["Jupiter", "Mars", "Sun"],
-  ["Venus", "Mercury", "Moon"],
-  ["Saturn", "Jupiter", "Mars"],
-  ["Sun", "Venus", "Mercury"],
-  ["Moon", "Saturn", "Jupiter"],
-  ["Mars", "Sun", "Venus"],
-  ["Mercury", "Moon", "Saturn"],
-  ["Jupiter", "Mars", "Sun"],
-  ["Venus", "Mercury", "Moon"],
-  ["Saturn", "Jupiter", "Mars"],
+export const ELEMENTAL_DECAN_RULERS = [
+  ["Mars", "Sun", "Jupiter"],       // Aries → Leo → Sagittarius
+  ["Venus", "Mercury", "Saturn"],   // Taurus → Virgo → Capricorn
+  ["Mercury", "Venus", "Saturn"],   // Gemini → Libra → Aquarius
+  ["Moon", "Mars", "Jupiter"],     // Cancer → Scorpio → Pisces
+  ["Sun", "Jupiter", "Mars"],      // Leo → Sagittarius → Aries
+  ["Mercury", "Saturn", "Venus"],  // Virgo → Capricorn → Taurus
+  ["Venus", "Saturn", "Mercury"],  // Libra → Aquarius → Gemini
+  ["Mars", "Jupiter", "Moon"],     // Scorpio → Pisces → Cancer
+  ["Jupiter", "Mars", "Sun"],      // Sagittarius → Aries → Leo
+  ["Saturn", "Venus", "Mercury"],  // Capricorn → Taurus → Virgo
+  ["Saturn", "Mercury", "Venus"],  // Aquarius → Gemini → Libra
+  ["Jupiter", "Moon", "Mars"],     // Pisces → Cancer → Scorpio
 ] as const;
 
-export type ChaldeanDecan = {
+export type ElementalDecan = {
   number: number;  // 1 through 36
   sign: typeof ZODIAC_SIGNS[number];
   face: 1 | 2 | 3;
@@ -44,11 +44,11 @@ export function decanForSignDegree(sign: string, degreeInSign: number) {
   const faceIndex = Math.floor(degreeInSign / 10);
   return {
     decan: (faceIndex+1) as 1|2|3,
-    ruler: CHALDEAN_DECAN_RULERS[index]![faceIndex]!,
+    ruler: ELEMENTAL_DECAN_RULERS[index]![faceIndex]!,
   };
 }
 
-export function decanAtLongitude(longitude: number): ChaldeanDecan {
+export function decanAtLongitude(longitude: number): ElementalDecan {
   const wheelLongitude = normalizeLongitude(longitude);
   const numberIndex = Math.floor(wheelLongitude/10);
   const signIndex = Math.floor(numberIndex/3);
@@ -57,14 +57,14 @@ export function decanAtLongitude(longitude: number): ChaldeanDecan {
     number: numberIndex+1,
     sign: ZODIAC_SIGNS[signIndex]!,
     face: (faceIndex+1) as 1|2|3,
-    ruler: CHALDEAN_DECAN_RULERS[signIndex]![faceIndex]!,
+    ruler: ELEMENTAL_DECAN_RULERS[signIndex]![faceIndex]!,
     startLongitude: numberIndex*10,
     endLongitude: (numberIndex+1)*10,
     degreeInFace: wheelLongitude%10,
   };
 }
 
-export const ALL_36_DECANS: readonly ChaldeanDecan[] = Object.freeze(
+export const ALL_36_DECANS: readonly ElementalDecan[] = Object.freeze(
   Array.from({length:36},(_,i)=>decanAtLongitude(i*10)),
 );
 
