@@ -62,6 +62,7 @@ describe("Tyson vs Douglas: one event, 31 methods, old-west vs new-east", () => 
         a === null || b === null ? "NOT_EVALUABLE" : a > b ? "A" : b > a ? "B" : "EQUAL";
       return {
         id: method.id, name: method.name,
+        godA: east.god.scoreA, godB: east.god.scoreB,
         westAgentA: west.agent.scoreA, westAgentB: west.agent.scoreB,
         eastAgentA: east.agent.scoreA, eastAgentB: east.agent.scoreB,
         westSynthesisA: west.combined.scoreA, westSynthesisB: west.combined.scoreB,
