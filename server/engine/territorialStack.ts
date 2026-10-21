@@ -103,8 +103,8 @@ function signForLongitude(longitude: number) { return SIGNS[Math.floor(normalize
  * the exact ascendant degree and the sign containing that cusp supplies the lord.
  */
 function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: number): string {
-  if (mode === "god") return HOUSE_LORDS[(13 - house) % 12]!;
-  const cuspLongitude = normalize(ascendantLongitude + ((13 - house) % 12) * 30);
+  if (mode === "god") return HOUSE_LORDS[house-1]!;
+  const cuspLongitude = normalize(ascendantLongitude + (house-1)*30);
   const houseSign = signForLongitude(cuspLongitude);
   return SIGN_RULERS[houseSign]!;
 }
