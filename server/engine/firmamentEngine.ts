@@ -857,8 +857,13 @@ function layerWinner(scoreA: number, scoreB: number): "A" | "B" | "TIE" {
   return scoreA > scoreB ? "A" : "B";
 }
 
-function territorialVerdict(planets: PlanetReading[], ascendantLongitude: number, lotHouseFromLongitude: (longitude: number) => number): LayerVerdict {
-  const restored = calculateRestoredTerritorial(planets, ascendantLongitude, lotHouseFromLongitude);
+function territorialVerdict(
+  planets: PlanetReading[],
+  ascendantLongitude: number,
+  lotHouseFromLongitude: (longitude: number) => number,
+  frame: "god" | "agent",
+): LayerVerdict {
+  const restored = calculateRestoredTerritorial(planets, ascendantLongitude, lotHouseFromLongitude, frame);
   const rationale = restored.evidence.layers.map((layer) => `${layer.name}: ${layer.scoreA >= 0 ? "+" : ""}${layer.scoreA.toFixed(2)} Ascendant / ${layer.scoreB >= 0 ? "+" : ""}${layer.scoreB.toFixed(2)} Descendant. ${layer.detail}`);
   return { scoreA: restored.scoreA, scoreB: restored.scoreB, winner: layerWinner(restored.scoreA, restored.scoreB), rationale, evidence: restored.evidence };
 }
@@ -1114,7 +1119,7 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
   });
   const houseAnchor = domeModel === "fixed-zodiac-wheel" ? 0 : ascendantLongitude;
   const lotHouseFromLongitude = (longitude: number) => locateInHouse(longitude, domeModel === "fixed-zodiac-wheel" ? "god" : "agent", houseAnchor).house;
-  const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude);
+  const territorial = territorialVerdict(planets, ascendantLongitude, lotHouseFromLongitude, domeModel === "fixed-zodiac-wheel" ? "god" : "agent");
   const kpStellar = kpVerdict(houses, planets, domeModel);
   const territorialWeight = 0.4;
   const kpWeight = 0.6;
@@ -1523,7 +1528,7 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
       degreeInSign: signPosition.degreeInHouse,
     };
   });
-  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => locateInHouse(longitude, "agent", ascendantLongitude).house);
+  const territorial = territorialVerdict(localPlanets, ascendantLongitude, (longitude) => locateInHouse(longitude, "agent", ascendantLongitude).house, "agent");
   const ascendant = resonanceAuditForSide(localPlanets, "A", config, ascendantLongitude, true);
   const descendant = resonanceAuditForSide(localPlanets, "B", config, ascendantLongitude, true);
   const margin = Number(Math.abs(territorial.scoreA - territorial.scoreB).toFixed(2));
