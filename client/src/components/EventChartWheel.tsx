@@ -1,5 +1,6 @@
 import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
 import { ALL_36_DECANS, decanAtLongitude } from "../../../shared/firmamentDecans";
+import {CHINESE_J2000_ANCHORS} from "../../../shared/chineseMansionJ2000Stars";
 import { useMemo } from "react";
 import {
   buildChineseMansionSectors, CHINESE_MANSION_CATALOG,
@@ -68,12 +69,11 @@ const separation = (a: number, b: number) => {
 export function EventChartWheel({ label, mode, ascendantLongitude, planets, houses, showAspects = true, showManzils = true, showNakshatras = true, showDecans = true, showChineseMansions = true, chineseMansionAnchors, chineseMansionCoordinateFrame, chineseMansionEpoch, showStars = true }: Props) {
   // Chinese Xiù are not equal-width. They render only when a complete,
   // epoch-matched determinative-star RA catalog is explicitly supplied.
-  const chineseMansions = useMemo(() => buildChineseMansionSectors(chineseMansionAnchors ?? []), [chineseMansionAnchors]);
+  const chineseMansions = useMemo(() => buildChineseMansionSectors(chineseMansionAnchors ?? CHINESE_J2000_ANCHORS), [chineseMansionAnchors]);
   const chineseMansionCalibrated =
     chineseMansions.status === "READY" &&
-    chineseMansionCoordinateFrame === "equatorial" &&
-    !!chineseMansionEpoch &&
-    chineseMansions.sectors.every(s => s.epoch === chineseMansionEpoch);
+    (chineseMansionCoordinateFrame ?? "equatorial") === "equatorial" &&
+    chineseMansions.sectors.every(s => s.epoch === (chineseMansionEpoch ?? "J2000"));
   const cx = 260;
   const cy = 260;
   const outer = 226;
@@ -209,8 +209,8 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
             <strong className="text-fuchsia-200">Chinese Xiù · 28 determinative-star mansions</strong>
             <p className="mt-1 text-slate-400">
               {chineseMansionCalibrated
-                ? `28 unequal equatorial RA sectors from ${chineseMansions.sectors[0]?.catalogSource} (${chineseMansionEpoch}).`
-                : "The 28 HIP reference stars are catalogued, but a matching verified right-ascension/epoch dataset is not connected. No fabricated 12.857° segments are drawn."}
+                ? `28 unequal equatorial RA sectors from ${chineseMansions.sectors[0]?.catalogSource} (${chineseMansionEpoch ?? "J2000"}).`
+                : "Invalid or mismatched 28-star RA/epoch input. No fabricated 12.857° segments are drawn."}
             </p>
             {showChineseMansions && !chineseMansionCalibrated && <span className="mt-1 block text-amber-200">Coordinates not evaluable until the 28-star source is calibrated.</span>}
             <span className="mt-1 block text-slate-500">Regions: Azure Dragon · Black Tortoise · White Tiger · Vermilion Bird. {CHINESE_MANSION_CATALOG.length} source-star identifiers registered.</span>
