@@ -1,3 +1,4 @@
+import { ZODIAC_SIGNS, houseCusp } from "./houseFrameFoundation";
 import {
   fixedEclipticHouseFromLongitude,
   generateFixedJ2000KPPrediction,
@@ -24,7 +25,7 @@ type FrameName = "God View" | "Agent’s View";
  */
 export type RuleClass = "SHARED" | "SIDE_SPECIFIC" | "ROLE_MODIFIER" | "OUTCOME";
 
-const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"] as const;
+const SIGNS = ZODIAC_SIGNS;
 const SIGN_RULERS: Record<(typeof SIGNS)[number], string> = {
   Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon", Leo: "Sun", Virgo: "Mercury",
   Libra: "Venus", Scorpio: "Mars", Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter",
@@ -265,7 +266,7 @@ function houseLords(planets: FramePlanet[], ascendantLongitude: number): HouseLo
   for (let house = 1; house <= 12; house += 1) {
     const ruledSide = sideForHouse(house);
     if (ruledSide === "neutral") continue;
-    const cuspSign = signAt(ascendantLongitude + (house-1)*30);
+    const cuspSign = signAt(houseCusp(house, "agent", ascendantLongitude));
     const lord = SIGN_RULERS[cuspSign];
     const placement = byName.get(lord);
     if (placement) entries.push({ house, ruledSide, lord, placement });
