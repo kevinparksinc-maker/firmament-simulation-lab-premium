@@ -1,3 +1,4 @@
+import { ZODIAC_SIGNS, houseCusp } from "./houseFrameFoundation";
 export type TerritorialSide = "A" | "B" | "neutral";
 
 export type CalculationTrace = {
@@ -62,7 +63,7 @@ export type RestoredTerritorialResult = {
 
 const ASCENDANT_HOUSES = new Set([1, 2, 3, 6, 10, 11]);
 const DESCENDANT_HOUSES = new Set([7, 8, 9, 12, 4, 5]);
-const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+const SIGNS = ZODIAC_SIGNS;
 const HOUSE_LORDS = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"];
 const SIGN_RULERS: Record<string, string> = { Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon", Leo: "Sun", Virgo: "Mercury", Libra: "Venus", Scorpio: "Mars", Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Saturn", Pisces: "Jupiter" };
 const EXALTATIONS: Record<string, string> = { Sun: "Aries", Moon: "Taurus", Mercury: "Virgo", Venus: "Pisces", Mars: "Capricorn", Jupiter: "Cancer", Saturn: "Libra" };
@@ -104,7 +105,7 @@ function signForLongitude(longitude: number) { return SIGNS[Math.floor(normalize
  */
 function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: number): string {
   if (mode === "god") return HOUSE_LORDS[house-1]!;
-  const cuspLongitude = normalize(ascendantLongitude + (house-1)*30);
+  const cuspLongitude = houseCusp(house, "agent", ascendantLongitude);
   const houseSign = signForLongitude(cuspLongitude);
   return SIGN_RULERS[houseSign]!;
 }
