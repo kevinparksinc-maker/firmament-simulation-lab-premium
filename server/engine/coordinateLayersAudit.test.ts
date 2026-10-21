@@ -38,7 +38,7 @@ describe("zero-tilt coordinate-layer diagnostics at Tokyo Dome",()=>{
       "Mansions and Nakshatras are equal wheel divisions from 0° Aries, not separately established star-anchored sector boundaries."
     ]
   };
-  for(const house of [1,12,11,10,9,8,7,6,5,4,3,2]){
+  for(const house of [1,2,3,4,5,6,7,8,9,10,11,12]){
     const start=houseCusp(house,"agent",asc);
     const end=houseCusp(house===1?12:house-1,"agent",asc);
     report.houses.push({house,side:[1,2,3,6,10,11].includes(house)?"Mike Tyson":"Buster Douglas",cusp:loc(start),end:loc(end),occupants:east.planets.filter(p=>p.house===house).map(p=>p.planet)});
