@@ -1,5 +1,5 @@
 import type { PlanetReading, Prediction } from "./firmamentEngine";
-import { buildChineseMansionEvidence, type CompiledChineseMansions } from "./chineseMansions";
+import { buildChineseMansionEvidence, DEFAULT_CHINESE_MANSIONS, type CompiledChineseMansions } from "./chineseMansions";
 import { calculateExperimentalLayers } from "./experimentalLayers";
 
 type ExperimentalLayerResult = ReturnType<typeof calculateExperimentalLayers>;
@@ -26,7 +26,7 @@ function houseSav(layers: ExperimentalLayerResult, house: number) {
 }
 function safeHouse(planet: PlanetReading) { return planet.house >= 1 && planet.house <= 12 ? planet.house : 0; }
 
-export function buildChartEvidence(prediction: Prediction, eventTime: Date, chineseCatalog?: CompiledChineseMansions): ChartEvidenceGraph {
+export function buildChartEvidence(prediction: Prediction, eventTime: Date, chineseCatalog: CompiledChineseMansions = DEFAULT_CHINESE_MANSIONS): ChartEvidenceGraph {
   const layers = calculateExperimentalLayers(prediction, eventTime);
   const cells = new Map<string, MansionHouseCell>();
   const mansionMap = new Map<string, { houses: Set<number>; planets: Set<string>; activation: number }>();
