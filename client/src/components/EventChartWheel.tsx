@@ -1,6 +1,10 @@
 import { ZODIAC_SIGNS, houseCusp } from "../../../shared/firmamentWheel";
 import { ALL_36_DECANS, decanAtLongitude } from "../../../shared/firmamentDecans";
 import { useMemo } from "react";
+import {
+  buildChineseMansionSectors, CHINESE_MANSION_CATALOG,
+  type ChineseMansionAnchor,
+} from "../../../shared/chineseMansions";
 
 type Planet = {
   planet: string;
@@ -26,13 +30,17 @@ type Props = {
   showManzils?: boolean;
   showNakshatras?: boolean;
   showDecans?: boolean;
+  showChineseMansions?: boolean;
+  chineseMansionAnchors?: readonly ChineseMansionAnchor[];
+  chineseMansionCoordinateFrame?: "equatorial";
+  chineseMansionEpoch?: string;
   showStars?: boolean;
 };
 
-export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean };
+export type ChartOverlayState = { aspects: boolean; manzils: boolean; nakshatras: boolean; decans: boolean; stars: boolean; chineseMansions?: boolean };
 
 export function ChartControls({ eventTime, stepMinutes, onStep, playing, onTogglePlaying, overlays, onToggleOverlay, disabled }: { eventTime: string; stepMinutes: number; onStep: (minutes: number) => void; playing: boolean; onTogglePlaying: () => void; overlays: ChartOverlayState; onToggleOverlay: (key: keyof ChartOverlayState) => void; disabled?: boolean }) {
-  const toggleLabels: Array<[keyof ChartOverlayState, string]> = [["aspects", "Aspects · 5° orb"], ["manzils", "28 Manzils"], ["nakshatras", "27 Nakshatras"], ["decans", "36 Decans"], ["stars", "Fixed stars"]];
+  const toggleLabels: Array<[keyof ChartOverlayState, string]> = [["aspects", "Aspects · 5° orb"], ["manzils", "28 Manzils"], ["nakshatras", "27 Nakshatras"], ["decans", "36 Decans"], ["chineseMansions", "28 Chinese Xiù"], ["stars", "Fixed stars"]];
   return <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/15 p-3"><div className="flex flex-wrap items-center gap-2"><span className="eyebrow mr-1">Time navigator</span><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-40)}>−40 min</button><button className="button-secondary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(-30)}>−30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(30)}>+30 min</button><button className="button-primary px-2.5 py-1.5 text-[10px]" disabled={disabled} onClick={() => onStep(40)}>+40 min</button><button className="button-secondary ml-auto px-3 py-1.5 text-[10px]" disabled={disabled} onClick={onTogglePlaying}>{playing ? "Pause motion" : "Play motion"}</button></div><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Step {stepMinutes} min</span><span className="text-[10px] text-slate-500">{new Date(eventTime).toLocaleString()}</span><span className="mx-1 h-3 w-px bg-white/10" />{toggleLabels.map(([key, text]) => <button key={key} onClick={() => onToggleOverlay(key)} className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.11em] transition ${overlays[key] ? "border-cyan-300/25 bg-cyan-300/[0.09] text-cyan-200" : "border-white/10 bg-white/[0.025] text-slate-600"}`}>{text}</button>)}</div><p className="mt-2 text-[10px] leading-4 text-slate-600">Motion recalculates the ephemeris and ascendant at each selected time. Houses move with the selected frame; the fixed overlays remain anchored to the 360° wheel.</p></div>;
 }
 
@@ -57,7 +65,15 @@ const separation = (a: number, b: number) => {
   return Math.min(d, 360 - d);
 };
 
-export function EventChartWheel({ label, mode, ascendantLongitude, planets, houses, showAspects = true, showManzils = true, showNakshatras = true, showDecans = true, showStars = true }: Props) {
+export function EventChartWheel({ label, mode, ascendantLongitude, planets, houses, showAspects = true, showManzils = true, showNakshatras = true, showDecans = true, showChineseMansions = true, chineseMansionAnchors, chineseMansionCoordinateFrame, chineseMansionEpoch, showStars = true }: Props) {
+  // Chinese Xiù are not equal-width. They render only when a complete,
+  // epoch-matched determinative-star RA catalog is explicitly supplied.
+  const chineseMansions = useMemo(() => buildChineseMansionSectors(chineseMansionAnchors ?? []), [chineseMansionAnchors]);
+  const chineseMansionCalibrated =
+    chineseMansions.status === "READY" &&
+    chineseMansionCoordinateFrame === "equatorial" &&
+    !!chineseMansionEpoch &&
+    chineseMansions.sectors.every(s => s.epoch === chineseMansionEpoch);
   const cx = 260;
   const cy = 260;
   const outer = 226;
@@ -127,6 +143,14 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               const b = polar(cx, cy, nakshatraInner + 6, longitude);
               return <line key={`nakshatra-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e3bb73" strokeOpacity=".55" strokeWidth={index % 3 === 0 ? 1.3 : .6} />;
             })}
+            {showChineseMansions && chineseMansionCalibrated && chineseMansions.sectors.map(sector=>{
+              const a=polar(cx,cy,nakshatraInner-26,sector.startRa);
+              const b=polar(cx,cy,nakshatraInner-12,sector.startRa);
+              return <g key={`chinese-${sector.hip}`}>
+                <title>{sector.chinese} {sector.name} ({sector.english}), {sector.quadrant}, HIP {sector.hip}; {sector.widthDegrees.toFixed(4)}° measured RA, epoch {sector.epoch}</title>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#f69dcd" strokeOpacity=".95" strokeWidth="1.4"/>
+              </g>;
+            })}
             {showDecans && ALL_36_DECANS.map((face) => {
               const boundary = polar(cx, cy, outer - 4, face.startLongitude);
               const rim = polar(cx, cy, outer + (face.face === 1 ? 5 : 2), face.startLongitude);
@@ -181,6 +205,16 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
         </div>
         <div className="space-y-3">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4"><p className="eyebrow text-cyan-200/70">Reading the wheel</p><p className="mt-2 text-sm leading-6 text-slate-300">The outer zodiac and overlay rings stay fixed. Only the house spokes change between God View and AgentView.</p></div>
+          <div className="rounded-xl border border-fuchsia-300/20 bg-fuchsia-300/[0.035] p-3 text-xs text-slate-300">
+            <strong className="text-fuchsia-200">Chinese Xiù · 28 determinative-star mansions</strong>
+            <p className="mt-1 text-slate-400">
+              {chineseMansionCalibrated
+                ? `28 unequal equatorial RA sectors from ${chineseMansions.sectors[0]?.catalogSource} (${chineseMansionEpoch}).`
+                : "The 28 HIP reference stars are catalogued, but a matching verified right-ascension/epoch dataset is not connected. No fabricated 12.857° segments are drawn."}
+            </p>
+            {showChineseMansions && !chineseMansionCalibrated && <span className="mt-1 block text-amber-200">Coordinates not evaluable until the 28-star source is calibrated.</span>}
+            <span className="mt-1 block text-slate-500">Regions: Azure Dragon · Black Tortoise · White Tiger · Vermilion Bird. {CHINESE_MANSION_CATALOG.length} source-star identifiers registered.</span>
+          </div>
           <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.12em]"><div className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-cyan-200"><span className="block h-1.5 w-7 rounded-full bg-cyan-300/70" />28 Manzils</div><div className="rounded-lg border border-amber-300/15 bg-amber-300/[0.05] p-3 text-amber-200"><span className="block h-1.5 w-7 rounded-full bg-amber-300/70" />27 Nakshatras</div><div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-slate-300"><span className="block h-1.5 w-7 rounded-full bg-white/50" />36 Decans</div><div className="rounded-lg border border-violet-300/15 bg-violet-300/[0.05] p-3 text-violet-200"><span className="block h-1.5 w-7 rounded-full bg-violet-300/70" />Aspects</div></div>
           <div className="rounded-xl border border-white/[0.07] bg-black/10 p-4">
             <p className="eyebrow">Exact-degree planet & decan key</p>
