@@ -1,3 +1,4 @@
+import { houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { ascendantFromSunrise, normalizeDegrees, solarAnglesFromFixedXYZ, type FixedVector } from "./absoluteSunriseAscendant";
 
 export type CartesianEventInput = {
@@ -16,14 +17,14 @@ export function buildCartesianEventChart(input: CartesianEventInput) {
   const ascendant = sunrise.ascendant;
   const planets = Object.fromEntries(Object.entries(input.bodiesXYZ).map(([name, vector]) => {
     const angles = solarAnglesFromFixedXYZ(vector);
-    return [name, { ...angles, house: Math.floor(normalizeDegrees(angles.longitude - ascendant) / 30) + 1 }];
+    return [name, { ...angles, house: locateInHouse(angles.longitude, "agent", ascendant).house }];
   }));
   return {
     frameId: input.frameId,
     source: "fixed-cartesian-xyz" as const,
     ascendant,
     descendant: normalizeDegrees(ascendant + 180),
-    houses: Array.from({ length: 12 }, (_, i) => ({ house: i + 1, cusp: normalizeDegrees(ascendant + i * 30) })),
+    houses: Array.from({ length: 12 }, (_, i) => ({ house: i + 1, cusp: houseCusp(i + 1, "agent", ascendant) })),
     planets,
     sunrise,
   };

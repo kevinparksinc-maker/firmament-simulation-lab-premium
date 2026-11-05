@@ -5,7 +5,7 @@ type Planet = {
   sign: string;
   house: number;
   degreeInHouse: number;
-  tropicalLongitude?: number;
+  cartesianLongitude?: number;
   backgroundWheelLongitude?: number;
   nakshatra: string;
   manzil?: { name: string; index: number; degreeInMansion: number };
@@ -67,8 +67,8 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
   const accent = mode === "god" ? "#52e2ff" : "#c2a0ff";
   const houseStart = mode === "god" ? 0 : ascendantLongitude;
   const planetPositions = useMemo(() => planets.map((planet, index) => {
-    const longitude = normalize(planet.backgroundWheelLongitude ?? planet.tropicalLongitude ?? 0);
-    const collisions = planets.slice(0, index).filter((other) => separation(longitude, normalize(other.backgroundWheelLongitude ?? other.tropicalLongitude ?? 0)) < 7).length;
+    const longitude = normalize(planet.backgroundWheelLongitude ?? planet.cartesianLongitude ?? 0);
+    const collisions = planets.slice(0, index).filter((other) => separation(longitude, normalize(other.backgroundWheelLongitude ?? other.cartesianLongitude ?? 0)) < 7).length;
     return { ...planet, longitude, visualLongitude: longitude + collisions * 3.5 };
   }), [planets]);
   const aspects = useMemo(() => {
@@ -132,13 +132,11 @@ export function EventChartWheel({ label, mode, ascendantLongitude, planets, hous
               return <line key={`decan-${index}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,.35)" strokeWidth={index % 3 === 0 ? 1 : .45} />;
             })}
             {houses.map((house) => {
-              // Houses advance counterclockwise from the frame anchor (0° for God View, ascendantLongitude for Agent View)
-              // while constellations, signs, and planets orbit clockwise.
-              const houseAnchor = mode === "god" ? 0 : ascendantLongitude;
-              const cuspAngle = houseAnchor - (house.house - 1) * 30;
+              // Use the engine cusp directly so labels and planet houses agree.
+              const cuspAngle = house.cuspLongitude;
               const a = polar(cx, cy, 12, cuspAngle);
               const b = polar(cx, cy, nakshatraInner - 7, cuspAngle);
-              const labelPoint = polar(cx, cy, 92, cuspAngle - 15);
+              const labelPoint = polar(cx, cy, 92, cuspAngle + 15);
               return (
                 <g key={`house-${house.house}`}>
                   <line

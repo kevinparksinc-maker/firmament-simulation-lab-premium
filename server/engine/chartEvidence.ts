@@ -81,7 +81,7 @@ export function buildChartEvidence(prediction: Prediction, eventTime: Date, chin
     return { mansion: cell.mansion, house: cell.house, strength: Number(strength.toFixed(3)), reasons };
   }).sort((a, b) => b.strength - a.strength).slice(0, 10);
   return {
-    chineseMansions: chineseCatalog ? { status: "READY" as const, evidence: buildChineseMansionEvidence(prediction.planets.map(planet => ({planet: planet.planet, house: planet.house, j2000RaDegrees: planet.j2000RaDegrees})), chineseCatalog) } : { status: "AWAITING_VERIFIED_STELLAR_CATALOG" as const, evidence: null },
+    chineseMansions: chineseCatalog ? { status: "READY" as const, evidence: buildChineseMansionEvidence(prediction.planets.map(planet => ({planet: planet.planet, house: planet.house, rightAscensionDegrees: planet.rightAscensionDegrees})), chineseCatalog) } : { status: "AWAITING_VERIFIED_STELLAR_CATALOG" as const, evidence: null },
     houses: Array.from({ length: 12 }, (_, index) => { const house = index + 1; const housePlanets = planetsByHouse.get(house) ?? []; return { house, sign: prediction.houses[index]?.sign ?? "Unknown", sav: houseSav(layers, house), planets: housePlanets.map((planet) => planet.planet), mansion: housePlanets[0]?.nakshatra ?? null }; }),
     mansions: Array.from(mansionMap.entries()).map(([mansion, entry]) => ({ mansion, houses: Array.from(entry.houses).sort((a, b) => a - b), planets: Array.from(entry.planets), activation: Number(entry.activation.toFixed(3)) })),
     cells: cellList,

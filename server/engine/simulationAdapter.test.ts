@@ -18,7 +18,7 @@ describe("simulation adapter", () => {
     const result = runSimulationEvent(fixture);
 
     expect(result.engine.source).toBe("firmament-engine");
-    expect(result.engine.hamalAnchor).toContain("13° Aries");
+    expect(result.engine.hamalAnchor).toContain("12° Aries");
     expect(result.chart.godView.planets).toHaveLength(12);
     expect(result.chart.godView.houses).toHaveLength(12);
     expect(result.chart.agentView.planets).toHaveLength(12);

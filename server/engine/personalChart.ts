@@ -1,4 +1,4 @@
-import { equalHouseZonePlacement, generateFixedJ2000PlanetReadings, generatePredictionForModel, NAKSHATRAS, NAKSHATRA_ARC_DEGREES, type GameInput } from "./firmamentEngine";
+import { equalHouseZonePlacement, generateCartesianPlanetReadings, generatePredictionForModel, NAKSHATRAS, NAKSHATRA_ARC_DEGREES, type GameInput } from "./firmamentEngine";
 import { geometryRelation, nakshatraCenter } from "./celestialGeometry";
 
 export type PersonalChartInput = {
@@ -14,14 +14,14 @@ export type PersonalChartInput = {
 
 const snapshot = (prediction: ReturnType<typeof generatePredictionForModel>) => ({
   ascendantLongitude: prediction.ascendantLongitude,
-  localSiderealTime: prediction.localSiderealTime,
+  frameRotationDegrees: prediction.frameRotationDegrees,
   houses: prediction.houses.map((house) => ({ house: house.house, cuspLongitude: house.cuspLongitude, sign: house.sign })),
   planets: prediction.planets.map((planet) => { const nakshatraIndex = NAKSHATRAS.indexOf(planet.nakshatra as typeof NAKSHATRAS[number]); return { planet: planet.planet, longitude: planet.backgroundWheelLongitude, sign: planet.sign, degreeInSign: planet.degreeInSign, house: planet.house, degreeInHouse: planet.degreeInHouse, nakshatra: planet.nakshatra, pada: planet.pada, manzil: planet.manzil, houseOverlays: { manzil: equalHouseZonePlacement(planet.manzil.startLongitude, planet.manzil.endLongitude, prediction.ascendantLongitude), nakshatra: equalHouseZonePlacement(nakshatraIndex * NAKSHATRA_ARC_DEGREES, (nakshatraIndex + 1) * NAKSHATRA_ARC_DEGREES, prediction.ascendantLongitude) }, starLord: planet.starLord, subLord: planet.subLord, isRetrograde: planet.isRetrograde }; }),
 });
 
 const fixedSnapshot = (date: Date) => {
-  const planets = generateFixedJ2000PlanetReadings(date);
-  return { ascendantLongitude: 0, localSiderealTime: 0, houses: Array.from({ length: 12 }, (_, index) => ({ house: index + 1, cuspLongitude: index * 30, sign: ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"][index] })), planets: planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, sign: planet.sign, degreeInSign: planet.degreeInSign, house: planet.firmamentHouse, degreeInHouse: planet.firmamentDegreeInHouse, nakshatra: planet.nakshatra, pada: planet.pada, manzil: planet.manzil, starLord: planet.starLord, subLord: planet.subLord, isRetrograde: planet.isRetrograde })) };
+  const planets = generateCartesianPlanetReadings(date);
+  return { ascendantLongitude: 0, frameRotationDegrees: 0, houses: Array.from({ length: 12 }, (_, index) => ({ house: index + 1, cuspLongitude: index * 30, sign: ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"][index] })), planets: planets.map((planet) => ({ planet: planet.planet, longitude: planet.backgroundWheelLongitude, sign: planet.sign, degreeInSign: planet.degreeInSign, house: planet.firmamentHouse, degreeInHouse: planet.firmamentDegreeInHouse, nakshatra: planet.nakshatra, pada: planet.pada, manzil: planet.manzil, starLord: planet.starLord, subLord: planet.subLord, isRetrograde: planet.isRetrograde })) };
 };
 
 function gameInput(date: Date, location: string, latitude: number, longitude: number): GameInput {
@@ -32,8 +32,8 @@ export function buildPersonalChart(input: PersonalChartInput) {
   const birthDate = new Date(input.birthDateTime);
   const transitDate = new Date(input.transitDateTime);
   if (Number.isNaN(birthDate.getTime()) || Number.isNaN(transitDate.getTime())) throw new Error("Birth and transit date-times must be valid ISO dates");
-  const natalLocal = generatePredictionForModel(gameInput(birthDate, input.birthLocation, input.birthLatitude, input.birthLongitude), "azimuth");
-  const transitLocal = generatePredictionForModel(gameInput(transitDate, input.transitLocation, input.transitLatitude, input.transitLongitude), "azimuth");
+  const natalLocal = generatePredictionForModel(gameInput(birthDate, input.birthLocation, input.birthLatitude, input.birthLongitude), "sunrise-cartesian");
+  const transitLocal = generatePredictionForModel(gameInput(transitDate, input.transitLocation, input.transitLatitude, input.transitLongitude), "sunrise-cartesian");
   const natalFixed = fixedSnapshot(birthDate);
   const transitFixed = fixedSnapshot(transitDate);
   const natalPlanets = natalFixed.planets;

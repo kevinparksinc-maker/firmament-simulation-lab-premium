@@ -1,14 +1,12 @@
+import { buildEventCartesianChart, generateCartesianVectors, cartesianAltitude } from "./cartesianEphemeris";
+import { solarAnglesFromFixedXYZ } from "./absoluteSunriseAscendant";
 import { houseCusp, locateInHouse } from "./houseFrameFoundation";
-import { createRequire } from "node:module";
-import type { Body } from "astronomy-engine";
 import { calculateRestoredTerritorial, type TerritorialEvidence } from "./territorialStack";
 
-const require = createRequire(import.meta.url);
-const Astronomy = require("astronomy-engine") as typeof import("astronomy-engine");
 
 export const GAME_TYPES = ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS", "boxing"] as const;
 export type GameType = (typeof GAME_TYPES)[number];
-export const DOME_MODELS = ["polaris-fixed-ra", "azimuth", "fixed-ecliptic", "unified-ephemeris", "fixed-zodiac-wheel"] as const;
+export const DOME_MODELS = ["sunrise-cartesian", "fixed-zodiac-wheel"] as const;
 export type DomeModel = (typeof DOME_MODELS)[number];
 export type Side = "ascendant" | "descendant" | "neutral";
 export type Allegiance = "supports" | "opposes" | "neutral";
@@ -44,32 +42,17 @@ export const DASHA_YEARS: Record<(typeof DASHA_SEQUENCE)[number], number> = {
   Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17,
 };
 
-const BODY_BY_PLANET: Record<string, Body> = {
-  Sun: Astronomy.Body.Sun,
-  Moon: Astronomy.Body.Moon,
-  Mercury: Astronomy.Body.Mercury,
-  Venus: Astronomy.Body.Venus,
-  Mars: Astronomy.Body.Mars,
-  Jupiter: Astronomy.Body.Jupiter,
-  Saturn: Astronomy.Body.Saturn,
-  Uranus: Astronomy.Body.Uranus,
-  Neptune: Astronomy.Body.Neptune,
-  Pluto: Astronomy.Body.Pluto,
-};
-
 const PLANETS = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Rahu", "Ketu"] as const;
 
 /**
  * Permanent Pure Clock configuration. The Royal Star rotation is calibrated once
- * from the supplied fixed J2000 RA values and is never recomputed per chart.
+ * from the fixed star doctrine and is never recomputed per chart.
  */
 export const FIRMAMENT_CONSTANTS = Object.freeze({
   royalStarTargets: Object.freeze({ Aldebaran: 45, Regulus: 135, Antares: 225, Fomalhaut: 315 }),
-  royalStarJ2000RA: Object.freeze({ Aldebaran: 68.98, Regulus: 152.09, Antares: 247.35, Fomalhaut: 344.41 }),
   royalStarCalibrationDegrees: 0,
   royalStarToleranceDegrees: 6.25,
   nodeObliquityDegrees: 0,
-  fixedJ2000ObliquityDegrees: 0,
   houseSizeDegrees: 30,
 });
 
@@ -80,10 +63,11 @@ export type GameInput = {
   coordinates?: { latitude: number; longitude: number };
   gameType: GameType;
   startTime: Date;
-  /** Optional sunrise anchor used only by the Fixed-Earth Dawn-Anchored AgentView experiment. */
+  /** Historical sunrise override; otherwise calculated for the actual observer. */
+  cartesianChart?: ReturnType<typeof buildEventCartesianChart>;
   sunriseTime?: Date;
   sunriseSource?: string;
-  agentViewModel?: "astronomical" | "fixed-earth-dawn-anchored";
+  agentViewModel?: "fixed-earth-dawn-anchored";
 };
 
 export type KP249Entry = {
@@ -97,30 +81,23 @@ export type KP249Entry = {
 
 export type PlanetReading = {
   planet: string;
-  ofDateEclipticLongitude: number;
   /** Absolute 0°–360° wheel used by stars, mansions, decans, and signs. */
   backgroundWheelLongitude: number;
-  tropicalLongitude: number;
-  fixedJ2000EclipticLongitude: number;
+  cartesianLongitude: number;
   kpLongitude: number;
-  kpCoordinateFrame: "of-date-ecliptic-with-fixed-kp-offset" | "raw-of-date-ecliptic" | "fixed-zodiac-wheel";
-  j2000RaDegrees: number;
-  j2000DecDegrees: number;
+  kpCoordinateFrame: "fixed-cartesian-xyz";
+  rightAscensionDegrees: number;
+  declinationDegrees: number;
   firmamentRA: number;
   firmamentHouse: number;
   firmamentDegreeInHouse: number;
   degreeInSign: number;
-  localSiderealTime: number;
+  frameRotationDegrees: number;
   raHours: number;
   decDegrees: number;
-  hourAngle: number;
-  azimuth: number;
   altitude: number;
-  azimuthDomeDelta: number;
-  azimuthHouse: number;
-  azimuthDegreeInHouse: number;
-  eclipticHouse: number;
-  eclipticDegreeInHouse: number;
+  backgroundHouse: number;
+  backgroundDegreeInHouse: number;
   isRetrograde: boolean;
   house: number;
   sign: string;
@@ -295,7 +272,7 @@ export type KPSubSubClusterDensityEvidence = {
   result: "ASCENDANT" | "DESCENDANT" | "NEUTRAL";
 };
 
-export type FixedJ2000KPSubSubExperiment = {
+export type CartesianKPSubSubExperiment = {
   status: "experimental-read-only";
   coordinateFrame: "fixed-zodiac-wheel";
   input: GameInput;
@@ -439,11 +416,11 @@ export type GodViewDeduplicatedAnchorScoreExperiment = {
 };
 
 export type Prediction = {
+  cartesianChart: ReturnType<typeof buildEventCartesianChart>;
   input: GameInput;
   domeModel: DomeModel;
   venue: { label: string; latitude: number; longitude: number; inferred: boolean };
-  localSiderealTime: number;
-  kpAyanamsa: number;
+  frameRotationDegrees: number;
   ascendantLongitude: number;
   planets: PlanetReading[];
   houses: HouseReading[];
@@ -484,21 +461,11 @@ export function manzilFromLongitude(longitude: number): ManzilReading {
   };
 }
 
-function hashLocation(value: string) {
-  return Array.from(value.toLowerCase()).reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 7);
-}
-
 export function resolveVenue(location: string) {
   const normalized = location.toLowerCase();
   const known = KNOWN_VENUES.find((venue) => venue.keys.some((key) => normalized.includes(key)));
   if (known) return { ...known, inferred: false };
-  const seed = hashLocation(location || "default");
-  return {
-    label: location || "Unspecified venue",
-    latitude: Number((24 + (seed % 2500) / 100).toFixed(4)),
-    longitude: Number((-124 + ((seed >>> 8) % 5700) / 100).toFixed(4)),
-    inferred: true,
-  };
+  throw new Error(`Unknown venue "${location}"; supply verified latitude and longitude.`);
 }
 
 /** Exact KP Sub-Lord arc in arc-minutes: Dasha years / 120 × 800. */
@@ -548,13 +515,10 @@ export const KP_249_LOOKUP = buildKP249Lookup();
  * The fixed-dome KP reference is the raw permanent dome longitude. No
  * ayanamsa, precession, nutation, or obliquity correction is applied.
  */
-export function kpAyanamsa(_date: Date) {
-  // Retained as a compatibility export; the fixed-dome model has no ayanamsa.
-  return 0;
-}
 
-export function kpDetailsFromTropicalLongitude(tropicalLongitude: number, date: Date) {
-  return kpDetailsFromCanonicalLongitude(tropicalLongitude, date, false);
+
+export function kpDetailsFromTropicalLongitude(cartesianLongitude: number, date: Date) {
+  return kpDetailsFromCanonicalLongitude(cartesianLongitude, date, false);
 }
 
 /**
@@ -597,7 +561,7 @@ function containingKPSubdivision(longitude: number, subdivisions: KPIntervalSubd
  * experimental inspection helper; it does not participate in active verdicts.
  */
 export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: Date, applyKpShift: boolean): KPSubSubDetails {
-  const adjustedLongitude = applyKpShift ? normalize(longitude + kpAyanamsa(date)) : normalize(longitude);
+  const adjustedLongitude = normalize(longitude);
   const nakshatraArcDegrees = NAKSHATRA_ARC_MINUTES / 60;
   const nakshatraIndex = Math.floor(adjustedLongitude / nakshatraArcDegrees) % NAKSHATRAS.length;
   const nakshatraStart = nakshatraIndex * nakshatraArcDegrees;
@@ -627,12 +591,12 @@ export function kpSubSubDetailsFromCanonicalLongitude(longitude: number, date: D
 export function fixedDomeHouseFromAzimuth(azimuth: number) {
   const delta = normalize(90 - azimuth);
   const sector = Math.floor(delta / 30);
-  const house = sector === 0 ? 1 : 13 - sector;
+  const house = sector + 1;
   return { house, degreeInHouse: delta % 30, sign: SIGNS[sector] };
 }
 
 /**
- * Polaris-centered Pure Clock sector map. `firmamentRA` is a permanent J2000
+ * Polaris-centered Pure Clock sector map. `firmamentRA` is a permanent Cartesian XY
  * equatorial angle plus the one-time Royal Star rotation; no venue, LST, horizon,
  * altitude, or azimuth value participates in this house calculation.
  */
@@ -640,7 +604,7 @@ export function fixedFirmamentHouseFromRA(firmamentRA: number) {
   // Compatibility name retained; the fixed dome maps raw longitude directly.
   const normalizedLongitude = normalize(firmamentRA);
   const sector = Math.floor(normalizedLongitude / FIRMAMENT_CONSTANTS.houseSizeDegrees);
-  const house = sector === 0 ? 1 : 13 - sector;
+  const house = sector + 1;
   return { house, degreeInHouse: normalizedLongitude % FIRMAMENT_CONSTANTS.houseSizeDegrees, sectorSign: SIGNS[sector] };
 }
 
@@ -649,7 +613,7 @@ export function fixedFirmamentHouseFromRA(firmamentRA: number) {
  * sign-house position. H1/Aries begins at 0° and advances in fixed 30° sectors.
  * This function deliberately does not use azimuth, LST, or venue coordinates.
  */
-export function fixedEclipticHouseFromLongitude(longitude: number) {
+export function fixedHouseFromLongitude(longitude: number) {
   const { house, degreeInHouse } = locateInHouse(longitude, "god", 0);
   return { house, degreeInHouse, sign: signForLongitude(longitude) };
 }
@@ -672,11 +636,11 @@ export function equalHouseZonePlacement(startLongitude: number, endLongitude: nu
   const segments = boundaries.slice(0, -1).map((left, index) => {
     const right = boundaries[index + 1]!;
     const midpoint = (left + right) / 2;
-    const house = fixedEclipticHouseFromLongitude(midpoint - ascendantLongitude).house;
+    const house = fixedHouseFromLongitude(midpoint - ascendantLongitude).house;
     const degrees = right - left;
     return { house, startLongitude: displayLongitude(left), endLongitude: displayLongitude(right), degrees: Number(degrees.toFixed(6)), percentage: width ? Number((degrees / width * 100).toFixed(2)) : 0 };
   });
-  const centerHouse = fixedEclipticHouseFromLongitude((startLongitude + endLongitude) / 2 - ascendantLongitude).house;
+  const centerHouse = fixedHouseFromLongitude((startLongitude + endLongitude) / 2 - ascendantLongitude).house;
   return { centerHouse, segments };
 }
 
@@ -696,146 +660,56 @@ function signForLongitude(longitude: number) {
   return SIGNS[Math.floor(normalize(longitude) / 30)];
 }
 
-export function calculateAscendantLongitude(date: Date, _latitude: number, longitude: number) {
-  // Local horizon intersection with the permanent zero-tilt dome. Latitude
-  // drops out when the dome equator and ecliptic are coincident; longitude and
-  // time still make the local Ascendant individualized.
-  const gstHours = Astronomy.SiderealTime(Astronomy.MakeTime(date));
-  return normalize(gstHours * 15 + longitude + 270);
+export function calculateAscendantLongitude(date: Date, latitude: number, longitude: number) {
+  return buildEventCartesianChart({ startTime: date, latitude, longitude }).ascendant;
 }
 
-function nodeLongitude(date: Date) {
-  const days = (date.getTime() - new Date("2000-01-01T12:00:00Z").getTime()) / 86400000;
-  return normalize(125.04452 - 0.0529538083 * days);
-}
-
-function nodeRaDec(longitude: number) {
-  return { raHours: normalize(longitude) / 15, decDegrees: 0 };
-}
-
-function geocentricEclipticLongitude(body: Body, date: Date) {
-  return fixedDomeLongitude(body, date);
-}
-
-function fixedDomeLongitude(body: Body, date: Date) {
-  const vector = Astronomy.GeoVector(body, date, false);
-  return normalize(Math.atan2(vector.y, vector.x) * 180 / Math.PI);
-}
-
-/** Geocentric fixed J2000 equatorial coordinates: no observer or of-date rotation. */
-function geocentricJ2000Equatorial(body: Body, date: Date) {
-  const sphere = Astronomy.SphereFromVector(Astronomy.GeoVector(body, date, false));
-  return { raDegrees: normalize(sphere.lon), decDegrees: sphere.lat };
-}
-
-/**
- * Converts an EQJ/J2000 geocentric vector into a permanent J2000 ecliptic
- * longitude. This intentionally avoids the library's Ecliptic() helper,
- * which precesses/nutates to the true ecliptic and true obliquity of date.
- */
-export function fixedJ2000EclipticLongitudeFromEquatorialVector(vector: { x: number; y: number; z: number }) {
-  // The fixed dome deliberately projects onto a zero-tilt X/Y plane.
-  return normalize(Math.atan2(vector.y, vector.x) * 180 / Math.PI);
-}
-
-/** Geocentric J2000 ecliptic longitude with fixed J2000 obliquity and no aberration. */
-function geocentricFixedJ2000EclipticLongitude(body: Body, date: Date) {
-  return fixedDomeLongitude(body, date);
-}
-
-function firmamentCoordinateFromJ2000RA(raDegrees: number) {
-  return normalize(raDegrees);
-}
-
-function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: number }, domeModel: DomeModel = "azimuth") {
-  const localSiderealTime = normalize(Astronomy.SiderealTime(Astronomy.MakeTime(date)) * 15 + venue.longitude);
-  const ascendantLongitude = calculateAscendantLongitude(date, venue.latitude, venue.longitude);
-  const usesFixedJ2000KP = domeModel === "fixed-zodiac-wheel";
-  const readings: PlanetReading[] = [];
-  for (const planet of PLANETS) {
-    const ofDateLongitude = planet === "Rahu" ? nodeLongitude(date) : planet === "Ketu" ? normalize(nodeLongitude(date) + 180) : geocentricEclipticLongitude(BODY_BY_PLANET[planet], date);
-    const backgroundWheelLongitude = ofDateLongitude;
-    const fixedJ2000EclipticLongitude = planet === "Rahu" ? nodeLongitude(date) : planet === "Ketu" ? normalize(nodeLongitude(date) + 180) : geocentricFixedJ2000EclipticLongitude(BODY_BY_PLANET[planet], date);
-    const nextDate = new Date(date.getTime() + 86400000);
-    const followingOfDateLongitude = planet === "Rahu" ? nodeLongitude(nextDate) : planet === "Ketu" ? normalize(nodeLongitude(nextDate) + 180) : geocentricEclipticLongitude(BODY_BY_PLANET[planet], nextDate);
-    // Canonical reference is always of-date now; fixedJ2000EclipticLongitude is
-    // retained below purely as an audit/legacy field, never as a driver of
-    // house, stellar, or degree-in-sign math.
-    const tropicalLongitude = ofDateLongitude;
-    const followingLongitude = followingOfDateLongitude;
-    const j2000Equatorial = planet === "Rahu" || planet === "Ketu"
-      ? (() => {
-          const node = nodeRaDec(ofDateLongitude);
-          return { raDegrees: node.raHours * 15, decDegrees: node.decDegrees };
-        })()
-      : geocentricJ2000Equatorial(BODY_BY_PLANET[planet], date);
-    const equatorial = { raHours: j2000Equatorial.raDegrees / 15, decDegrees: j2000Equatorial.decDegrees };
-    const horizontal = { azimuth: 0, altitude: 0 };
-    const azimuthDome = fixedDomeHouseFromAzimuth(horizontal.azimuth);
-    // eclipticDome is God View: a permanent Aries-zero wheel applied to the
-    // real of-date planet position (fixed house wheel, moving sky).
-    const eclipticDome = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
-    const firmamentRA = firmamentCoordinateFromJ2000RA(j2000Equatorial.raDegrees);
-    const firmamentDome = fixedFirmamentHouseFromRA(firmamentRA);
-    // Compatibility model names remain in the API, but every active model now
-    // resolves to the same permanent raw fixed-dome sectors.
-    void domeModel;
-    void usesFixedJ2000KP;
-    // The background wheel is absolute and shared by both views. AgentView
-    // uses exact-degree equal houses; God View keeps the fixed Aries-zero wheel.
-    const localHouse = locateInHouse(backgroundWheelLongitude, "agent", ascendantLongitude);
-    const dome = domeModel === "fixed-zodiac-wheel"
-      ? eclipticDome
-      : { ...eclipticDome, house: localHouse.house, degreeInHouse: localHouse.degreeInHouse };
-    const stellar = kpDetailsFromCanonicalLongitude(backgroundWheelLongitude, date, domeModel !== "unified-ephemeris");
-    const manzil = manzilFromLongitude(backgroundWheelLongitude);
-    readings.push({
+function buildPlanetReadings(date: Date, venue: { latitude: number; longitude: number }, domeModel: DomeModel = "sunrise-cartesian", chart?: ReturnType<typeof buildEventCartesianChart>) {
+  const fixed = domeModel === "fixed-zodiac-wheel";
+  const vectors = chart?.bodiesXYZ ?? generateCartesianVectors(date);
+  const following = generateCartesianVectors(new Date(date.getTime() + 86400000));
+  const eventChart = chart ?? buildEventCartesianChart({ startTime: date, ...venue });
+  const ascendantLongitude = fixed ? 0 : eventChart.ascendant;
+  return PLANETS.map((planet): PlanetReading => {
+    const angles = solarAnglesFromFixedXYZ(vectors[planet]!);
+    const longitude = angles.longitude;
+    const backgroundDome = fixedHouseFromLongitude(longitude);
+    const local = locateInHouse(longitude, fixed ? "god" : "agent", ascendantLongitude);
+    const stellar = kpDetailsFromCanonicalLongitude(longitude, date, false);
+    return {
       planet,
-      ofDateEclipticLongitude: ofDateLongitude,
-      backgroundWheelLongitude,
-      tropicalLongitude,
-      fixedJ2000EclipticLongitude,
-      kpLongitude: stellar.adjustedLongitude,
-      kpCoordinateFrame: domeModel === "unified-ephemeris"
-        ? "raw-of-date-ecliptic"
-        : "of-date-ecliptic-with-fixed-kp-offset",
-      j2000RaDegrees: j2000Equatorial.raDegrees,
-      j2000DecDegrees: j2000Equatorial.decDegrees,
-      firmamentRA,
-      firmamentHouse: firmamentDome.house,
-      firmamentDegreeInHouse: firmamentDome.degreeInHouse,
-      degreeInSign: eclipticDome.degreeInHouse,
-      localSiderealTime,
-      raHours: equatorial.raHours,
-      decDegrees: equatorial.decDegrees,
-      hourAngle: ((localSiderealTime - equatorial.raHours * 15 + 540) % 360) - 180,
-      azimuth: horizontal.azimuth,
-      altitude: horizontal.altitude,
-      azimuthDomeDelta: normalize(90 - horizontal.azimuth),
-      azimuthHouse: azimuthDome.house,
-      azimuthDegreeInHouse: azimuthDome.degreeInHouse,
-      eclipticHouse: eclipticDome.house,
-      eclipticDegreeInHouse: eclipticDome.degreeInHouse,
-      isRetrograde: ((followingLongitude - tropicalLongitude + 540) % 360) - 180 < 0,
-      house: dome.house,
-      sign: signForLongitude(tropicalLongitude),
-      degreeInHouse: dome.degreeInHouse,
+      // All interpretation layers consume this same Cartesian XY angle.
+      backgroundWheelLongitude: longitude,
+      cartesianLongitude: longitude,
+      kpLongitude: longitude,
+      kpCoordinateFrame: "fixed-cartesian-xyz",
+      rightAscensionDegrees: longitude,
+      declinationDegrees: angles.declination,
+      firmamentRA: longitude,
+      firmamentHouse: backgroundDome.house,
+      firmamentDegreeInHouse: backgroundDome.degreeInHouse,
+      degreeInSign: longitude % 30,
+      frameRotationDegrees: ascendantLongitude,
+      raHours: longitude / 15,
+      decDegrees: angles.declination,
+      altitude: cartesianAltitude(vectors[planet]!, eventChart),
+      backgroundHouse: backgroundDome.house,
+      backgroundDegreeInHouse: backgroundDome.degreeInHouse,
+      isRetrograde: ((solarAnglesFromFixedXYZ(following[planet]!).longitude - longitude + 540) % 360) - 180 < 0,
+      house: local.house,
+      sign: signForLongitude(longitude),
+      degreeInHouse: local.degreeInHouse,
       nakshatra: stellar.nakshatra,
       pada: stellar.pada,
       starLord: stellar.starLord,
       subLord: stellar.subLord,
-      manzil,
-    });
-  }
-  return readings;
+      manzil: manzilFromLongitude(longitude),
+    };
+  });
 }
 
-/**
- * Public fixed-cosmic placement helper for natal and transit readings. It uses
- * moving geocentric bodies in the permanent J2000 ecliptic frame; venue values
- * are neutral placeholders and cannot affect returned fixed placements.
- */
-export function generateFixedJ2000PlanetReadings(date: Date) {
+/** Fixed background placements from the same event-time Cartesian ephemeris. */
+export function generateCartesianPlanetReadings(date: Date) {
   return buildPlanetReadings(date, { latitude: 0, longitude: 0 }, "fixed-zodiac-wheel");
 }
 
@@ -866,7 +740,7 @@ function fixedClusterSignifications(planet: string, positionHouse: number) {
 function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
   const densityFor = (cluster: readonly number[]) => {
     const cuspSubLords = cluster.map((house) => {
-      const cusp = kpDetailsFromCanonicalLongitude((house - 1) * 30, new Date("2000-01-01T12:00:00Z"), false);
+      const cusp = kpDetailsFromCanonicalLongitude((house - 1) * 30, new Date(0), false);
       const placement = planets.find((planet) => planet.planet === cusp.subLord) ?? planets[0]!;
       const significations = fixedClusterSignifications(cusp.subLord, placement.house);
       const connections = significations.filter((signification) => cluster.includes(signification)).length;
@@ -892,7 +766,7 @@ function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
     scoreB: descendant.normalizedPeerScore,
     winner: result === "ASCENDANT" ? "A" : result === "DESCENDANT" ? "B" : "TIE",
     rationale: [
-      `Fixed J2000 KP cluster density: Ascendant ${ascendant.densityPercent.toFixed(2)}% across H1/H3/H6/H10/H11; Descendant ${descendant.densityPercent.toFixed(2)}% across H7/H9/H12/H4/H5.`,
+      `Cartesian XYZ KP cluster density: Ascendant ${ascendant.densityPercent.toFixed(2)}% across H1/H3/H6/H10/H11; Descendant ${descendant.densityPercent.toFixed(2)}% across H7/H9/H12/H4/H5.`,
       `Descendant minus Ascendant density = ${differentialPercent >= 0 ? "+" : ""}${differentialPercent.toFixed(2)}%; the fixed ±2.00% threshold resolves ${result.toLowerCase()}.`,
       "Each cusp uses its fixed Nakshatra Sub-Lord; significations combine fixed-sector occupancy, traditional fixed-sign rulership, seventh aspect, and node fifth/seventh/ninth aspects. Density is retained as raw evidence and divided by 10 only for equal-peer synthesis with Territorial Control.",
     ],
@@ -903,7 +777,7 @@ function clusterDensityVerdict(planets: PlanetReading[]): LayerVerdict {
 function subSubClusterDensityExperiment(planets: PlanetReading[]): KPSubSubClusterDensityEvidence {
   const densityFor = (cluster: readonly number[]) => {
     const cuspSubSubLords = cluster.map((house) => {
-      const cusp = kpSubSubDetailsFromCanonicalLongitude((house - 1) * 30, new Date("2000-01-01T12:00:00Z"), false);
+      const cusp = kpSubSubDetailsFromCanonicalLongitude((house - 1) * 30, new Date(0), false);
       const placement = planets.find((planet) => planet.planet === cusp.subSubLord) ?? planets[0]!;
       const significations = fixedClusterSignifications(cusp.subSubLord, placement.house);
       const connections = significations.filter((signification) => cluster.includes(signification)).length;
@@ -1022,7 +896,7 @@ function resonanceAuditForSide(planets: PlanetReading[], targetSide: "A" | "B", 
   const cluster = targetSide === "A" ? ASCENDANT_CLUSTER : DESCENDANT_CLUSTER;
   const auditChain = cluster.map((house) => {
     const cuspLongitude = houseCusp(house, "agent", cuspOffset);
-    const details = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), applyKpShift);
+    const details = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date(0), applyKpShift);
     const subPlacement = planets.find((planet) => planet.planet === details.subLord) ?? planets[0]!;
     const subSubPlacement = planets.find((planet) => planet.planet === details.subSubLord) ?? planets[0]!;
     const subLordFamily = familySupport(fixedClusterSignifications(details.subLord, subPlacement.house), targetSide);
@@ -1078,13 +952,14 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
   const venue = input.coordinates
     ? { label: input.location, latitude: input.coordinates.latitude, longitude: input.coordinates.longitude, inferred: false }
     : resolveVenue(input.location);
-  const planets = buildPlanetReadings(input.startTime, venue, domeModel);
-  const ascendantLongitude = calculateAscendantLongitude(input.startTime, venue.latitude, venue.longitude);
+  const cartesianChart = input.cartesianChart ?? buildEventCartesianChart({ ...input, latitude: venue.latitude, longitude: venue.longitude });
+  const planets = buildPlanetReadings(input.startTime, venue, domeModel, cartesianChart);
+  const ascendantLongitude = domeModel === "fixed-zodiac-wheel" ? 0 : cartesianChart.ascendant;
   const planetsByName = new Map(planets.map((planet) => [planet.planet, planet]));
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
     const cuspLongitude = houseCusp(house, domeModel === "fixed-zodiac-wheel" ? "god" : "agent", ascendantLongitude);
-    const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, input.startTime, domeModel !== "unified-ephemeris");
+    const stellar = kpDetailsFromCanonicalLongitude(cuspLongitude, input.startTime, false);
     const subLordPlacement = planetsByName.get(stellar.subLord) ?? planets[0];
     const cluster = clusterForHouse(house);
     return {
@@ -1114,10 +989,10 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
   const confidence = Math.min(95, Math.round(50 + Math.abs(combinedScoreA - combinedScoreB) * 5 + (agreement === "AGREE" ? 12 : 0)));
   return {
     input,
+    cartesianChart,
     domeModel,
     venue,
-    localSiderealTime: normalize(Astronomy.SiderealTime(Astronomy.MakeTime(input.startTime)) * 15 + venue.longitude),
-    kpAyanamsa: 0,
+    frameRotationDegrees: ascendantLongitude,
     ascendantLongitude,
     planets,
     houses,
@@ -1139,46 +1014,23 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
 
 /** Active fixed dome: raw zero-tilt longitude mapped to permanent sectors. */
 export function generatePrediction(input: GameInput) {
-  return generatePredictionForModel(input, "polaris-fixed-ra");
-}
-
-/** Legacy comparison: topocentric azimuth assigned to Fixed Dome sectors. */
-export function generateAzimuthLegacyPrediction(input: GameInput) {
-  return generatePredictionForModel(input, "azimuth");
-}
-
-/** Explicit access to the active Polaris-centered fixed-RA Pure Clock model. */
-export function generatePolarisFixedRAPrediction(input: GameInput) {
-  return generatePredictionForModel(input, "polaris-fixed-ra");
-}
-
-/** Experimental model: raw ephemeris longitude assigned directly to fixed sign-house sectors. */
-export function generateFixedEclipticPrediction(input: GameInput) {
-  return generatePredictionForModel(input, "fixed-ecliptic");
-}
-
-/**
- * Clean literal-ephemeris experiment: one raw longitude is shared by the
- * permanent dome sector and the complete KP stellar chain, with zero offset.
- */
-export function generateUnifiedEphemerisPrediction(input: GameInput) {
-  return generatePredictionForModel(input, "unified-ephemeris");
+  return generatePredictionForModel(input, "sunrise-cartesian");
 }
 
 /**
  * Fixed-Firmament KP Event Engine: moving geocentric bodies projected into a
- * permanent J2000 ecliptic, fixed 0° Aries, fixed Nakshatras, and zero ayanamsa.
+ * fixed equatorial XY projection, fixed 0° Aries, fixed Nakshatras, and zero ayanamsa.
  */
-export function generateFixedJ2000KPPrediction(input: GameInput) {
+export function generateCartesianKPPrediction(input: GameInput) {
   return generatePredictionForModel(input, "fixed-zodiac-wheel");
 }
 
 /**
- * Deeper Fixed J2000 KP inspection path. It remains read-only and does not
+ * Deeper Cartesian XYZ KP inspection path. It remains read-only and does not
  * feed Territorial Control, active Sub-Lord density, or combined scoring.
  */
-export function runFixedJ2000KPSubSubExperiment(input: GameInput): FixedJ2000KPSubSubExperiment {
-  const activePrediction = generateFixedJ2000KPPrediction(input);
+export function runCartesianKPSubSubExperiment(input: GameInput): CartesianKPSubSubExperiment {
+  const activePrediction = generateCartesianKPPrediction(input);
   return {
     status: "experimental-read-only",
     coordinateFrame: "fixed-zodiac-wheel",
@@ -1194,16 +1046,16 @@ export function runFixedJ2000KPSubSubExperiment(input: GameInput): FixedJ2000KPS
  * cusp anchor's exact current Star → Sub → Sub–Sub chain refreshes by game time.
  */
 export function runGodViewMovingKPMatrixExperiment(input: GameInput): GodViewMovingKPMatrixExperiment {
-  const activePrediction = generateFixedJ2000KPPrediction(input);
+  const activePrediction = generateCartesianKPPrediction(input);
   const primaryHouseWeight = 1;
   const supportHouseWeight = 0.35;
   const noCallThreshold = 0.5;
   const rows = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
     const cuspLongitude = houseCusp(house, "god", 0);
-    const cusp = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), false);
+    const cusp = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date(0), false);
     const anchor = activePrediction.planets.find((planet) => planet.planet === cusp.subLord) ?? activePrediction.planets[0]!;
-    const moving = kpSubSubDetailsFromCanonicalLongitude(anchor.fixedJ2000EclipticLongitude, input.startTime, false);
+    const moving = kpSubSubDetailsFromCanonicalLongitude(anchor.backgroundWheelLongitude, input.startTime, false);
     const starLord = resolveMovingMatrixLord(moving.starLord, activePrediction.planets);
     const subLord = resolveMovingMatrixLord(moving.subLord, activePrediction.planets);
     const subSubLord = resolveMovingMatrixLord(moving.subSubLord, activePrediction.planets);
@@ -1217,7 +1069,7 @@ export function runGodViewMovingKPMatrixExperiment(input: GameInput): GodViewMov
       houseRole,
       houseWeight,
       anchorPlanet: anchor.planet,
-      anchorLongitude: anchor.fixedJ2000EclipticLongitude,
+      anchorLongitude: anchor.backgroundWheelLongitude,
       anchorHouse: anchor.house,
       nakshatra: moving.nakshatra,
       starLord,
@@ -1251,15 +1103,15 @@ export function runGodViewMovingKPMatrixExperiment(input: GameInput): GodViewMov
  * Sub–Sub confirmation evidence without adding a new score or public verdict.
  */
 export function runGodViewFullKPFamilyExperiment(input: GameInput): GodViewFullKPFamilyExperiment {
-  const activePrediction = generateFixedJ2000KPPrediction(input);
+  const activePrediction = generateCartesianKPPrediction(input);
   const rows = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
     const cuspLongitude = houseCusp(house, "god", 0);
-    const fixed = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date("2000-01-01T12:00:00Z"), false);
+    const fixed = kpSubSubDetailsFromCanonicalLongitude(cuspLongitude, new Date(0), false);
     const cuspSign = signForLongitude(cuspLongitude);
     const signLord = FIXED_SIGN_RULERS[cuspSign]!;
     const anchor = activePrediction.planets.find((planet) => planet.planet === fixed.subLord) ?? activePrediction.planets[0]!;
-    const moving = kpSubSubDetailsFromCanonicalLongitude(anchor.fixedJ2000EclipticLongitude, input.startTime, false);
+    const moving = kpSubSubDetailsFromCanonicalLongitude(anchor.backgroundWheelLongitude, input.startTime, false);
     const movingStar = resolveFullKPFamilyLord(moving.starLord, activePrediction.planets);
     const movingSub = resolveFullKPFamilyLord(moving.subLord, activePrediction.planets);
     const movingSubSub = resolveFullKPFamilyLord(moving.subSubLord, activePrediction.planets);
@@ -1274,7 +1126,7 @@ export function runGodViewFullKPFamilyExperiment(input: GameInput): GodViewFullK
       cuspSubSubLord: resolveFullKPFamilyLord(fixed.subSubLord, activePrediction.planets),
       movingAnchor: {
         planet: anchor.planet,
-        longitude: anchor.fixedJ2000EclipticLongitude,
+        longitude: anchor.backgroundWheelLongitude,
         house: anchor.house,
         nakshatra: moving.nakshatra,
         starLord: movingStar,
@@ -1446,12 +1298,12 @@ export function runGodViewDeduplicatedAnchorScoreExperiment(input: GameInput): G
  * active Sub-Lord KP density, and active combined prediction are preserved;
  * this function only exposes a proposed close-matchup resolution for audit.
  */
-export function runFixedJ2000KPTerritorialResonanceExperiment(
+export function runCartesianKPTerritorialResonanceExperiment(
   input: GameInput,
   configOverride?: Partial<KPResonanceConfig>,
 ): KPTerritorialResonanceExperiment {
   const config = resolveKPResonanceConfig(configOverride);
-  const activePrediction = generateFixedJ2000KPPrediction(input);
+  const activePrediction = generateCartesianKPPrediction(input);
   const ascendant = resonanceAuditForSide(activePrediction.planets, "A", config);
   const descendant = resonanceAuditForSide(activePrediction.planets, "B", config);
   const territorialMargin = Number(Math.abs(activePrediction.territorial.scoreA - activePrediction.territorial.scoreB).toFixed(2));
@@ -1491,19 +1343,19 @@ export function runFixedJ2000KPTerritorialResonanceExperiment(
 
 /**
  * Observer-local comparison path. It intentionally uses a moving Ascendant,
- * local event coordinates, and ecliptic-of-date positions; it therefore remains
- * separate from the permanent Fixed J2000 production coordinate frame.
+ * local event coordinates, and the same Cartesian XYZ angles as God View.
+ * Only the sunrise-anchored equal-house perspective changes.
  */
 export function runAscendantHouseResonanceSimulation(input: GameInput, configOverride?: Partial<KPResonanceConfig>): AscendantHouseResonanceSimulation {
   const config = resolveKPResonanceConfig(configOverride);
-  const source = generatePredictionForModel(input, "azimuth");
+  const source = generatePredictionForModel(input, "sunrise-cartesian");
   const ascendantLongitude = source.ascendantLongitude;
   const localPlanets = source.planets.map((planet) => {
     const localPosition = locateInHouse(planet.backgroundWheelLongitude, "agent", ascendantLongitude);
-    const signPosition = fixedEclipticHouseFromLongitude(planet.backgroundWheelLongitude);
+    const signPosition = fixedHouseFromLongitude(planet.backgroundWheelLongitude);
     return {
       ...planet,
-      tropicalLongitude: planet.ofDateEclipticLongitude,
+      cartesianLongitude: planet.backgroundWheelLongitude,
       house: localPosition.house,
       degreeInHouse: localPosition.degreeInHouse,
       sign: signPosition.sign,
@@ -1531,7 +1383,7 @@ export function runAscendantHouseResonanceSimulation(input: GameInput, configOve
       proposedWinner,
       overallConflict,
       activeCombinedWinner: source.combined.winner,
-      note: "Observer-local simulation only: local time, longitude, latitude, moving Ascendant, and ecliptic-of-date positions are used. It does not modify the Fixed J2000 production model.",
+      note: "Observer-local simulation: the same Cartesian XYZ angles are assigned to sunrise-anchored equal houses.",
     },
   };
 }
@@ -1547,7 +1399,7 @@ export function runAgentGodFullLayerExperiment(
   configOverride?: Partial<KPResonanceConfig>,
 ): AgentGodFullLayerExperiment {
   const config = resolveKPResonanceConfig({ ...configOverride, enabled: true });
-  const godSource = runFixedJ2000KPTerritorialResonanceExperiment(input, config);
+  const godSource = runCartesianKPTerritorialResonanceExperiment(input, config);
   const agentSource = runAscendantHouseResonanceSimulation(input, config);
   const buildFrame = (
     source: KPTerritorialResonanceExperiment | AscendantHouseResonanceSimulation,
@@ -1620,15 +1472,7 @@ function runBacktestForModel(domeModel: DomeModel) {
       gameType: "MLB",
       startTime: new Date(`${game.date}T${game.time}:00.000Z`),
     } as const;
-    const prediction = domeModel === "polaris-fixed-ra"
-      ? generatePolarisFixedRAPrediction(input)
-      : domeModel === "fixed-ecliptic"
-      ? generateFixedEclipticPrediction(input)
-      : domeModel === "unified-ephemeris"
-        ? generateUnifiedEphemerisPrediction(input)
-        : domeModel === "fixed-zodiac-wheel"
-          ? generateFixedJ2000KPPrediction(input)
-        : generateAzimuthLegacyPrediction(input);
+    const prediction = generatePredictionForModel(input, domeModel);
     const pick = (winner: "A" | "B" | "TIE") => winner === "A" ? game.teamA : winner === "B" ? game.teamB : "Tie";
     const territorial = pick(prediction.territorial.winner);
     const kp = pick(prediction.kpStellar.winner);
@@ -1660,62 +1504,12 @@ function runBacktestForModel(domeModel: DomeModel) {
   };
 }
 
-/** Active verified report: Polaris-centered fixed J2000 RA Pure Clock. */
+/** Active verified report: Polaris-centered fixed Cartesian RA Pure Clock. */
 export function runVerifiedBacktest() {
-  return runBacktestForModel("polaris-fixed-ra");
+  return runBacktestForModel("sunrise-cartesian");
 }
 
-/** Preserved comparison report: former topocentric azimuth baseline. */
-export function runAzimuthLegacyBacktest() {
-  return runBacktestForModel("azimuth");
-}
-
-/** Experimental report: the same verified games, but direct ephemeris Fixed Ecliptic placement. */
-export function runFixedEclipticBacktest() {
-  return runBacktestForModel("fixed-ecliptic");
-}
-
-/** Same slate, but raw ephemeris longitude feeds both literal dome and KP lookup with no shift. */
-export function runUnifiedEphemerisBacktest() {
-  return runBacktestForModel("unified-ephemeris");
-}
-
-/** Same verified slate through the fixed zero-tilt dome KP path. */
-export function runFixedJ2000KPBacktest() {
+/** Fixed background counterpart to the sunrise Agent View backtest. */
+export function runCartesianKPBacktest() {
   return runBacktestForModel("fixed-zodiac-wheel");
-}
-
-export function runDomeModelComparisonBacktest() {
-  const polarisFixedRA = runVerifiedBacktest();
-  const azimuth = runAzimuthLegacyBacktest();
-  const fixedEcliptic = runFixedEclipticBacktest();
-  const unifiedEphemeris = runUnifiedEphemerisBacktest();
-  const fixedJ2000KP = runFixedJ2000KPBacktest();
-  return {
-    polarisFixedRA,
-    azimuth,
-    fixedEcliptic,
-    unifiedEphemeris,
-    fixedJ2000KP,
-    legacyAzimuthDifferences: {
-      territorial: Number((azimuth.metrics.territorial - polarisFixedRA.metrics.territorial).toFixed(1)),
-      kpStellar: Number((azimuth.metrics.kpStellar - polarisFixedRA.metrics.kpStellar).toFixed(1)),
-      combined: Number((azimuth.metrics.combined - polarisFixedRA.metrics.combined).toFixed(1)),
-    },
-    differences: {
-      territorial: Number((fixedEcliptic.metrics.territorial - polarisFixedRA.metrics.territorial).toFixed(1)),
-      kpStellar: Number((fixedEcliptic.metrics.kpStellar - polarisFixedRA.metrics.kpStellar).toFixed(1)),
-      combined: Number((fixedEcliptic.metrics.combined - polarisFixedRA.metrics.combined).toFixed(1)),
-    },
-    unifiedDifferences: {
-      territorial: Number((unifiedEphemeris.metrics.territorial - polarisFixedRA.metrics.territorial).toFixed(1)),
-      kpStellar: Number((unifiedEphemeris.metrics.kpStellar - polarisFixedRA.metrics.kpStellar).toFixed(1)),
-      combined: Number((unifiedEphemeris.metrics.combined - polarisFixedRA.metrics.combined).toFixed(1)),
-    },
-    fixedJ2000KpDifferences: {
-      territorial: Number((fixedJ2000KP.metrics.territorial - polarisFixedRA.metrics.territorial).toFixed(1)),
-      kpStellar: Number((fixedJ2000KP.metrics.kpStellar - polarisFixedRA.metrics.kpStellar).toFixed(1)),
-      combined: Number((fixedJ2000KP.metrics.combined - polarisFixedRA.metrics.combined).toFixed(1)),
-    },
-  };
 }

@@ -66,7 +66,7 @@ type Frame = {
 
 type Planet = {
   planet: string;
-  tropicalLongitude: number;
+  cartesianLongitude: number;
   backgroundWheelLongitude: number;
   house: number;
   sign: string;
@@ -257,8 +257,8 @@ function Astrolabe({ frame, kind, active, onSelect }: { frame: Frame | null; kin
         <defs><radialGradient id={`core-${kind}`}><stop offset="0" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity=".3" /><stop offset="1" stopColor={kind === "god" ? "#82efff" : "#c9a8ff"} stopOpacity="0" /></radialGradient></defs>
         <circle cx="110" cy="110" r="95" className="wheel-ring-outer" /><circle cx="110" cy="110" r="71" className="wheel-ring-inner" /><circle cx="110" cy="110" r="40" fill={`url(#core-${kind})`} className="wheel-core" />
         {ZODIAC_SIGNS.map((sign, index) => { const angle = (index * 30 - 90) * Math.PI / 180; const tx = 110 + Math.cos(angle) * 83; const ty = 110 + Math.sin(angle) * 83; const lx = 110 + Math.cos(angle) * 71; const ly = 110 + Math.sin(angle) * 71; return <g key={sign}><line x1="110" y1="110" x2={lx} y2={ly} className="wheel-spoke" /><text x={tx} y={ty + 4} textAnchor="middle" className="wheel-sign">{sign}</text></g>; })}
-        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero - index * 30 - 90) * Math.PI / 180; const center = (houseZero - index * 30 - 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
-        {displayPlanets.map((planet) => { const longitude = kind === "god" ? planet.backgroundWheelLongitude : planet.tropicalLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
+        {Array.from({ length: 12 }, (_, index) => { const boundary = (houseZero + index * 30 - 90) * Math.PI / 180; const center = (houseZero + index * 30 + 15 - 90) * Math.PI / 180; const x1 = 110 + Math.cos(boundary) * 40; const y1 = 110 + Math.sin(boundary) * 40; const x2 = 110 + Math.cos(boundary) * 69; const y2 = 110 + Math.sin(boundary) * 69; const tx = 110 + Math.cos(center) * 54; const ty = 110 + Math.sin(center) * 54; return <g key={`house-${index}`}><line x1={x1} y1={y1} x2={x2} y2={y2} className="house-spoke" /><text x={tx} y={ty + 3} textAnchor="middle" className="house-number">H{index + 1}</text></g>; })}
+        {displayPlanets.map((planet) => { const longitude = planet.backgroundWheelLongitude; const angle = (longitude - 90) * Math.PI / 180; const x = 110 + Math.cos(angle) * 56; const y = 110 + Math.sin(angle) * 56; return <g key={planet.planet}><circle cx={x} cy={y} r="8" className="planet-orb" /><text x={x} y={y + 4} textAnchor="middle" className="planet-mark">{PLANET_MARKS[planet.planet] ?? planet.planet.slice(0, 1)}</text></g>; })}
         <text x="110" y="106" textAnchor="middle" className="wheel-center-title">{kind === "god" ? "ARIES ZERO" : "EVENT ASC"}</text><text x="110" y="122" textAnchor="middle" className="wheel-center-sub">{frame ? `${Math.round(frame.ascendantLongitude)}° ASC` : "AWAITING INPUT"}</text>
       </svg>
       {!frame && <div className="wheel-empty"><span><Radar size={16} /></span><p>Charts resolve with the fixture</p></div>}
@@ -411,7 +411,7 @@ export default function Home() {
   const [selected, setSelected] = useState<OverlayLayer | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [chartStyle, setChartStyle] = useState<"diamond" | "circular">("diamond");
-  const [model, setModel] = useState<"astronomical" | "fixed-earth-dawn-anchored">("astronomical");
+  const model = "fixed-earth-dawn-anchored" as const;
   const [showConfig, setShowConfig] = useState(false);
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
   const simulate = trpc.simulate.event.useMutation();
@@ -482,7 +482,6 @@ export default function Home() {
         startTime: live?.startTime ?? "2024-04-02T00:10:00.000Z",
         // A sample chart is not a historical outcome; leave it unverified.
         agentViewModel: model,
-        ...(model === "fixed-earth-dawn-anchored" && !live ? { sunriseTime: "2024-04-01T12:10:13.153Z", sunriseSource: "Configured dawn anchor" } : {}),
       });
       setSimulation(result as Simulation);
       setSelected(null);
@@ -569,10 +568,10 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Firmament Sports Prediction Simulation Lab turns an opaque sports experiment into a navigable decision field—where fixed background, local horizon, and every supporting or conflicting method remain in view.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>{model === "astronomical" ? "Astronomical Agent View" : "Dawn-anchored Agent View"}</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
+      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Positions come from astronomical ephemeris Cartesian XYZ vectors and our fixed-firmament XY projection. The sunrise Sun angle advances 15° per elapsed hour to set the Ascendant and equal houses. Every method keeps its calculation evidence.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>Cartesian XYZ + sunrise Agent View</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
         <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run a fixture to populate the evidence field with actual calculations."}</span></div></div></section>
 
-      {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><button className={model === "astronomical" ? "model-selected" : ""} onClick={() => setModel("astronomical")}><Compass size={16} /><span><b>Astronomical</b><small>Spherical-Earth local ascendant</small></span></button><button className={model === "fixed-earth-dawn-anchored" ? "model-selected" : ""} onClick={() => setModel("fixed-earth-dawn-anchored")}><Zap size={16} /><span><b>Dawn anchored</b><small>Configured sunrise reference</small></span></button></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
+      {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><span><b>Cartesian XYZ + sunrise</b><small>Sun XY angle at sunrise + elapsed hours × 15°. Equal houses every 30°.</small></span></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
 
       {/* QUICK GAME SIMULATION BAR - Easy, zero-friction fixture setup */}
       <div id="quick-game-sim">

@@ -1,6 +1,6 @@
 import {
-  fixedEclipticHouseFromLongitude,
-  generateFixedJ2000KPPrediction,
+  fixedHouseFromLongitude,
+  generateCartesianKPPrediction,
   generatePredictionForModel,
   runAgentGodFullLayerExperiment,
   type GameInput,
@@ -10,7 +10,7 @@ import {
 import { calculateRestoredTerritorial, type CalculationTrace, type TerritorialPlanet } from "./territorialStack";
 import {completeChartLedger} from "./completeChartLedger";
 import {buildFamilyAudit,attachFamilyAudit} from "./collectiveFamilyAudit";
-import { calculateDawnAnchoredAscendant, DAWN_ASCENDANT_MODEL } from "./dawnAnchoredAscendant";
+
 
 type Side = "A" | "B" | "neutral";
 type Winner = "A" | "B" | "TIE";
@@ -87,7 +87,7 @@ export type FullPackageFrame = {
   name: FrameName;
   coordinateFrame: "fixed-zodiac-wheel" | "observer-local-ascendant-equal-house" | "fixed-earth-dawn-anchored";
   houseRule: "permanent-aries-zero-equal-house" | "local-moving-ascendant-equal-house";
-  ascendantModel: "god-fixed" | "astronomical-local-horizon" | "fixed-earth-dawn-anchored";
+  ascendantModel: "god-fixed" | "fixed-earth-dawn-anchored";
   sunriseSource?: string;
   sunriseTime?: string;
   ascendantLongitude: number;
@@ -130,7 +130,7 @@ function calculation(formula: string, detail: string | string[]): CalculationTra
 }
 
 export type AgentViewRotationMode = "none" | "ascendant-only" | "whole-chart";
-export type AgentViewModel = "astronomical" | "fixed-earth-dawn-anchored";
+export type AgentViewModel = "fixed-earth-dawn-anchored";
 export type DualFrameRunOptions = { agentViewRotation?: AgentViewRotationMode; agentViewModel?: AgentViewModel };
 
 function normalize(value: number) { return ((value % 360) + 360) % 360; }
@@ -181,20 +181,18 @@ function aspectType(first: number, second: number) {
 }
 
 function planetsForGod(input: GameInput): { ascendantLongitude: number; planets: FramePlanet[] } {
-  const source = generateFixedJ2000KPPrediction(input);
+  const source = generateCartesianKPPrediction(input);
   return {
     ascendantLongitude: 0,
     planets: source.planets.map((planet) => {
-      // God View is a permanent Aries-zero house wheel applied to the real
-      // of-date sky, not the frozen J2000 epoch — the wheel is fixed, the
-      // planets still move. fixedJ2000EclipticLongitude is not used here.
+      // Both views consume the same moving Cartesian XYZ positions.
       const backgroundWheelLongitude = planet.backgroundWheelLongitude;
-      const position = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
+      const position = fixedHouseFromLongitude(backgroundWheelLongitude);
       return {
         planet: planet.planet,
         longitude: backgroundWheelLongitude,
         backgroundWheelLongitude,
-        tropicalLongitude: backgroundWheelLongitude,
+        cartesianLongitude: backgroundWheelLongitude,
         house: position.house,
         sign: position.sign,
         degreeInHouse: position.degreeInHouse,
@@ -211,35 +209,25 @@ function planetsForGod(input: GameInput): { ascendantLongitude: number; planets:
   };
 }
 
-function planetsForAgent(input: GameInput, rotationMode: AgentViewRotationMode = "none", agentViewModel: AgentViewModel = input.agentViewModel ?? "astronomical"): { ascendantLongitude: number; planets: FramePlanet[]; ascendantModel: "astronomical-local-horizon" | "fixed-earth-dawn-anchored"; sunriseSource?: string; sunriseTime?: string } {
-  const source = generatePredictionForModel(input, "azimuth");
+function planetsForAgent(input: GameInput, rotationMode: AgentViewRotationMode = "none", agentViewModel: AgentViewModel = "fixed-earth-dawn-anchored"): { ascendantLongitude: number; planets: FramePlanet[]; ascendantModel: "fixed-earth-dawn-anchored"; sunriseSource?: string; sunriseTime?: string } {
+  const source = generatePredictionForModel(input, "sunrise-cartesian");
   const rotation = rotationMode === "none" ? 0 : 180;
-  let ascendantLongitude = normalize(source.ascendantLongitude + rotation);
-  let ascendantModel: "astronomical-local-horizon" | "fixed-earth-dawn-anchored" = "astronomical-local-horizon";
-  let sunriseSource: string | undefined;
-  let sunriseTime: string | undefined;
-  if (agentViewModel === DAWN_ASCENDANT_MODEL) {
-    if (!input.sunriseTime) throw new Error("Fixed-Earth Dawn-Anchored AgentView requires sunriseTime.");
-    const sun = source.planets.find((planet) => planet.planet === "Sun");
-    if (!sun) throw new Error("Fixed-Earth Dawn-Anchored AgentView requires the Sun longitude.");
-    const dawn = calculateDawnAnchoredAscendant({ birthOrEventTime: input.startTime, sunriseTime: input.sunriseTime, sunEclipticLongitude: sun.ofDateEclipticLongitude, sunriseSource: input.sunriseSource });
-    ascendantLongitude = normalize(dawn.rawAscendant + rotation);
-    ascendantModel = "fixed-earth-dawn-anchored";
-    sunriseSource = dawn.sunriseSource;
-    sunriseTime = dawn.sunriseTime;
-  }
+  const ascendantLongitude = normalize(source.ascendantLongitude + rotation);
+  const ascendantModel = "fixed-earth-dawn-anchored" as const;
+  const sunriseSource = source.cartesianChart.sunriseSource;
+  const sunriseTime = source.cartesianChart.sunrise.sunriseUtc;
   return {
     ascendantLongitude,
     planets: source.planets.map((planet) => {
       const backgroundWheelLongitude = planet.backgroundWheelLongitude;
       const houseLongitude = rotationMode === "whole-chart" ? normalize(backgroundWheelLongitude + rotation) : backgroundWheelLongitude;
-      const local = fixedEclipticHouseFromLongitude(houseLongitude - ascendantLongitude);
-      const sign = fixedEclipticHouseFromLongitude(backgroundWheelLongitude);
+      const local = fixedHouseFromLongitude(houseLongitude - ascendantLongitude);
+      const sign = fixedHouseFromLongitude(backgroundWheelLongitude);
       return {
         planet: planet.planet,
         longitude: houseLongitude,
         backgroundWheelLongitude,
-        tropicalLongitude: backgroundWheelLongitude,
+        cartesianLongitude: backgroundWheelLongitude,
         house: local.house,
         sign: sign.sign,
         degreeInHouse: local.degreeInHouse,
@@ -265,7 +253,7 @@ function houseLords(planets: FramePlanet[], ascendantLongitude: number): HouseLo
   for (let house = 1; house <= 12; house += 1) {
     const ruledSide = sideForHouse(house);
     if (ruledSide === "neutral") continue;
-    const cuspSign = signAt(ascendantLongitude + ((13 - house) % 12) * 30);
+    const cuspSign = signAt(ascendantLongitude + (house - 1) * 30);
     const lord = SIGN_RULERS[cuspSign];
     const placement = byName.get(lord);
     if (placement) entries.push({ house, ruledSide, lord, placement });
@@ -535,14 +523,14 @@ function kpLayer(kp: { ascendant: { finalKPWinFit: number }; descendant: { final
 function buildFrame(
   name: FrameName,
   input: GameInput,
-  raw: { ascendantLongitude: number; planets: FramePlanet[]; ascendantModel?: "god-fixed" | "astronomical-local-horizon" | "fixed-earth-dawn-anchored"; sunriseSource?: string; sunriseTime?: string },
+  raw: { ascendantLongitude: number; planets: FramePlanet[]; ascendantModel?: "god-fixed" | "fixed-earth-dawn-anchored"; sunriseSource?: string; sunriseTime?: string },
   kp: { ascendant: { finalKPWinFit: number }; descendant: { finalKPWinFit: number } },
 ): FullPackageFrame {
   const mode = name === "God View" ? "god" : "agent";
   let foundation: ReturnType<typeof calculateRestoredTerritorial>;
   let foundationError: string | undefined;
   try {
-    foundation = calculateRestoredTerritorial(raw.planets, raw.ascendantLongitude, (longitude) => fixedEclipticHouseFromLongitude(longitude - raw.ascendantLongitude).house, mode);
+    foundation = calculateRestoredTerritorial(raw.planets, raw.ascendantLongitude, (longitude) => fixedHouseFromLongitude(longitude - raw.ascendantLongitude).house, mode);
   } catch (error) {
     foundationError = error instanceof Error ? error.message : String(error);
     throw new Error(`Territorial foundation failed in ${name}: ${foundationError}`);
@@ -561,10 +549,10 @@ function buildFrame(
     name,
     coordinateFrame: name === "God View" ? "fixed-zodiac-wheel" : raw.ascendantModel === "fixed-earth-dawn-anchored" ? "fixed-earth-dawn-anchored" : "observer-local-ascendant-equal-house",
     houseRule: name === "God View" ? "permanent-aries-zero-equal-house" : "local-moving-ascendant-equal-house",
-    ascendantModel: name === "God View" ? "god-fixed" : raw.ascendantModel ?? "astronomical-local-horizon",
+    ascendantModel: name === "God View" ? "god-fixed" : raw.ascendantModel ?? "fixed-earth-dawn-anchored",
     sunriseSource: raw.sunriseSource,
     sunriseTime: raw.sunriseTime,
-    ascendantLongitude: round(raw.ascendantLongitude),
+    ascendantLongitude: raw.ascendantLongitude,
     foundation: {
       scoreA: foundation.scoreA,
       scoreB: foundation.scoreB,

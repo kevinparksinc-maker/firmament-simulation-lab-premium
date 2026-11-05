@@ -28,7 +28,7 @@ const eventInput = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   startTime: z.string().datetime(),
   actualWinner: z.enum(["A", "B", "TIE"]).optional(),
-  agentViewModel: z.enum(["astronomical", "fixed-earth-dawn-anchored"]).optional(),
+  agentViewModel: z.enum(["fixed-earth-dawn-anchored"]).optional(),
   sunriseTime: z.string().datetime().optional(),
   sunriseSource: z.string().max(180).optional(),
 }) satisfies z.ZodType<SimulationEventInput>;

@@ -13,11 +13,11 @@ const base = {
 describe("Cartesian event chart", () => {
   it("uses sunrise rotation for ASC and equal 30 degree cusps", () => {
     const chart = buildCartesianEventChart(base);
-    expect(chart.ascendant).toBeCloseTo(30.0821372805, 5);
+    expect(chart.ascendant).toBeCloseTo(30, 5);
     expect(chart.houses).toHaveLength(12);
     expect(chart.houses[1].cusp).toBeCloseTo(chart.ascendant + 30, 7);
-    expect(chart.planets.Sun.house).toBe(11);
-    expect(chart.planets.Moon.house).toBe(2);
+    expect(chart.planets.Sun.house).toBe(12);
+    expect(chart.planets.Moon.house).toBe(3);
   });
   it("requires explicit fixed-frame evidence", () => {
     expect(() => buildCartesianEventChart({ ...base, frameId: "" })).toThrow();

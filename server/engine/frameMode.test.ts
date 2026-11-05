@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { equalHouseZonePlacement, fixedEclipticHouseFromLongitude, generatePredictionForModel, manzilFromLongitude, NAKSHATRA_ARC_DEGREES } from "./firmamentEngine";
+import { equalHouseZonePlacement, fixedHouseFromLongitude, generatePredictionForModel, manzilFromLongitude, NAKSHATRA_ARC_DEGREES } from "./firmamentEngine";
 import { buildCelestialGeometryEvidence } from "./celestialGeometry";
 import { runFullPackageDualFrameChallenger } from "./fullPackageDualFrameChallenger";
 import { runSimulationEvent } from "./simulationAdapter";
@@ -18,14 +18,14 @@ const event = {
 
 describe("dual-frame house systems", () => {
   it("keeps God View fixed and derives AgentView from event time and location", () => {
-    const azimuthPrediction = generatePredictionForModel(event, "azimuth");
+    const azimuthPrediction = generatePredictionForModel(event, "sunrise-cartesian");
     const result = runFullPackageDualFrameChallenger(event);
 
     expect(result.god.coordinateFrame).toBe("fixed-zodiac-wheel");
     expect(result.god.houseRule).toBe("permanent-aries-zero-equal-house");
     expect(result.god.ascendantLongitude).toBe(0);
 
-    expect(result.agent.coordinateFrame).toBe("observer-local-ascendant-equal-house");
+    expect(result.agent.coordinateFrame).toBe("fixed-earth-dawn-anchored");
     expect(result.agent.houseRule).toBe("local-moving-ascendant-equal-house");
     expect(result.agent.ascendantLongitude).toBeCloseTo(azimuthPrediction.ascendantLongitude, 2);
     expect(result.agent.ascendantLongitude).not.toBe(result.god.ascendantLongitude);
@@ -36,7 +36,7 @@ describe("dual-frame house systems", () => {
 
   it("keeps the 360-degree background overlays identical while houses use different perspectives", () => {
     const god = generatePredictionForModel(event, "fixed-zodiac-wheel");
-    const agent = generatePredictionForModel(event, "azimuth");
+    const agent = generatePredictionForModel(event, "sunrise-cartesian");
     const godMars = god.planets.find((planet) => planet.planet === "Mars")!;
     const agentMars = agent.planets.find((planet) => planet.planet === "Mars")!;
 
@@ -48,10 +48,10 @@ describe("dual-frame house systems", () => {
     expect(agentMars.degreeInSign).toBeCloseTo(godMars.degreeInSign, 8);
   });
 
-  it("maps a 100-degree planet to reverse fixed H10 and exact-degree equal houses", () => {
-    expect(fixedEclipticHouseFromLongitude(100)).toMatchObject({ house: 10, sign: "Cancer", degreeInHouse: 10 });
-    expect(fixedEclipticHouseFromLongitude(100 - 95).house).toBe(1);
-    expect(fixedEclipticHouseFromLongitude(100 - 119).house).toBe(2);
+  it("maps a 100-degree planet to fixed H4 and exact-degree equal houses", () => {
+    expect(fixedHouseFromLongitude(100)).toMatchObject({ house: 4, sign: "Cancer", degreeInHouse: 10 });
+    expect(fixedHouseFromLongitude(100 - 95).house).toBe(1);
+    expect(fixedHouseFromLongitude(100 - 119).house).toBe(12);
   });
 
   it("keeps the 28 Arabic Manzil divisions fixed on the same wheel", () => {
@@ -60,7 +60,7 @@ describe("dual-frame house systems", () => {
     expect(manzilFromLongitude(100)).toMatchObject({ index: 8, name: "Al-Nathra" });
 
     const god = generatePredictionForModel(event, "fixed-zodiac-wheel");
-    const agent = generatePredictionForModel(event, "azimuth");
+    const agent = generatePredictionForModel(event, "sunrise-cartesian");
     for (const planet of god.planets) {
       const matching = agent.planets.find((candidate) => candidate.planet === planet.planet)!;
       expect(matching.manzil).toEqual(planet.manzil);
@@ -123,8 +123,8 @@ describe("dual-frame house systems", () => {
   });
 
   it("passes 180-degree AgentView through the standard method evaluator", () => {
-    const baseline = runSimulationEvent({ ...event, actualWinner: "B" });
-    const rotated = runSimulationEvent({ ...event, actualWinner: "B", agentViewRotation: "ascendant-only" });
+    const baseline = runSimulationEvent({ ...event, latitude: event.coordinates.latitude, longitude: event.coordinates.longitude, actualWinner: "B" });
+    const rotated = runSimulationEvent({ ...event, latitude: event.coordinates.latitude, longitude: event.coordinates.longitude, actualWinner: "B", agentViewRotation: "ascendant-only" });
 
     expect(rotated.godView.allLayers).toHaveLength(21);
     expect(rotated.agentView.allLayers).toHaveLength(21);
@@ -133,7 +133,7 @@ describe("dual-frame house systems", () => {
   });
 
   it("proves a God/Agent split preserves identical methods and formulas", () => {
-    const result = runSimulationEvent({ ...event, actualWinner: undefined });
+    const result = runSimulationEvent({ ...event, latitude: event.coordinates.latitude, longitude: event.coordinates.longitude, actualWinner: undefined });
     expect(result.frameParity.valid).toBe(true);
     expect(result.frameParity.methodParity).toBe(true);
     expect(result.frameParity.formulaParity).toBe(true);
@@ -147,7 +147,8 @@ describe("dual-frame house systems", () => {
     const result = calculateDawnAnchoredAscendant({
       birthOrEventTime: new Date("1986-11-20T16:06:00.000Z"),
       sunriseTime: new Date("1986-11-20T12:53:00.000Z"),
-      sunEclipticLongitude: 238.044,
+      sunriseSunXYZ: { x: Math.cos(238.044 * Math.PI / 180), y: Math.sin(238.044 * Math.PI / 180), z: 0 },
+      latitude: 32.7767,
       sunriseSource: "Weather Channel",
     });
 
@@ -159,9 +160,10 @@ describe("dual-frame house systems", () => {
     expect(result.houses).toHaveLength(12);
   });
 
-  it("keeps dawn-anchored AgentView distinct from astronomical AgentView", () => {
+  it("uses the supplied sunrise through the sole sunrise AgentView path", () => {
     const dawnEvent = {
       ...event,
+      latitude: event.coordinates.latitude, longitude: event.coordinates.longitude,
       agentViewModel: "fixed-earth-dawn-anchored" as const,
       sunriseTime: "2024-04-01T12:10:13.153Z",
       sunriseSource: "Weather Channel",
@@ -180,12 +182,14 @@ describe("dual-frame house systems", () => {
     const sunriseTime = new Date("2024-04-01T12:10:13.153Z");
     const first = runSimulationEvent({
       ...event,
+      latitude: event.coordinates.latitude, longitude: event.coordinates.longitude,
       agentViewModel: "fixed-earth-dawn-anchored",
       sunriseTime: sunriseTime.toISOString(),
       sunriseSource: "astronomy-engine sunrise test",
     });
     const oneHourLater = runSimulationEvent({
       ...event,
+      latitude: event.coordinates.latitude, longitude: event.coordinates.longitude,
       startTime: new Date(event.startTime.getTime() + 60 * 60 * 1000),
       agentViewModel: "fixed-earth-dawn-anchored",
       sunriseTime: sunriseTime.toISOString(),
@@ -193,6 +197,6 @@ describe("dual-frame house systems", () => {
     });
 
     expect(first.agentView.ascendantLongitude).not.toBe(oneHourLater.agentView.ascendantLongitude);
-    expect(oneHourLater.agentView.ascendantLongitude).toBeGreaterThan(first.agentView.ascendantLongitude);
+    expect((oneHourLater.agentView.ascendantLongitude - first.agentView.ascendantLongitude + 360) % 360).toBeCloseTo(15, 9);
   });
 });

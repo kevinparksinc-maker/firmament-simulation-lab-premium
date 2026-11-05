@@ -1,3 +1,4 @@
+import { ascendantFromSunrise, type FixedVector } from "./absoluteSunriseAscendant";
 export const DAWN_ASCENDANT_MODEL = "fixed-earth-dawn-anchored" as const;
 export type DawnAscendantModel = typeof DAWN_ASCENDANT_MODEL;
 
@@ -27,7 +28,7 @@ export type DawnAscendantResult = {
   sunriseTime: string;
   minutesElapsed: number;
   rotationDegrees: number;
-  sunEclipticLongitude: number;
+  sunriseSunLongitude: number;
   rawAscendant: number;
   formattedAscendant: string;
   sunHouse: number;
@@ -63,12 +64,14 @@ export function formatToZodiacString(rawDegrees: number): FormattedZodiac {
 export function calculateDawnAnchoredAscendant(input: {
   birthOrEventTime: Date;
   sunriseTime: Date;
-  sunEclipticLongitude: number;
+  sunriseSunXYZ: FixedVector;
+  latitude: number;
   sunriseSource?: string;
 }): DawnAscendantResult {
-  const minutesElapsed = (input.birthOrEventTime.getTime() - input.sunriseTime.getTime()) / (1000 * 60);
-  const rotationDegrees = minutesElapsed / 4;
-  const rawAscendant = normalize(input.sunEclipticLongitude + rotationDegrees);
+  const sunrise = ascendantFromSunrise({ eventUtc: input.birthOrEventTime.toISOString(), sunriseUtc: input.sunriseTime.toISOString(), sunriseSunXYZ: input.sunriseSunXYZ, latitude: input.latitude });
+  const minutesElapsed = sunrise.elapsedHours * 60;
+  const rotationDegrees = sunrise.elapsedRotationDegrees;
+  const rawAscendant = sunrise.ascendant;
   const houses: DawnHouseSegment[] = Array.from({ length: 12 }, (_, index) => {
     const startCusp = normalize(rawAscendant + index * 30);
     const endCusp = normalize(startCusp + 30);
@@ -79,7 +82,7 @@ export function calculateDawnAnchoredAscendant(input: {
       displayString: formatToZodiacString(startCusp).displayString,
     };
   });
-  const sunLongitude = normalize(input.sunEclipticLongitude);
+  const sunLongitude = sunrise.sunriseHorizon;
   const sunHouse = houses.find(({ startCusp, endCusp }) => (
     startCusp < endCusp
       ? sunLongitude >= startCusp && sunLongitude < endCusp
@@ -92,14 +95,10 @@ export function calculateDawnAnchoredAscendant(input: {
     sunriseTime: input.sunriseTime.toISOString(),
     minutesElapsed: Number(minutesElapsed.toFixed(4)),
     rotationDegrees: Number(rotationDegrees.toFixed(4)),
-    sunEclipticLongitude: Number(sunLongitude.toFixed(6)),
+    sunriseSunLongitude: Number(sunLongitude.toFixed(6)),
     rawAscendant: Number(rawAscendant.toFixed(6)),
     formattedAscendant: formatToZodiacString(rawAscendant).displayString,
     sunHouse,
     houses,
   };
-}
-
-export function isDawnAscendantInputComplete(input: { sunriseTime?: Date; sunEclipticLongitude?: number }) {
-  return input.sunriseTime instanceof Date && !Number.isNaN(input.sunriseTime.getTime()) && Number.isFinite(input.sunEclipticLongitude);
 }

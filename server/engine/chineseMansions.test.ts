@@ -26,7 +26,7 @@ describe("12 Gates Chinese 28 mansions",()=>{
  });
  it("evaluates every supplied planet and house",()=>{
   const compiled=compileChineseMansionCatalog(mock);
-  const bodies=Array.from({length:12},(_,i)=>({planet:"P"+i,j2000RaDegrees:i*24,house:i+1}));
+  const bodies=Array.from({length:12},(_,i)=>({planet:"P"+i,rightAscensionDegrees:i*24,house:i+1}));
   expect(buildChineseMansionEvidence(bodies,compiled).assignments).toHaveLength(12);
  });
 });

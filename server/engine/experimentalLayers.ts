@@ -296,7 +296,7 @@ export function calculateAshtakavargaLayer(prediction: Prediction, families = DE
       return sum + (support[reference]?.includes(relative) ? 1 : 0);
     }, 0));
     const total = bindus.reduce((sum, value) => sum + value, 0);
-    const houseBindu = (house: number) => bindus[(ascendantSign + ((13 - house) % 12)) % 12]!;
+    const houseBindu = (house: number) => bindus[(ascendantSign + (house - 1)) % 12]!;
     const sideA = families.sideA.reduce((sum, house) => sum + houseBindu(house), 0);
     const sideB = families.sideB.reduce((sum, house) => sum + houseBindu(house), 0);
     rows.push({ planet: targetName, bindus, total, expectedTotal: CLASSICAL_BAV_TOTALS[targetName], sideA, sideB });

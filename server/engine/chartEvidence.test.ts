@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildChartEvidence, getHouseAnalysis, getMansionAnalysis, getStrongestPatterns } from "./chartEvidence";
-import { generateFixedJ2000KPPrediction } from "./firmamentEngine";
+import { generateCartesianKPPrediction } from "./firmamentEngine";
 
 const input = {
   teamA: "Los Angeles Dodgers",
@@ -13,7 +13,7 @@ const input = {
 
 describe("Chart Evidence API", () => {
   it("builds a Mansion × House graph from deterministic layer outputs", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const graph = buildChartEvidence(prediction, input.startTime);
     expect(graph.houses).toHaveLength(12);
     expect(graph.cells.length).toBeGreaterThan(0);
@@ -22,7 +22,7 @@ describe("Chart Evidence API", () => {
   });
 
   it("supports house, mansion, and strongest-pattern queries without recalculation", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const graph = buildChartEvidence(prediction, input.startTime);
     const house = getHouseAnalysis(graph, 10);
     expect(house.house?.house).toBe(10);

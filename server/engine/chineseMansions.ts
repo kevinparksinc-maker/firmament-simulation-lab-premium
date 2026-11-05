@@ -105,7 +105,7 @@ export function chineseMansionAtRa(rightAscensionDegrees: number, compiled: Comp
     degreesIntoMansion: mod(ra-boundary.startRightAscensionDegrees),
   };
 }
-export type ChineseMansionBody = { planet: string; j2000RaDegrees: number; house: number };
+export type ChineseMansionBody = { planet: string; rightAscensionDegrees: number; house: number };
 /** Each body receives an assignment; caller may supply 12 cusps as additional bodies. */
 export function buildChineseMansionEvidence(
   bodies: readonly ChineseMansionBody[], compiled: CompiledChineseMansions
@@ -115,7 +115,7 @@ export function buildChineseMansionEvidence(
     frame: compiled.frame, catalogSource: compiled.source,
     assignments: bodies.map(body => ({
       planet: body.planet, house: body.house,
-      ...chineseMansionAtRa(body.j2000RaDegrees, compiled),
+      ...chineseMansionAtRa(body.rightAscensionDegrees, compiled),
     })),
   };
 }

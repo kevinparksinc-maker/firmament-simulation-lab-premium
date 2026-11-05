@@ -8,7 +8,7 @@ export type CalculationTrace = {
 
 export type TerritorialPlanet = {
   planet: string;
-  tropicalLongitude: number;
+  cartesianLongitude: number;
   house: number;
   sign: string;
   degreeInHouse: number;
@@ -103,8 +103,8 @@ function signForLongitude(longitude: number) { return SIGNS[Math.floor(normalize
  * the exact ascendant degree and the sign containing that cusp supplies the lord.
  */
 function lordForHouse(house: number, mode: "god" | "agent", ascendantLongitude: number): string {
-  if (mode === "god") return HOUSE_LORDS[(13 - house) % 12]!;
-  const cuspLongitude = normalize(ascendantLongitude + ((13 - house) % 12) * 30);
+  if (mode === "god") return HOUSE_LORDS[house - 1]!;
+  const cuspLongitude = normalize(ascendantLongitude + (house - 1) * 30);
   const houseSign = signForLongitude(cuspLongitude);
   return SIGN_RULERS[houseSign]!;
 }
@@ -140,7 +140,7 @@ function detectWars(planets: TerritorialPlanet[]) {
     for (let compared = index + 1; compared < planets.length; compared += 1) {
       const first = planets[index]!;
       const second = planets[compared]!;
-      const degreeDifference = Math.abs(signedDifference(first.tropicalLongitude, second.tropicalLongitude));
+      const degreeDifference = Math.abs(signedDifference(first.cartesianLongitude, second.cartesianLongitude));
       if (degreeDifference <= 3) {
         const firstPriority = WAR_PRIORITY[first.planet] ?? 1;
         const secondPriority = WAR_PRIORITY[second.planet] ?? 1;
@@ -154,7 +154,7 @@ function detectWars(planets: TerritorialPlanet[]) {
 type LotDefinition = { name: string; meaning: string; source: string; work: string; day: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; night: (asc: number, p: (name: string) => number, fortune: number, spirit: number) => number; formulaDay: string; formulaNight: string; reversal: string };
 
 function canonicalLots(planets: Map<string, TerritorialPlanet>, ascendant: number, night: boolean) {
-  const longitude = (planet: string) => { const position=planets.get(planet); if (!position || !Number.isFinite(position.tropicalLongitude)) throw new Error(`Arabic Lot missing finite longitude for ${planet}`); return position.tropicalLongitude; };
+  const longitude = (planet: string) => { const position=planets.get(planet); if (!position || !Number.isFinite(position.cartesianLongitude)) throw new Error(`Arabic Lot missing finite longitude for ${planet}`); return position.cartesianLongitude; };
   const sun = longitude("Sun"), moon = longitude("Moon"), mars = longitude("Mars"), venus = longitude("Venus"), jupiter = longitude("Jupiter"), saturn = longitude("Saturn");
   const direct = (a: number, b: number) => ascendant + a - b;
   const reverse = (a: number, b: number) => ascendant + b - a;
@@ -242,9 +242,9 @@ export function calculateRestoredTerritorial(
   const decans = planets.map((planet) => {
     const targetSide = sideForHouse(planet.house);
     // Sign-relative degree is not equal-house degree: compute it from the zodiacal longitude.
-    if (!Number.isFinite(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: missing finite zodiac longitude`);
-    const degreeInSign = normalize(planet.tropicalLongitude) % 30;
-    if (planet.sign !== signForLongitude(planet.tropicalLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
+    if (!Number.isFinite(planet.cartesianLongitude)) throw new Error(`Decan ${planet.planet}: missing finite zodiac longitude`);
+    const degreeInSign = normalize(planet.cartesianLongitude) % 30;
+    if (planet.sign !== signForLongitude(planet.cartesianLongitude)) throw new Error(`Decan ${planet.planet}: sign/longitude mismatch`);
     const decan = getChaldeanDecan(planet.sign, degreeInSign);
     const rulerPlacement = planetsByName.get(decan.ruler);
     if (!rulerPlacement) throw new Error(`Decan ${planet.planet}: missing ruler ${decan.ruler}`);
@@ -267,7 +267,7 @@ export function calculateRestoredTerritorial(
     const left = planets[i]!, right = planets[j]!;
     if (left.manzil?.index == null || right.manzil?.index == null || left.manzil.index !== right.manzil.index) continue;
     const leftSide = sideForHouse(left.house), rightSide = sideForHouse(right.house);
-    const difference = Math.abs(normalize(left.tropicalLongitude) - normalize(right.tropicalLongitude));
+    const difference = Math.abs(normalize(left.cartesianLongitude) - normalize(right.cartesianLongitude));
     const separation = Math.min(difference, 360 - difference);
     if (separation > 5) continue;
     const strength = round(Math.max(0, 1 - separation / 5));

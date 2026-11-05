@@ -1,9 +1,11 @@
+import { buildEventCartesianChart } from "./cartesianEphemeris";
+import { resolveVenue } from "./firmamentEngine";
 import { synthesizeFramePredictions } from "./crossFrameSynthesis";
 import {
-  generateFixedJ2000KPPrediction,
-  generateFixedJ2000PlanetReadings,
+  generateCartesianKPPrediction,
+  generateCartesianPlanetReadings,
   generatePredictionForModel,
-  fixedEclipticHouseFromLongitude,
+  fixedHouseFromLongitude,
   kpDetailsFromCanonicalLongitude,
   runFullPackageDualFrameChallenger,
   buildCelestialGeometryEvidence,
@@ -34,7 +36,7 @@ export type SimulationEventInput = {
   startTime: string;
   actualWinner?: "A" | "B" | "TIE";
   agentViewRotation?: AgentViewRotationMode;
-  agentViewModel?: "astronomical" | "fixed-earth-dawn-anchored";
+  agentViewModel?: "fixed-earth-dawn-anchored";
   sunriseTime?: string;
   sunriseSource?: string;
 };
@@ -93,12 +95,12 @@ function houseOverlays(planet: { manzil: { startLongitude: number; endLongitude:
   };
 }
 
-function chartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>) {
+function chartSnapshot(prediction: ReturnType<typeof generateCartesianKPPrediction>) {
   return {
     domeModel: prediction.domeModel,
     venue: prediction.venue,
     ascendantLongitude: prediction.ascendantLongitude,
-    localSiderealTime: prediction.localSiderealTime,
+    frameRotationDegrees: prediction.frameRotationDegrees,
     houses: prediction.houses.map((house) => ({
       house: house.house,
       cluster: house.cluster,
@@ -111,7 +113,7 @@ function chartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPredict
     })),
     planets: prediction.planets.map((planet) => ({
       planet: planet.planet,
-      tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
+      cartesianLongitude: Number(planet.cartesianLongitude.toFixed(4)),
       backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.house,
       sign: planet.sign,
@@ -127,8 +129,8 @@ function chartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPredict
   };
 }
 
-function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>, startTime: Date) {
-  const planets = generateFixedJ2000PlanetReadings(startTime);
+function fixedGodChartSnapshot(prediction: ReturnType<typeof generateCartesianKPPrediction>, startTime: Date) {
+  const planets = generateCartesianPlanetReadings(startTime);
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
@@ -150,11 +152,11 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
     domeModel: "fixed-zodiac-wheel",
     venue: "permanent fixed background",
     ascendantLongitude: 0,
-    localSiderealTime: 0,
+    frameRotationDegrees: 0,
     houses,
     planets: planets.map((planet) => ({
       planet: planet.planet,
-      tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
+      cartesianLongitude: Number(planet.cartesianLongitude.toFixed(4)),
       backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.firmamentHouse,
       sign: planet.sign,
@@ -170,7 +172,7 @@ function fixedGodChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000K
   };
 }
 
-function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000KPPrediction>, ascendantLongitude: number, startTime: Date) {
+function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateCartesianKPPrediction>, ascendantLongitude: number, startTime: Date) {
   const planets = prediction.planets.map((planet) => {
     const local = locateInHouse(planet.backgroundWheelLongitude, "agent", ascendantLongitude);
     return { ...planet, house: local.house, degreeInHouse: local.degreeInHouse, sign: planet.sign };
@@ -184,7 +186,7 @@ function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000
       house,
       cluster: prediction.houses[index]?.cluster ?? "neutral",
       cuspLongitude,
-      sign: fixedEclipticHouseFromLongitude(cuspLongitude).sign,
+      sign: fixedHouseFromLongitude(cuspLongitude).sign,
       starLord: stellar.starLord,
       subLord: stellar.subLord,
       subLordHouse: subLordPlacement?.house ?? null,
@@ -195,11 +197,11 @@ function dawnAgentChartSnapshot(prediction: ReturnType<typeof generateFixedJ2000
     domeModel: "fixed-earth-dawn-anchored",
     venue: prediction.venue,
     ascendantLongitude,
-    localSiderealTime: prediction.localSiderealTime,
+    frameRotationDegrees: prediction.frameRotationDegrees,
     houses,
     planets: planets.map((planet) => ({
       planet: planet.planet,
-      tropicalLongitude: Number(planet.tropicalLongitude.toFixed(4)),
+      cartesianLongitude: Number(planet.cartesianLongitude.toFixed(4)),
       backgroundWheelLongitude: Number(planet.backgroundWheelLongitude.toFixed(4)),
       house: planet.house,
       sign: planet.sign,
@@ -324,12 +326,11 @@ function frameReport(
 }
 
 export function runSimulationEvent(input: SimulationEventInput) {
-  // Fail closed: legacy J2000 simulation cannot silently run while XYZ integration is incomplete.
-  // Remove this guard only after the active sports-method adapter consumes
-  // buildCartesianEventChart with verified fixed-frame vectors and sunrise.
-  throw new Error("Legacy J2000 simulation disabled. Fixed-frame XYZ Cartesian integration is required before predictions can run.");
   const startTime = new Date(input.startTime);
   if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
+  if ((input.latitude === undefined) !== (input.longitude === undefined)) throw new Error("Supply both latitude and longitude.");
+  const observer = input.latitude !== undefined && input.longitude !== undefined ? { latitude: input.latitude, longitude: input.longitude } : resolveVenue(input.location);
+  const cartesianChart = buildEventCartesianChart({ startTime, ...observer, sunriseTime: input.sunriseTime ? new Date(input.sunriseTime) : undefined, sunriseSource: input.sunriseSource });
   const favoredTeam = input.favoredTeam ?? input.teamA;
   const underdogTeam = input.underdogTeam ?? input.teamB;
   const roleAssignmentSource = input.roleAssignmentSource ?? (input.favoredTeam && input.underdogTeam ? "manual" : "legacy-side-order");
@@ -339,21 +340,22 @@ export function runSimulationEvent(input: SimulationEventInput) {
     gameType: input.sport,
     location: input.location,
     startTime,
+    cartesianChart,
     ...(input.sunriseTime ? { sunriseTime: new Date(input.sunriseTime) } : {}),
     ...(input.sunriseSource ? { sunriseSource: input.sunriseSource } : {}),
-    ...(input.agentViewModel ? { agentViewModel: input.agentViewModel } : {}),
+    agentViewModel: "fixed-earth-dawn-anchored",
     ...(input.latitude !== undefined && input.longitude !== undefined
       ? { coordinates: { latitude: input.latitude, longitude: input.longitude } }
       : {}),
   };
 
-  const activePrediction = generateFixedJ2000KPPrediction(gameInput);
-  const agentPrediction = generatePredictionForModel(gameInput, "azimuth");
-  const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: input.agentViewModel ?? "astronomical" });
+  const activePrediction = generateCartesianKPPrediction(gameInput);
+  const agentPrediction = generatePredictionForModel(gameInput, "sunrise-cartesian");
+  const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: "fixed-earth-dawn-anchored" });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
-  const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime);
+  const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateCartesianKPPrediction>, startTime);
   const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
-  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
+  const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateCartesianKPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
   const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
   const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
   // Additional registered techniques are displayed explicitly beside the 21 core
@@ -408,15 +410,15 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     engine: {
       source: "firmament-engine",
-      calculationPath: "generateFixedJ2000KPPrediction + celestialGeometry + runFullPackageDualFrameChallenger",
+      calculationPath: "Cartesian XYZ → sunrise Sun XY + elapsed hours × 15° → equal houses → dual-frame methods",
+      provenance: cartesianChart.provenance,
+      cartesianChart,
       fixedBackground: "fixed Aries-zero zodiac wheel",
-      hamalAnchor: "13° Aries (configuration boundary; engine adapter does not silently alter formulas)",
+      hamalAnchor: "12° Aries (fixed doctrine overlay; no rotation of XYZ vectors)",
     },
     chart: {
       godView: fixedGodChartSnapshot(activePrediction, startTime),
-    agentView: input.agentViewModel === "fixed-earth-dawn-anchored"
-        ? dawnAgentChartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>, dualFrame.agent.ascendantLongitude, startTime)
-        : chartSnapshot(agentPrediction as ReturnType<typeof generateFixedJ2000KPPrediction>),
+      agentView: dawnAgentChartSnapshot(agentPrediction, dualFrame.agent.ascendantLongitude, startTime),
       celestialGeometry,
     },
     experimentalLayers: {
@@ -427,7 +429,7 @@ export function runSimulationEvent(input: SimulationEventInput) {
     },
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
-      snapshotConvention: "reverse-numbered-360-equal-houses-v2",
+      snapshotConvention: "cartesian-xyz-sunrise-equal-houses-v3",
       godView: godMethodResults,
       agentView: agentMethodResults,
     },

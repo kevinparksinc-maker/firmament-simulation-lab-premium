@@ -5,7 +5,7 @@ import {resolve} from "node:path";
 import {runSimulationBatch} from "./simulationAdapter";
 const names=["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn"];
 const signs=["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
-const fixture=():TerritorialPlanet[]=>names.map((name,i)=>({planet:name,house:i+1,tropicalLongitude:i*30+25,sign:signs[i]!,degreeInSign:25,degreeInHouse:1,altitude:10,isRetrograde:false,nakshatra:"Ashwini"}));
+const fixture=():TerritorialPlanet[]=>names.map((name,i)=>({planet:name,house:i+1,cartesianLongitude:i*30+25,sign:signs[i]!,degreeInSign:25,degreeInHouse:1,altitude:10,isRetrograde:false,nakshatra:"Ashwini"}));
 const calc=(x:TerritorialPlanet[])=>calculateRestoredTerritorial(x,0,lon=>Math.floor((((lon%360)+360)%360)/30)+1,"god");
 describe("Decan coordinate and input integrity",()=>{
  it("uses sign degree, never degree measured from equal-house cusp",()=>{

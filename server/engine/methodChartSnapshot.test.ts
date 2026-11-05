@@ -18,8 +18,8 @@ describe("single chart snapshot method foundation", () => {
     const agent = buildMethodChartSnapshot(prediction, moment, "agent", 47);
     expect(god.prediction.planets[0].backgroundWheelLongitude).toBe(140);
     expect(agent.prediction.planets[0].backgroundWheelLongitude).toBe(140);
-    expect(god.prediction.planets[0].house).toBe(9);
-    expect(agent.prediction.planets[0].house).toBe(10);
+    expect(god.prediction.planets[0].house).toBe(5);
+    expect(agent.prediction.planets[0].house).toBe(4);
     expect(god.prediction.houses[0].cuspLongitude).toBe(0);
     expect(agent.prediction.houses[0].cuspLongitude).toBe(47);
     expect(prediction.planets[0].house).toBe(1); // never mutate upstream

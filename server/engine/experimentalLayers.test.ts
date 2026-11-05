@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateAshtakavargaLayer, calculateExperimentalLayers, calculateHarmonic, calculateVimshottariDasha, DEFAULT_HOUSE_FAMILIES } from "./experimentalLayers";
-import { generateFixedJ2000KPPrediction } from "./firmamentEngine";
+import { generateCartesianKPPrediction } from "./firmamentEngine";
 
 const input = {
   teamA: "Los Angeles Dodgers",
@@ -18,7 +18,7 @@ describe("experimental evidence layers", () => {
   });
 
   it("calculates a configurable arbitrary harmonic with target-family residuals", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const result = calculateHarmonic(prediction.planets, { harmonic: 5, maxOrbDeg: 6, falloff: "gaussian", enabled: true });
     expect(result.harmonic).toBe(5);
     expect(result.pairs).toHaveLength(66);
@@ -26,7 +26,7 @@ describe("experimental evidence layers", () => {
   });
 
   it("returns all four layers as experimental read-only evidence", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const result = calculateExperimentalLayers(prediction, input.startTime);
     expect(result.status).toBe("experimental-read-only");
     expect(result.verdicts).toHaveLength(4);
@@ -46,7 +46,7 @@ describe("experimental evidence layers", () => {
 
 describe("classical ashtakavarga and vimshottari", () => {
   it("matches the classical BAV row checksums and 337-point SAV checksum", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const result = calculateAshtakavargaLayer(prediction);
     expect(result.rows.map((row) => row.total)).toEqual([48, 49, 39, 54, 56, 52, 39]);
     expect(result.sarvashtakavarga.total).toBe(337);

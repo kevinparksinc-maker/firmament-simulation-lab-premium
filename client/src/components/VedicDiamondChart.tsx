@@ -5,7 +5,7 @@ export type PlanetItem = {
   sign: string;
   house: number;
   degreeInHouse?: number;
-  tropicalLongitude?: number;
+  cartesianLongitude?: number;
   backgroundWheelLongitude?: number;
   nakshatra?: string;
   isRetrograde?: boolean;

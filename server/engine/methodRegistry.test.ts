@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateFixedJ2000KPPrediction } from "./firmamentEngine";
+import { generateCartesianKPPrediction } from "./firmamentEngine";
 import { METHOD_REGISTRY, runMethod, runRegisteredMethods } from "./methodRegistry";
 import { universalLinearResonance } from "./experimentalLayers";
 
@@ -26,7 +26,7 @@ describe("method registry and HARMONICS_V2", () => {
   it("registers versioned V1 and V2 harmonic models without replacing V1", () => {
     expect(METHOD_REGISTRY.find((method) => method.id === "HARMONICS_V1")?.version).toBe("1.0.0");
     expect(METHOD_REGISTRY.find((method) => method.id === "HARMONICS_V2")?.version).toBe("2.0.0");
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const base = { prediction, eventTime: input.startTime };
     const v1 = runMethod("HARMONICS_V1", base);
     const v2 = runMethod("HARMONICS_V2", base);
@@ -36,7 +36,7 @@ describe("method registry and HARMONICS_V2", () => {
   });
 
   it("returns nullable scores for non-evaluable natal Dasha without natal context", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const result = runMethod("NATAL_VIMSHOTTARI_V1", { prediction, eventTime: input.startTime });
     expect(result.mode).toBe("PREDICTIVE");
     expect(result.evaluable).toBe(false);
@@ -46,7 +46,7 @@ describe("method registry and HARMONICS_V2", () => {
   });
 
   it("runs the initial registry phase against one canonical input", () => {
-    const prediction = generateFixedJ2000KPPrediction(input);
+    const prediction = generateCartesianKPPrediction(input);
     const results = runRegisteredMethods({ prediction, eventTime: input.startTime });
     expect(results.length).toBeGreaterThanOrEqual(9);
     expect(results.every((result) => result.methodId && result.calculationVersion)).toBe(true);

@@ -83,7 +83,7 @@ export const METHOD_REGISTRY: readonly MethodSpec[] = Object.freeze([
     requiredInputs: ["prediction", "eventTime"],
     configuration: { frame: "ICRS_J2000", source: DEFAULT_CHINESE_MANSIONS.source, count: 28 },
     run: input => {
-      const trace = buildChineseMansionEvidence(input.prediction.planets.map(planet => ({ planet: planet.planet, house: planet.house, j2000RaDegrees: planet.j2000RaDegrees })), DEFAULT_CHINESE_MANSIONS);
+      const trace = buildChineseMansionEvidence(input.prediction.planets.map(planet => ({ planet: planet.planet, house: planet.house, rightAscensionDegrees: planet.rightAscensionDegrees })), DEFAULT_CHINESE_MANSIONS);
       return { methodId: "CHINESE_28_XIU_STELLAR_RA_V1", mode: "EVIDENCE_ONLY", evaluable: trace.assignments.length > 0, scoreA: null, scoreB: null, prediction: "NONE", confidence: null, evidence: trace.assignments.map(item => ({ type: "chinese-mansion", planet: item.planet, house: item.house, value: item.mansion.index, explanation: item.planet + " in " + item.mansion.pinyin + " (" + item.mansion.hanzi + "), " + item.mansion.quadrant + "; RA " + item.rightAscensionDegrees.toFixed(4) + "°, mansion distance " + item.degreesIntoMansion.toFixed(4) + "°" })), detail: "Each chart body is assigned through verified J2000 determinative-star right ascensions. No unvalidated predictive effects are inferred.", calculationVersion: "1.0.0" };
     },
   },
