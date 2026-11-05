@@ -23,14 +23,17 @@ export const MASTER_SPORTS_ASTROLOGER_SYSTEM = [
 export function sportsPregameEvidence(input: SimulationEventInput) {
   const simulation = runSimulationEvent({ ...input, actualWinner: undefined });
   const { actualWinner: _actualWinner, ...safeInput } = simulation.input;
+  const { verdict: _godVerdict, ...godSynthesis } = simulation.godView.synthesis;
+  const { verdict: _agentVerdict, ...agentSynthesis } = simulation.agentView.synthesis;
+  const { verdict: _synthesisVerdict, ...jointSynthesis } = simulation.synthesisView;
   return {
     input: safeInput,
     evaluationFramework: simulation.evaluationFramework,
     engine: simulation.engine,
     chart: simulation.chart,
-    godView: { allLayers: simulation.godView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: simulation.godView.synthesis },
-    agentView: { allLayers: simulation.agentView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: simulation.agentView.synthesis },
-    synthesisView: { ...simulation.synthesisView, verdict: undefined },
+    godView: { allLayers: simulation.godView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: godSynthesis },
+    agentView: { allLayers: simulation.agentView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: agentSynthesis },
+    synthesisView: jointSynthesis,
     frameParity: simulation.frameParity,
     methodResults: simulation.methodResults,
     additionalMethods: simulation.additionalMethods,
