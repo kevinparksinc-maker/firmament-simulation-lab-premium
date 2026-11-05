@@ -55,7 +55,7 @@ export type MethodSpec = {
 };
 
 function resultFromVerdict(spec: Pick<MethodSpec, "id" | "mode" | "version">, verdict: ExperimentalLayerVerdict): MethodResult {
-  const evaluable = verdict.winner !== "NOT_EVALUABLE";
+  const evaluable = spec.mode === "PREDICTIVE" && verdict.winner !== "NOT_EVALUABLE" && Number.isFinite(verdict.scoreA) && Number.isFinite(verdict.scoreB) && Number.isFinite(verdict.confidence);
   const evidence = verdict.evidence.map((item) => ({ type: "layer-evidence", value: Number.isFinite(Number(item.value)) ? Number(item.value) : undefined, explanation: `${item.label}: ${item.value}` }));
   return {
     methodId: spec.id,
@@ -159,14 +159,23 @@ export function runMethod(methodId: string, input: MethodInput): MethodResult {
   if (method.requiredInputs.includes("natalContext") && !input.natalContext) {
     return { methodId: method.id, mode: method.mode, evaluable: false, scoreA: null, scoreB: null, prediction: "NONE", confidence: null, evidence: [], detail: "Natal context is required for this method.", calculationVersion: method.version };
   }
-  return method.run(input);
+  if (!Number.isFinite(input.eventTime.getTime())) throw new Error("Invalid method event time");
+  const result = method.run(input);
+  if (result.methodId !== method.id || result.mode !== method.mode || result.calculationVersion !== method.version)
+    throw new Error(`Method ${method.id} returned inconsistent doctrine metadata`);
+  if (result.mode === "EVIDENCE_ONLY" && (result.scoreA !== null || result.scoreB !== null || result.prediction !== "NONE" || result.confidence !== null))
+    throw new Error(`Evidence-only method ${method.id} attempted a predictive score`);
+  if (result.mode === "PREDICTIVE" && result.evaluable && (!Number.isFinite(result.scoreA) || !Number.isFinite(result.scoreB) || !Number.isFinite(result.confidence)))
+    throw new Error(`Predictive method ${method.id} returned invalid scores`);
+  return result;
 }
-export function runRegisteredMethodsFromSnapshot(snapshot: MethodChartSnapshot, methodIds = METHOD_REGISTRY.map((method) => method.id)) {
+export function runRegisteredMethodsFromSnapshot(snapshot: MethodChartSnapshot, methodIds = METHOD_REGISTRY.map((method) => method.id), natalContext?: MethodInput["natalContext"]) {
   return methodIds.map((methodId) => runMethod(methodId, {
     prediction: snapshot.prediction,
     // Method-specific timing doctrine sees the event time but cannot advance
     // the shared snapshot clock for the next method.
     eventTime: new Date(snapshot.eventTime.getTime()),
+    natalContext,
   }));
 }
 
