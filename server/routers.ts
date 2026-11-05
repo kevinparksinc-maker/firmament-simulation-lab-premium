@@ -10,6 +10,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { listLiveGames, listScheduledGames } from "./schedules";
 import { invokeLLM } from "./_core/llm";
+import { interpretSportsEvent } from "./masterSportsAstrologer";
 import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
 import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
 import { extractPattern, discoverPatterns, matchHistoricalPattern, evaluatePatternHoldout, analyzeGameForensic, matchGamePatterns, getDefaultHistoricalMemory } from "./engine/patternRecognition";
@@ -85,6 +86,14 @@ export const appRouter = router({
     }),
   }),
   ai: router({
+    sportsReading: publicProcedure.input(eventInput).mutation(async ({ input }) => {
+      try {
+        return await interpretSportsEvent(input);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Sports interpretation unavailable";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Sports interpretation failed: ${msg}` });
+      }
+    }),
     chat: publicProcedure.input(z.object({ messages: z.array(z.object({ role: z.enum(["user", "assistant", "system"]), content: z.string().min(1).max(6000) })).min(1).max(20), context: z.string().max(12000).optional() })).mutation(async ({ input }) => {
       try {
         const response = await invokeLLM({
