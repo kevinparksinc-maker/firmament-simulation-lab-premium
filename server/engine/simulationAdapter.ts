@@ -324,6 +324,10 @@ function frameReport(
 }
 
 export function runSimulationEvent(input: SimulationEventInput) {
+  // Fail closed: legacy J2000 simulation cannot silently run while XYZ integration is incomplete.
+  // Remove this guard only after the active sports-method adapter consumes
+  // buildCartesianEventChart with verified fixed-frame vectors and sunrise.
+  throw new Error("Legacy J2000 simulation disabled. Fixed-frame XYZ Cartesian integration is required before predictions can run.");
   const startTime = new Date(input.startTime);
   if (Number.isNaN(startTime.getTime())) throw new Error("startTime must be a valid ISO date");
   const favoredTeam = input.favoredTeam ?? input.teamA;
