@@ -1,3 +1,4 @@
+import { getPregameConditions } from "./pregameConditions";
 import type { SimulationEventInput } from "./engine/simulationAdapter";
 import { runSimulationEvent } from "./engine/simulationAdapter";
 import { invokeLLM } from "./_core/llm";
@@ -41,14 +42,18 @@ export function sportsPregameEvidence(input: SimulationEventInput) {
   };
 }
 
-export async function interpretSportsEvent(input: SimulationEventInput) {
-  const evidence = sportsPregameEvidence(input);
+export async function interpretSportsEvent(input: SimulationEventInput, conversation: Array<{ role: "user" | "assistant"; content: string }> = []) {
+  const evidence = { ...sportsPregameEvidence(input), pregameConditions: await getPregameConditions(input) };
   const response = await invokeLLM({
+    max_tokens: 6500,
     messages: [
       { role: "system", content: MASTER_SPORTS_ASTROLOGER_SYSTEM },
       { role: "user", content: "Interpret this computed contest evidence without changing its scores:\n" + JSON.stringify(evidence) },
+      ...conversation,
     ],
   });
   const content = response.choices?.[0]?.message?.content;
-  return { evidence, interpretation: typeof content === "string" ? content : "AI returned no interpretation." };
+  const interpretation = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n").trim() : "";
+  if (!interpretation) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Provider returned no sports interpretation.");
+  return { evidence, interpretation };
 }

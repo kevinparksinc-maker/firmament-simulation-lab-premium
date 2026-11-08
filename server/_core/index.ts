@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { getSportsAIStatus } from "./llm";
 import express from "express";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -33,6 +34,8 @@ function listenOnPort(server: ReturnType<typeof createServer>, port: number, max
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  app.get(["/health", "/healthz"], (_req, res) => res.json({ok:true,app:"simulation-lab-premium"}));
+  app.get("/ready", (_req, res) => res.json({ engine: "cartesian-xyz-sunrise", coreMethodsPerFrame:21, ai:getSportsAIStatus(), databaseConfigured:Boolean(process.env.DATABASE_URL) }));
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

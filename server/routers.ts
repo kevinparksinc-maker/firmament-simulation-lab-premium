@@ -1,3 +1,4 @@
+import { getPregameConditions } from "./pregameConditions";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -86,6 +87,13 @@ export const appRouter = router({
     }),
   }),
   ai: router({
+    sportsChat: publicProcedure.input(z.object({
+      event: eventInput,
+      messages: z.array(z.object({ role:z.enum(["user","assistant"]), content:z.string().trim().min(1).max(6000) })).min(1).max(20),
+    })).mutation(async ({input}) => {
+      try { return await interpretSportsEvent(input.event,input.messages); }
+      catch (error) { throw new TRPCError({code:"INTERNAL_SERVER_ERROR",message:error instanceof Error ? error.message : "Sports chat failed"}); }
+    }),
     sportsReading: publicProcedure.input(eventInput).mutation(async ({ input }) => {
       try {
         return await interpretSportsEvent(input);
@@ -142,6 +150,7 @@ export const appRouter = router({
     }),
   }),
   schedules: router({
+    conditions: publicProcedure.input(eventInput).query(({input})=>getPregameConditions(input)),
     list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
     live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),
   }),

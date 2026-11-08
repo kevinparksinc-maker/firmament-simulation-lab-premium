@@ -56,14 +56,14 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
   const [isOpen, setIsOpen] = useState(true);
 
   // Form State
-  const [sport, setSport] = useState<QuickGameInput["sport"]>("NCAAF");
-  const [team1, setTeam1] = useState("Ohio State Buckeyes");
-  const [team2, setTeam2] = useState("Michigan Wolverines");
+  const [sport, setSport] = useState<QuickGameInput["sport"]>("NFL");
+  const [team1, setTeam1] = useState("");
+  const [team2, setTeam2] = useState("");
   const [favoredTeamIndex, setFavoredTeamIndex] = useState<1 | 2>(1); // 1 = Team 1 is favored, 2 = Team 2 is favored
-  const [venueInput, setVenueInput] = useState("Ohio Stadium (The Horseshoe)");
-  const [latitude, setLatitude] = useState<string>("40.0016");
-  const [longitude, setLongitude] = useState<string>("-83.0197");
-  const [isCoordinatesLocked, setIsCoordinatesLocked] = useState(true);
+  const [venueInput, setVenueInput] = useState("");
+  const [latitude, setLatitude] = useState<string>("");
+  const [longitude, setLongitude] = useState<string>("");
+  const [isCoordinatesLocked, setIsCoordinatesLocked] = useState(false);
   const [showCoordinateOverride, setShowCoordinateOverride] = useState(false);
 
   // Default to today at 7:30 PM local
@@ -84,6 +84,8 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
       setLongitude(matched.longitude.toString());
       setIsCoordinatesLocked(true);
     } else {
+      setLatitude("");
+      setLongitude("");
       setIsCoordinatesLocked(false);
     }
   };
@@ -366,7 +368,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
                 <span className="flex items-center gap-1 truncate">
                   <MapPin size={12} className={isCoordinatesLocked ? "text-emerald-400" : "text-slate-500"} />
                   {latitude && longitude
-                    ? `${Number(latitude).toFixed(2)}°N, ${Number(longitude).toFixed(2)}°W`
+                    ? `${Number(latitude).toFixed(4)}°, ${Number(longitude).toFixed(4)}°`
                     : "No coordinates detected"}
                 </span>
                 <button
@@ -417,7 +419,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-cyan-300" />
-                <span className="text-xs font-semibold text-slate-300">Kickoff Time:</span>
+                <span className="text-xs font-semibold text-slate-300">Kickoff Time (your device timezone):</span>
               </div>
               <input
                 type="datetime-local"

@@ -218,8 +218,8 @@ const resolveApiUrl = () =>
     : "https://forge.manus.im/v1/chat/completions";
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!ENV.anthropicApiKey && !ENV.forgeApiKey) {
+    throw new Error("SPORTS_AI_NOT_CONFIGURED: Set ANTHROPIC_API_KEY in the service environment to enable full sports readings.");
   }
 };
 
@@ -308,7 +308,7 @@ const fetchWithBackoff = async (
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, init);
-      if (response.ok || attempt === RETRY_MAX_RETRIES) {
+      if (response.ok || (response.status < 500 && response.status !== 429) || attempt === RETRY_MAX_RETRIES) {
         return response;
       }
 
@@ -326,7 +326,7 @@ const fetchWithBackoff = async (
       await sleep(computeBackoffDelay(attempt, retryAfterMs));
     } catch (error) {
       lastError = error;
-      if (attempt === RETRY_MAX_RETRIES) throw error;
+      if (init.signal?.aborted || attempt === RETRY_MAX_RETRIES) throw error;
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`
       );
@@ -339,8 +339,32 @@ const fetchWithBackoff = async (
     : new Error("LLM request failed after exhausting retries");
 };
 
+export function getSportsAIStatus() {
+  return { configured: Boolean(ENV.anthropicApiKey || ENV.forgeApiKey), provider: ENV.anthropicApiKey ? "anthropic" : ENV.forgeApiKey ? "built-in-forge" : "unconfigured" };
+}
+
+async function invokeAnthropic(params: InvokeParams): Promise<InvokeResult> {
+  const text = (content: Message["content"]) => typeof content === "string" ? content :
+    (Array.isArray(content) ? content : [content]).map(part => typeof part === "string" ? part : "type" in part && part.type === "text" ? part.text : "").join("\n");
+  const response = await fetchWithBackoff("https://api.anthropic.com/v1/messages", {
+    method: "POST", signal: AbortSignal.timeout(120_000),
+    headers: { "content-type": "application/json", "x-api-key": ENV.anthropicApiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: params.model ?? ENV.anthropicModel,
+      max_tokens: params.max_tokens ?? params.maxTokens ?? 6500,
+      system: params.messages.filter(message => message.role === "system").map(message => text(message.content)).join("\n\n"),
+      messages: params.messages.filter(message => message.role === "user" || message.role === "assistant").map(message => ({ role: message.role, content: text(message.content) })),
+    }),
+  });
+  if (!response.ok) throw new Error(`SPORTS_AI_PROVIDER_ERROR: Anthropic returned HTTP ${response.status}. Check the configured key, account balance, and model.`);
+  const data = await response.json() as any;
+  if (data.stop_reason === "max_tokens") throw new Error("SPORTS_AI_TRUNCATED: Provider reached its output limit before finishing. No incomplete reading was published.");
+  return { id: data.id, created: Math.floor(Date.now()/1000), model: data.model, choices: [{ index:0, message: { role: "assistant", content: (data.content ?? []).filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n") }, finish_reason:"stop" }] };
+}
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
+  if (ENV.anthropicApiKey) return invokeAnthropic(params);
 
   const {
     messages,

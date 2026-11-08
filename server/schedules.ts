@@ -1,3 +1,4 @@
+import { SPORTS_VENUES } from "../shared/sportsVenues";
 export type ScheduleSport = "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "TENNIS";
 
 export type ScheduledGame = {
@@ -37,8 +38,12 @@ function dateKey(date: string) {
   return date.replaceAll("-", "");
 }
 
-function coordinatesFor(venue: string) {
-  return venueCoordinates[venue];
+export function coordinatesFor(venue: string) {
+  if (venueCoordinates[venue]) return venueCoordinates[venue];
+  const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const key = normalize(venue);
+  const known = SPORTS_VENUES.find(item => normalize(item.name) === key || normalize(item.name.split(" (")[0]) === key || item.alias?.some(alias => normalize(alias) === key));
+  return known ? [known.latitude, known.longitude] as [number,number] : undefined;
 }
 
 async function fetchJson(url: string) {
@@ -118,6 +123,7 @@ async function espnSchedule(sport: Exclude<ScheduleSport, "MLB" | "TENNIS">, dat
     const venue = competition?.venue?.fullName ?? "Venue unavailable";
     const city = competition?.venue?.address?.city;
     const state = event.status?.type?.state;
+    const coordinates = coordinatesFor(venue);
     return {
       id: `${sport.toLowerCase()}-${event.id}`,
       sport,
@@ -128,6 +134,7 @@ async function espnSchedule(sport: Exclude<ScheduleSport, "MLB" | "TENNIS">, dat
       startTime: event.date,
       status: event.status?.type?.shortDetail ?? "Scheduled",
       source: "ESPN schedule feed",
+      ...(coordinates ? {latitude:coordinates[0],longitude:coordinates[1]} : {}),
       favoriteTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite ? home?.team?.displayName : competition?.odds?.[0]?.awayTeamOdds?.favorite ? away?.team?.displayName : undefined,
       underdogTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite ? away?.team?.displayName : competition?.odds?.[0]?.awayTeamOdds?.favorite ? home?.team?.displayName : undefined,
       homeMoneyline: competition?.odds?.[0]?.moneyline?.home?.close?.odds,
@@ -194,6 +201,7 @@ async function tennisSchedule(date:string): Promise<ScheduledGame[]> {
 export async function listScheduledGames(date: string, sport: ScheduleSport | "ALL" = "ALL") {
   const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"] : [sport];
   const results = await Promise.allSettled(sports.map((item) => item === "MLB" ? mlbSchedule(date) : item === "TENNIS" ? tennisSchedule(date) : espnSchedule(item, date)));
+  if (results.every(result => result.status === "rejected")) throw new Error("SCHEDULE_FEED_UNAVAILABLE: The schedule provider could not be reached. Refresh or enter the matchup manually.");
   return results.flatMap((result) => result.status === "fulfilled" ? result.value : []).sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 

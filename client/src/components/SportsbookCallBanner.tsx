@@ -1,3 +1,4 @@
+import React from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -23,6 +24,7 @@ type SimulationResult = {
     startTime: string;
     actualWinner?: "A" | "B" | "TIE";
   };
+  synthesisView: { valid: boolean; reason: string; winner: "A" | "B" | "TIE"; scoreA: number; scoreB: number; margin: number; verdict: "hit" | "miss" | "tie" | "unverified"; methods: Array<{name:string}> };
   baseline: {
     winner: "A" | "B" | "TIE";
     verdict: "hit" | "miss" | "tie" | "unverified";
@@ -68,7 +70,8 @@ export function SportsbookCallBanner({
 }: Props) {
   if (!simulation) return null;
 
-  const { input, baseline, godView, agentView, comparison } = simulation;
+  const { input, synthesisView, godView, agentView, comparison } = simulation;
+  const baseline = { winner: synthesisView.valid ? synthesisView.winner : "TIE", verdict: synthesisView.verdict, combined: { scoreA: synthesisView.scoreA, scoreB: synthesisView.scoreB } };
 
   const teamA = input.favoredTeam ?? input.teamA;
   const teamB = input.underdogTeam ?? input.teamB;
@@ -78,15 +81,15 @@ export function SportsbookCallBanner({
       ? teamA
       : baseline.winner === "B"
         ? teamB
-        : "No Direct Pick (Dead Even)";
+        : synthesisView.valid ? "No pick — within tie threshold" : "No valid pick — calculation failed";
 
   const isFavoredPicked = baseline.winner === "A";
   const isUnderdogPicked = baseline.winner === "B";
 
   const isConsensus = godView.synthesis.winner === agentView.synthesis.winner;
 
-  const godCallName = godView.synthesis.winner === "A" ? teamA : teamB;
-  const agentCallName = agentView.synthesis.winner === "A" ? teamA : teamB;
+  const godCallName = godView.synthesis.winner === "TIE" ? "No pick — tied" : godView.synthesis.winner === "A" ? teamA : teamB;
+  const agentCallName = agentView.synthesis.winner === "TIE" ? "No pick — tied" : agentView.synthesis.winner === "A" ? teamA : teamB;
 
   const scoreDiff = Math.abs(baseline.combined.scoreA - baseline.combined.scoreB);
 
@@ -100,7 +103,7 @@ export function SportsbookCallBanner({
             <span className="relative h-2 w-2 rounded-full bg-cyan-300"></span>
           </span>
           <span className="text-[10px] font-extrabold tracking-[0.2em] text-cyan-300 uppercase">
-            Official Simulation Call · {input.sport}
+            Combined Simulation Call · {input.sport}
           </span>
           <span className="text-slate-500">·</span>
           <span className="text-xs text-slate-300 font-medium truncate max-w-[280px]">
@@ -161,7 +164,7 @@ export function SportsbookCallBanner({
             {isConsensus
               ? `Both God View (fixed background) and Agent View (local horizon) converge on ${baselineCallName} with a composite differential of +${scoreDiff.toFixed(
                   1
-                )} points across 40 evaluation layers.`
+                )} points across ${synthesisView.methods.length} combined methods.`
               : `Split decision: God View selects ${godCallName} (+${Math.abs(
                   godView.synthesis.margin
                 ).toFixed(1)}), while Agent View selects ${agentCallName} (+${Math.abs(
@@ -176,7 +179,7 @@ export function SportsbookCallBanner({
               onClick={onScrollToLedger}
               className="inline-flex items-center gap-1 text-cyan-300 hover:text-cyan-200 underline font-semibold"
             >
-              Examine full 40-method audit ledger <ArrowRight size={13} />
+              Examine full {synthesisView.methods.length}-method dual-frame audit ledger <ArrowRight size={13} />
             </button>
             <span className="text-slate-600">·</span>
             <button

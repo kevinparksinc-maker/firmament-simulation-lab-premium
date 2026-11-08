@@ -14,7 +14,7 @@ type Game = {
 };
 type ResearchResult = {
   input: { teamA: string; teamB: string; startTime: string; sport: string };
-  baseline: { winner: "A" | "B" | "TIE"; combined: { scoreA: number; scoreB: number } };
+  synthesisView: { valid: boolean; reason: string; winner: "A" | "B" | "TIE"; scoreA: number; scoreB: number };
   godView: { synthesis: { winner: "A" | "B" | "TIE"; scoreA: number; scoreB: number }; allLayers: Array<{name:string;winner:string;scoreA:number;scoreB:number;detail:string}> };
   agentView: { synthesis: { winner: "A" | "B" | "TIE"; scoreA: number; scoreB: number }; allLayers: Array<{name:string;winner:string;scoreA:number;scoreB:number;detail:string}> };
   engine: { calculationPath: string; fixedBackground: string };
@@ -32,7 +32,7 @@ type BroadcastRecord = {
 function dateLocal() { const now=new Date(); return [now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-"); }
 function fmt(value: string) { return new Date(value).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}); }
 function winner(entry: Entry) {
-  const w=entry.result?.baseline.winner;
+  const w=entry.result?.synthesisView.winner;
   if (!w || w==="TIE") return "NO CALL";
   return w==="A" ? entry.result!.input.teamA : entry.result!.input.teamB;
 }
@@ -47,6 +47,7 @@ function explanation(entry: Entry) {
   return [
     "PREGAME MODEL RECORD — experimental, not a probability or betting signal",
     `Predicted winner: ${winner(entry)}. God View: ${god.winner} (A ${god.scoreA.toFixed(2)} / B ${god.scoreB.toFixed(2)}). Agent View: ${agent.winner} (A ${agent.scoreA.toFixed(2)} / B ${agent.scoreB.toFixed(2)}).`,
+    `Combined synthesis: A ${r.synthesisView.scoreA.toFixed(2)} / B ${r.synthesisView.scoreB.toFixed(2)}.`,
     `Frame assessment: ${god.winner===agent.winner?"CONVERGENT":"SPLIT / CONFLICTING"}.`,
     `Reference: ${r.engine.fixedBackground}; method registry ${r.methodResults.registryVersion}.`,
     "God View evidence:",
@@ -56,7 +57,7 @@ function explanation(entry: Entry) {
   ].join("\n");
 }
 function script(record:BroadcastRecord) {
-  const called=record.entries.filter(e=>e.result && e.eligible && e.result.baseline.winner!=="TIE");
+  const called=record.entries.filter(e=>e.result && e.eligible && e.result.synthesisView.winner!=="TIE");
   const omitted=record.entries.length-called.length;
   return [
     "FIRMAMENT DAILY PREGAME OBSERVATORY — RECORDING SCRIPT",
@@ -73,7 +74,7 @@ function script(record:BroadcastRecord) {
 }
 export default function DailyStudio() {
   const [date,setDate]=useState(dateLocal);
-  const [sport,setSport]=useState<Sport>("ALL");
+  const [sport,setSport]=useState<Sport>("NFL");
   const [record,setRecord]=useState<BroadcastRecord|null>(null);
   const [working,setWorking]=useState(false);
   const [progress,setProgress]=useState("");
@@ -81,7 +82,7 @@ export default function DailyStudio() {
   const list=trpc.schedules.list.useQuery({date,sport},{staleTime:30_000,retry:1});
   const simulate=trpc.simulate.event.useMutation();
   const games=(list.data??[]) as Game[];
-  const scored=useMemo(()=>record?.entries.filter(e=>e.eligible && e.result && e.result.baseline.winner!=="TIE").length??0,[record]);
+  const scored=useMemo(()=>record?.entries.filter(e=>e.eligible && e.result && e.result.synthesisView.winner!=="TIE").length??0,[record]);
   const create=async()=>{
     if(working)return;
     setWorking(true);setRecord(null);
@@ -106,6 +107,7 @@ export default function DailyStudio() {
           });
           // Recheck after computation: never record a public pregame call made after start.
           if(Date.now()>=startMs){entry.eligible=false;entry.reason="Calculation finished after scheduled start; excluded from pregame slate.";}
+          else if (!result.synthesisView.valid) {entry.eligible=false;entry.reason=result.synthesisView.reason;}
           else entry.result=result as ResearchResult;
         } catch(err){entry.eligible=false;entry.error=err instanceof Error?err.message:"Engine returned an error.";}
         entries.push(entry);
@@ -119,7 +121,7 @@ export default function DailyStudio() {
     if(!game || !/final|completed|full time|after penalties/i.test(game.status))return "PENDING";
     const a=Number(game.scoreA), b=Number(game.scoreB);
     if(!Number.isFinite(a)||!Number.isFinite(b))return "PENDING";
-    if(!e.eligible||!e.result||e.result.baseline.winner==="TIE")return "UNSCORED";
+    if(!e.eligible||!e.result||e.result.synthesisView.winner==="TIE")return "UNSCORED";
     if(a===b)return "DRAW / EXCLUSION REVIEW";
     const actual=a>b?e.fixture.teamA:e.fixture.teamB;
     return winner(e)===actual?"HIT":"MISS";
@@ -135,6 +137,7 @@ export default function DailyStudio() {
       {progress&&<p className="broadcast-progress" role="status">{progress}</p>}
       {list.isError&&<p className="broadcast-warning">Schedules unavailable: {list.error.message}</p>}
       <div className="broadcast-metrics"><div><span>Scheduled fixtures</span><strong>{games.length}</strong></div><div><span>Eligible predictions</span><strong>{scored}</strong></div><div><span>Abstentions / unscored</span><strong>{record?record.entries.length-scored:"—"}</strong></div><div><span>Publication status</span><strong>{record?"LOCAL DRAFT":"NOT GENERATED"}</strong></div></div>
+      {list.error && <p role="alert">{list.error.message}</p>}
       <section className="broadcast-grid"><div className="broadcast-panel"><div className="broadcast-panel-head"><div><p className="broadcast-eyebrow">01 / GAME SLATE</p><h2>Today's celestial scoreboard</h2></div><span>{record?"Pregame calculations available":"Awaiting run"}</span></div>
         {games.length===0&&!list.isLoading?<div className="broadcast-empty">No scheduled fixtures found for this day or the providers did not return data.</div>:games.map(game=>{const entry=record?.entries.find(e=>e.fixture.id===game.id);return <button key={game.id} className={`broadcast-fixture ${selected===game.id?"broadcast-selected":""}`} onClick={()=>setSelected(game.id)}><span className="broadcast-fixture-sport">{game.sport}</span><span className="broadcast-fixture-teams"><strong>{game.teamA}</strong><small>vs</small><strong>{game.teamB}</strong><em>{fmt(game.startTime)}</em></span><span className="broadcast-fixture-state">{entry?entry.eligible&&entry.result?winner(entry):"NO CALL":"SCHEDULED"}<small>{entry?actualFor(entry):game.status}</small></span></button>})}
       </div><div className="broadcast-panel broadcast-detail"><div className="broadcast-panel-head"><div><p className="broadcast-eyebrow">02 / CALCULATION PROOF</p><h2>Two frames. One published claim.</h2></div><Sparkles size={21}/></div>{selectedEntry?<><h3>{selectedEntry.fixture.teamA} <span>vs</span> {selectedEntry.fixture.teamB}</h3><p>{selectedEntry.fixture.sport} · {fmt(selectedEntry.fixture.startTime)}</p><div className="broadcast-verdict">{selectedEntry.eligible&&selectedEntry.result?winner(selectedEntry):"NO PUBLIC CALL"}<small>{selectedEntry.eligible?"Uncalibrated model winner — not probability":"Reason: "+(selectedEntry.reason??selectedEntry.error??"No data")}</small></div>{selectedEntry.result&&<><div className="broadcast-frames"><div><span>GOD VIEW</span><b>{selectedEntry.result.godView.synthesis.winner}</b><small>Fixed celestial reference</small></div><div><span>AGENT VIEW</span><b>{selectedEntry.result.agentView.synthesis.winner}</b><small>Event-local calculation</small></div></div><details><summary>View complete method-by-method proof</summary><pre>{explanation(selectedEntry)}</pre></details></>}</>:<div className="broadcast-empty">Generate a slate and select a game to inspect every method.</div>}</div></section>

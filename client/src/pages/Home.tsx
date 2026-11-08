@@ -1,5 +1,6 @@
+import type { SimulationEventInput } from "../../../server/engine/simulationAdapter";
 import { compareFrameMethods, summarizeMethodComparison } from "@/lib/crossFrameMethods";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import {
   Activity,
   ArrowDownRight,
@@ -38,6 +39,8 @@ import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
 
+const MasterSportsAstrologer = lazy(() => import("@/components/MasterSportsAstrologer").then(module => ({ default: module.MasterSportsAstrologer })));
+
 type Verdict = "hit" | "miss" | "tie" | "unverified";
 type Side = "A" | "B" | "TIE";
 type FrameName = "God View" | "Agent View";
@@ -74,7 +77,7 @@ type Planet = {
 };
 
 type Simulation = {
-  input: { teamA: string; teamB: string; sport: string; location: string; startTime: string; actualWinner?: Side };
+  input: SimulationEventInput;
   engine: { source: string; calculationPath: string; fixedBackground: string; hamalAnchor: string };
   baseline: { winner: Side; verdict: Verdict; combined: { scoreA: number; scoreB: number } };
   godView: Frame;
@@ -218,10 +221,10 @@ function FrameCard({ frame, kind, simulation, active, onClick }: { frame: Frame 
 }
 
 function MethodConstellation({ layers, simulation, selected, onSelect }: { layers: OverlayLayer[]; simulation: Simulation | null; selected: OverlayLayer | null; onSelect: (layer: OverlayLayer) => void }) {
-  const centerLabel = simulation ? sideLabel(simulation.baseline.winner, simulation) : "Engine dormant";
+  const centerLabel = simulation ? sideLabel(simulation.synthesisView.valid ? simulation.synthesisView.winner : "TIE", simulation) : "Engine dormant";
   return (
     <section className="panel constellation-panel">
-      <div className="panel-heading constellation-heading"><div><p className="eyebrow">Layer telemetry</p><h2>40-method constellation</h2><p>Every point is an independently recorded reading, orbiting the combined baseline rather than disappearing inside it.</p></div><div className="legend"><span><i className="legend-support" /> supported</span><span><i className="legend-conflict" /> conflicts</span><span><i className="legend-unscored" /> awaiting score</span></div></div>
+      <div className="panel-heading constellation-heading"><div><p className="eyebrow">Layer telemetry</p><h2>{layers.length ? `${layers.length} frame-method evaluations` : "Method constellation"}</h2><p>Every point is an independently recorded reading, orbiting the combined synthesis rather than disappearing inside it.</p></div><div className="legend"><span><i className="legend-support" /> supported</span><span><i className="legend-conflict" /> conflicts</span><span><i className="legend-unscored" /> awaiting score</span></div></div>
       <div className="constellation-stage">
         <div className="constellation-rings" />
         <div className="constellation-axis axis-x" /><div className="constellation-axis axis-y" />
@@ -416,7 +419,7 @@ export default function Home() {
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
   const simulate = trpc.simulate.event.useMutation();
   const [scheduleDate, setScheduleDate] = useState(() => { const local = new Date(); return `${local.getFullYear()}-${String(local.getMonth()+1).padStart(2,"0")}-${String(local.getDate()).padStart(2,"0")}`; });
-  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NCAAF" | "TENNIS">("NCAAF");
+  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NFL" | "NCAAF" | "TENNIS">("NFL");
   const liveDate = scheduleDate;
   const liveGames = trpc.schedules.list.useQuery({ date: liveDate, sport: scheduleSport }, { refetchInterval: 60_000, staleTime: 30_000 });
 
@@ -455,7 +458,7 @@ export default function Home() {
       setSelected(null);
       setFilter("all");
       toast.success("Matchup simulated successfully", {
-        description: `${input.favoredTeam} vs ${input.underdogTeam} evaluated across 40 methods in God View and Agent View.`,
+        description: `${input.favoredTeam} vs ${input.underdogTeam} evaluated across ${result.godView.allLayers.length} methods in each frame.`,
       });
       window.setTimeout(() => {
         document.getElementById("sportsbook-call-banner")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -468,18 +471,19 @@ export default function Home() {
   };
 
   const runFixture = async () => {
+    const live = selectedLiveGame;
+    if (!live) { toast.error("Choose an NFL fixture or enter a matchup first."); return; }
     try {
-      const live = selectedLiveGame;
       const result = await simulate.mutateAsync({
-        id: live ? `live-${live.id}` : "observatory-synthetic-mlb-001",
-        teamA: live?.teamA ?? "Sample Team A",
+        id: `live-${live.id}`,
+        teamA: live.teamA,
         ...(live?.favoriteTeam && live?.underdogTeam ? { favoredTeam: live.favoriteTeam, underdogTeam: live.underdogTeam, roleAssignmentSource: "market-odds" as const } : { roleAssignmentSource: "legacy-side-order" as const }),
-        teamB: live?.teamB ?? "Sample Team B",
+        teamB: live.teamB,
         sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" || live?.sport === "TENNIS" ? live.sport : "MLB",
-        location: live?.location ?? "Houston, Texas (synthetic example)",
-        latitude: live?.latitude ?? (live ? undefined : 29.7604),
-        longitude: live?.longitude ?? (live ? undefined : -95.3698),
-        startTime: live?.startTime ?? "2024-04-02T00:10:00.000Z",
+        location: live.location,
+        latitude: live.latitude,
+        longitude: live.longitude,
+        startTime: live.startTime,
         // A sample chart is not a historical outcome; leave it unverified.
         agentViewModel: model,
       });
@@ -526,7 +530,7 @@ export default function Home() {
         <a href="#audit-ledger"><Activity size={17} />Decision ledger</a>
         <a href="/daily"><Flame size={17} />Daily slate studio</a>
       </div>
-      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · 40 methods</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
+      <div className="sidebar-section"><span>System channels</span><div className="system-line"><i /><div><b>Engine boundary</b><small>Firmament source pinned</small></div></div><div className="system-line"><i /><div><b>Dual-frame stack</b><small>2 perspectives · 21 core methods each</small></div></div><div className="system-line"><i /><div><b>Pattern memory</b><small>FPRE-V2 Causal active</small></div></div></div>
       <div className="sidebar-rule"><ShieldCheck size={16} /><p>Research interface. Calls remain visibly separated from verified results and should not be treated as wagering advice.</p></div>
     </aside>
 
@@ -561,9 +565,9 @@ export default function Home() {
           <button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}>
             <Settings2 size={15} />Run profile
           </button>
-          <button className="run-button" onClick={runFixture} disabled={simulate.isPending}>
+          <button className="run-button" onClick={runFixture} disabled={simulate.isPending || !selectedLiveGame}>
             <Play size={14} fill="currentColor" />
-            {simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : simulation ? "Rerun sample fixture" : "Run sample fixture"}
+            {simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : "Select a game first"}
           </button>
         </div>
       </header>
@@ -597,11 +601,13 @@ export default function Home() {
 
       {/* Live scoreboard feed */}
       <div id="live-scoreboard">
-        <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NCAAF" | "TENNIS")}><option value="NCAAF">College football</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+        {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}><MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} /></Suspense>}
+      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+        {liveGames.error && <p role="alert" className="text-rose-300">{liveGames.error.message}</p>}
         <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
       </div>
 
-      <section className="stats-ribbon"><div><span><Activity size={14} />Baseline status</span><strong>{simulation ? verdictCopy(simulation.baseline.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.baseline.winner, simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Pinned sample"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Yankees vs Astros · 02 Apr 2024"}</small></div></section>
+      <section className="stats-ribbon"><div><span><Activity size={14} />Synthesis status</span><strong>{simulation ? verdictCopy(simulation.synthesisView.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.synthesisView.valid ? simulation.synthesisView.winner : "TIE", simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Select a matchup"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Enter a game or choose the NFL schedule"}</small></div></section>
 
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
