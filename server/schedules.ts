@@ -42,7 +42,7 @@ export function coordinatesFor(venue: string) {
   if (venueCoordinates[venue]) return venueCoordinates[venue];
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
   const key = normalize(venue);
-  const known = SPORTS_VENUES.find(item => normalize(item.name) === key || normalize(item.name.split(" (")[0]) === key || item.alias?.some(alias => normalize(alias) === key));
+  const known = SPORTS_VENUES.find(item => normalize(item.name) === key || normalize(item.name.split(" (")[0]) === key || key.includes(normalize(item.name.split(" (")[0])) || item.alias?.some(alias => normalize(alias) === key));
   return known ? [known.latitude, known.longitude] as [number,number] : undefined;
 }
 
@@ -130,8 +130,8 @@ async function espnSchedule(sport: Exclude<ScheduleSport, "MLB" | "TENNIS">, dat
       teamA: away?.team?.displayName ?? "Away team",
       teamB: home?.team?.displayName ?? "Home team",
       venue,
-      location: city ? `${city}, ${competition?.venue?.address?.state ?? "USA"}` : venue,
-      startTime: event.date,
+      location: city ? [city, competition?.venue?.address?.state ?? competition?.venue?.address?.country].filter(Boolean).join(", ") : venue,
+      startTime: new Date(event.date).toISOString(),
       status: event.status?.type?.shortDetail ?? "Scheduled",
       source: "ESPN schedule feed",
       ...(coordinates ? {latitude:coordinates[0],longitude:coordinates[1]} : {}),

@@ -21,7 +21,15 @@ describe("Sunday result display and schedule integrity",()=>{
  it("uses known stadium coordinates without mistaking a home city for its stadium",()=>{
    expect(coordinatesFor("AT&T Stadium")).toEqual([32.7473,-97.0945]);
    expect(coordinatesFor("SoFi Stadium")).toEqual([33.9535,-118.3392]);
+   expect(coordinatesFor("Lucas Oil Stadium")).toEqual([39.7590621,-86.1638376]);
+   expect(coordinatesFor("Santiago Bernabéu")).toEqual([40.4530437,-3.6881970]);
    expect(coordinatesFor("Unknown Stadium")).toBeUndefined();
+ });
+ it("normalizes ESPN minute-only kickoff timestamps for the event API",async()=>{
+   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({events:[{id:"fixture",date:"2026-11-08T18:00Z",status:{type:{state:"pre"}},competitions:[{venue:{fullName:"Arrowhead Stadium",address:{city:"Kansas City",state:"MO"}},competitors:[{homeAway:"away",team:{displayName:"Jets"}},{homeAway:"home",team:{displayName:"Chiefs"}}]}]}]})}));
+   const games=await listScheduledGames("2026-11-08","NFL");
+   expect(games[0].startTime).toBe("2026-11-08T18:00:00.000Z");
+   expect(games[0].latitude).toBe(39.0489);
  });
  it("reports a failed NFL provider rather than returning an empty slate",async()=>{
    vi.stubGlobal("fetch",vi.fn().mockRejectedValue(new Error("offline")));

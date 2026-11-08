@@ -193,7 +193,7 @@ function FrameCard({ frame, kind, simulation, active, onClick }: { frame: Frame 
   const pending = !frame;
   const teamA = simulation?.input.teamA ?? "Ascendant";
   const teamB = simulation?.input.teamB ?? "Descendant";
-  const total = frame ? frame.allLayers.length : 20;
+  const total = frame ? frame.allLayers.length : 21;
   const support = frame?.summary.hits ?? 0;
   const conflict = frame?.summary.misses ?? 0;
   return (

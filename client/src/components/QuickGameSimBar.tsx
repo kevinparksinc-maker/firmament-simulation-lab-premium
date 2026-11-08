@@ -164,7 +164,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
                 Instant Sportsbook Predictor
               </span>
               <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-bold text-emerald-300 uppercase">
-                40-Method Dual-Frame
+                21 methods per frame
               </span>
             </div>
             <h2 className="font-display text-xl font-bold tracking-tight text-slate-100 sm:text-2xl">
@@ -475,7 +475,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/40 bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 px-6 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_0_25px_rgba(130,239,255,0.4)] transition hover:brightness-110 active:scale-95 disabled:opacity-50"
             >
               <Play size={16} fill="currentColor" />
-              {isPending ? "Calculating 40 Methods…" : "⚡ Run Matchup Simulation"}
+              {isPending ? "Calculating both frames…" : "⚡ Run Matchup Simulation"}
             </button>
           </div>
         </form>

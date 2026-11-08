@@ -50,6 +50,17 @@ export const SPORTS_VENUES: VenueInfo[] = [
   { name: "Levi's Stadium", city: "Santa Clara, CA", sport: "NFL", latitude: 37.4033, longitude: -121.9697, alias: ["levi's", "49ers", "santa clara", "san francisco nfl"] },
   { name: "Raymond James Stadium", city: "Tampa, FL", sport: "NFL", latitude: 27.9759, longitude: -82.5033, alias: ["raymond james", "buccaneers", "tampa"] },
 
+  // Stadium geocoding checked 2026-11-08 against OpenStreetMap Nominatim stadium features.
+  // https://nominatim.openstreetmap.org/search?format=jsonv2&q=Lucas%20Oil%20Stadium%20Indianapolis
+  { name: "Lucas Oil Stadium", city: "Indianapolis, IN", sport: "NFL", latitude: 39.7590621, longitude: -86.1638376, alias: ["lucas oil stadium"] },
+  // https://nominatim.openstreetmap.org/search?format=jsonv2&q=Bank%20of%20America%20Stadium%20Charlotte
+  { name: "Bank of America Stadium", city: "Charlotte, NC", sport: "NFL", latitude: 35.2257740, longitude: -80.8528276, alias: ["bank of america stadium"] },
+  // https://nominatim.openstreetmap.org/search?format=jsonv2&q=Northwest%20Stadium%20Landover
+  { name: "Northwest Stadium", city: "Landover, MD", sport: "NFL", latitude: 38.9076694, longitude: -76.8645330, alias: ["northwest stadium", "fedex field"] },
+
+  // https://nominatim.openstreetmap.org/search?format=jsonv2&q=Estadio%20Santiago%20Bernab%C3%A9u%20Madrid
+  { name: "Santiago Bernabéu", city: "Madrid, Spain", sport: "NFL", latitude: 40.4530437, longitude: -3.6881970, alias: ["estadio santiago bernabeu", "santiago bernabeu", "bernabéu"] },
+
   // MLB Ballparks
   { name: "Yankee Stadium", city: "Bronx, NY", sport: "MLB", latitude: 40.8296, longitude: -73.9262, alias: ["yankee stadium", "yankees", "bronx"] },
   { name: "Dodger Stadium", city: "Los Angeles, CA", sport: "MLB", latitude: 34.0739, longitude: -118.2400, alias: ["dodger stadium", "dodgers", "chavez ravine"] },
