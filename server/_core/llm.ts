@@ -218,8 +218,8 @@ const resolveApiUrl = () =>
     : "https://forge.manus.im/v1/chat/completions";
 
 const assertApiKey = () => {
-  if (!ENV.anthropicApiKey && !ENV.forgeApiKey) {
-    throw new Error("SPORTS_AI_NOT_CONFIGURED: Set ANTHROPIC_API_KEY in the service environment to enable full sports readings.");
+  if (!ENV.googleAiApiKey && !ENV.anthropicApiKey && !ENV.forgeApiKey) {
+    throw new Error("SPORTS_AI_NOT_CONFIGURED: Set GEMINI_API_KEY or ANTHROPIC_API_KEY in the service environment to enable full sports readings.");
   }
 };
 
@@ -340,7 +340,7 @@ const fetchWithBackoff = async (
 };
 
 export function getSportsAIStatus() {
-  return { configured: Boolean(ENV.anthropicApiKey || ENV.forgeApiKey), provider: ENV.anthropicApiKey ? "anthropic" : ENV.forgeApiKey ? "built-in-forge" : "unconfigured" };
+  return { configured: Boolean(ENV.googleAiApiKey || ENV.anthropicApiKey || ENV.forgeApiKey), provider: ENV.googleAiApiKey ? "google-gemini" : ENV.anthropicApiKey ? "anthropic" : ENV.forgeApiKey ? "built-in-forge" : "unconfigured" };
 }
 
 async function invokeAnthropic(params: InvokeParams): Promise<InvokeResult> {
@@ -362,8 +362,58 @@ async function invokeAnthropic(params: InvokeParams): Promise<InvokeResult> {
   return { id: data.id, created: Math.floor(Date.now()/1000), model: data.model, choices: [{ index:0, message: { role: "assistant", content: (data.content ?? []).filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n") }, finish_reason:"stop" }] };
 }
 
+/** Gemini bridge retaining the existing normalized chat completion shape. */
+async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
+  const toText = (content: Message["content"]): string =>
+    (Array.isArray(content) ? content : [content]).map(part =>
+      typeof part === "string" ? part : part.type === "text" ? part.text : ""
+    ).join("\n");
+  const systemText = params.messages.filter(m => m.role === "system").map(m => toText(m.content)).join("\n\n");
+  const contents = params.messages.filter(m => m.role === "user" || m.role === "assistant").map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: toText(m.content) }],
+  }));
+  if (!contents.length) throw new Error("SPORTS_AI_EMPTY_MESSAGES");
+  const model = params.model ?? ENV.googleAiModel;
+  const format = params.responseFormat ?? params.response_format;
+  const jsonMode = format?.type === "json_object" || format?.type === "json_schema" || !!(params.outputSchema ?? params.output_schema);
+  const response = await fetchWithBackoff(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      signal: AbortSignal.timeout(120_000),
+      headers: { "content-type": "application/json", "x-goog-api-key": ENV.googleAiApiKey },
+      body: JSON.stringify({
+        ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+        contents,
+        generationConfig: {
+          maxOutputTokens: params.max_tokens ?? params.maxTokens ?? 6500,
+          ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+        },
+      }),
+    }
+  );
+  if (!response.ok) throw new Error(`SPORTS_AI_PROVIDER_ERROR: Google Gemini returned HTTP ${response.status}. Check key, model and quota.`);
+  const data = await response.json() as any;
+  const candidate = data.candidates?.[0];
+  const content = (candidate?.content?.parts ?? []).filter((part: any) => typeof part.text === "string").map((part: any) => part.text).join("\n");
+  if (!content.trim()) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Gemini returned no text.");
+  if (candidate?.finishReason === "MAX_TOKENS") throw new Error("SPORTS_AI_TRUNCATED: Gemini reached its output limit.");
+  return {
+    id: data.responseId ?? "gemini-response",
+    created: Math.floor(Date.now() / 1000),
+    model: data.modelVersion ?? model,
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: candidate?.finishReason ?? "stop" }],
+    ...(data.usageMetadata ? { usage: {
+      prompt_tokens: data.usageMetadata.promptTokenCount ?? 0,
+      completion_tokens: data.usageMetadata.candidatesTokenCount ?? 0,
+      total_tokens: data.usageMetadata.totalTokenCount ?? 0,
+    } } : {}),
+  };
+}
+
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
+  if (ENV.googleAiApiKey) return invokeGemini(params);
   if (ENV.anthropicApiKey) return invokeAnthropic(params);
 
   const {
