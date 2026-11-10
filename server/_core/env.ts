@@ -1,4 +1,6 @@
 export const ENV = {
+  googleAiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  googleAiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
   appId: process.env.VITE_APP_ID ?? "",
