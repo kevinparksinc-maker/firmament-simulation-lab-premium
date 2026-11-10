@@ -419,7 +419,7 @@ export default function Home() {
   const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
   const simulate = trpc.simulate.event.useMutation();
   const [scheduleDate, setScheduleDate] = useState(() => { const local = new Date(); return `${local.getFullYear()}-${String(local.getMonth()+1).padStart(2,"0")}-${String(local.getDate()).padStart(2,"0")}`; });
-  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NFL" | "NCAAF" | "TENNIS">("NFL");
+  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS">("NCAAB");
   const liveDate = scheduleDate;
   const liveGames = trpc.schedules.list.useQuery({ date: liveDate, sport: scheduleSport }, { refetchInterval: 60_000, staleTime: 30_000 });
 
@@ -602,7 +602,7 @@ export default function Home() {
       {/* Live scoreboard feed */}
       <div id="live-scoreboard">
         {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}><MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} /></Suspense>}
-      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="NCAAB">College basketball</option><option value="NBA">NBA</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
         {liveGames.error && <p role="alert" className="text-rose-300">{liveGames.error.message}</p>}
         <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
       </div>
