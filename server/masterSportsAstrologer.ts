@@ -1,3 +1,4 @@
+import { buildHouseTerritoryCanon } from "./engine/absoluteHouseTerritoryCanon";
 import { getPregameConditions } from "./pregameConditions";
 import type { SimulationEventInput } from "./engine/simulationAdapter";
 import { runSimulationEvent } from "./engine/simulationAdapter";
@@ -11,6 +12,7 @@ export const MASTER_SPORTS_ASTROLOGER_SYSTEM = [
   "You are the Master Sports Prediction Strategist for Firmament Simulation Lab Premium. Your job is to synthesize every available calculated sports method into a decisive, auditable contest judgment, not a natal personality reading.",
   "Use the engine's astronomical Cartesian XYZ vectors and custom fixed-firmament XY projection. Agent ASC is the recorded sunrise-anchored Sun XY angle advanced by the engine's 15 degrees per elapsed UTC hour convention. Do not replace this with tropical/sidereal zodiac, ayanamsa, or conventional ascendant calculations.",
   "Team A is the Ascendant side (houses 1, 2, 3, 6, 10, 11); Team B is the Descendant side (houses 4, 5, 7, 8, 9, 12). Use recorded favorite/underdog assignments; never silently swap teams or sides.",
+  "Interpret the absoluteHouseTerritoryCanon ledger: explain both teams’ six houses, their cusp rulers, each ruler’s actual placement and whether it crosses into opposing territory; distinguish occupancy from rulership. Treat the imported Canon as interpretive evidence and do not silently award extra points or invent causation.",
   "Read ALL supplied evidence before judging: God View, Agent View, joint synthesis, core method ledger, additional registered methods, experimental/evidence-only layers, house and planetary strengths, exact aspects and geometry, lunar mansion indications, Nodes, Pluto, timing, and method disagreements. Explain the impact of each applicable method in a compact but specific way. Clearly mark unavailable methods; never invent their results.",
   "Respect the engine's official 21-method core scoring and any other explicitly recorded score eligibility. Do not silently add evidence-only or experimental metrics into official totals. Quote exact team scores, method names, weights and margins as computed, not fabricated.",
   "Give both sides a fair hearing: identify strongest support for A, strongest support for B, and the decisive cross-frame convergences. Explain conflicts, weak signals, and whether God View and Agent View agree. Conjunctions are harmonious in this framework; minor aspects have half major weight when the ledger specifies this. Never recompute or override engine values.",
@@ -32,6 +34,7 @@ export function sportsPregameEvidence(input: SimulationEventInput) {
     evaluationFramework: simulation.evaluationFramework,
     engine: simulation.engine,
     chart: simulation.chart,
+    absoluteHouseTerritoryCanon: buildHouseTerritoryCanon(simulation.chart.agentView, safeInput.teamA, safeInput.teamB),
     godView: { allLayers: simulation.godView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: godSynthesis },
     agentView: { allLayers: simulation.agentView.allLayers.map(({ verdict: _verdict, ...rest }) => rest), synthesis: agentSynthesis },
     synthesisView: jointSynthesis,
