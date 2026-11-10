@@ -206,7 +206,7 @@ async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
     parts: [{ text: toText(m.content) }],
   }));
   if (!contents.length) throw new Error("SPORTS_AI_EMPTY_MESSAGES");
-  const model = params.model ?? ENV.googleAiModel;
+  const model = ENV.googleAiModel;
   const format = params.responseFormat ?? params.response_format;
   const jsonMode = format?.type === "json_object" || format?.type === "json_schema" || !!(params.outputSchema ?? params.output_schema);
   const response = await fetchWithBackoff(
