@@ -113,164 +113,15 @@ export type ResponseFormat =
   | { type: "json_object" }
   | { type: "json_schema"; json_schema: JsonSchema };
 
-const ensureArray = (
-  value: MessageContent | MessageContent[]
-): MessageContent[] => (Array.isArray(value) ? value : [value]);
-
-const normalizeContentPart = (
-  part: MessageContent
-): TextContent | ImageContent | FileContent => {
-  if (typeof part === "string") {
-    return { type: "text", text: part };
-  }
-
-  if (part.type === "text") {
-    return part;
-  }
-
-  if (part.type === "image_url") {
-    return part;
-  }
-
-  if (part.type === "file_url") {
-    return part;
-  }
-
-  throw new Error("Unsupported message content part");
-};
-
-const normalizeMessage = (message: Message) => {
-  const { role, name, tool_call_id } = message;
-
-  if (role === "tool" || role === "function") {
-    const content = ensureArray(message.content)
-      .map(part => (typeof part === "string" ? part : JSON.stringify(part)))
-      .join("\n");
-
-    return {
-      role,
-      name,
-      tool_call_id,
-      content,
-    };
-  }
-
-  const contentParts = ensureArray(message.content).map(normalizeContentPart);
-
-  // If there's only text content, collapse to a single string for compatibility
-  if (contentParts.length === 1 && contentParts[0].type === "text") {
-    return {
-      role,
-      name,
-      content: contentParts[0].text,
-    };
-  }
-
-  return {
-    role,
-    name,
-    content: contentParts,
-  };
-};
-
-const normalizeToolChoice = (
-  toolChoice: ToolChoice | undefined,
-  tools: Tool[] | undefined
-): "none" | "auto" | ToolChoiceExplicit | undefined => {
-  if (!toolChoice) return undefined;
-
-  if (toolChoice === "none" || toolChoice === "auto") {
-    return toolChoice;
-  }
-
-  if (toolChoice === "required") {
-    if (!tools || tools.length === 0) {
-      throw new Error(
-        "tool_choice 'required' was provided but no tools were configured"
-      );
-    }
-
-    if (tools.length > 1) {
-      throw new Error(
-        "tool_choice 'required' needs a single tool or specify the tool name explicitly"
-      );
-    }
-
-    return {
-      type: "function",
-      function: { name: tools[0].function.name },
-    };
-  }
-
-  if ("name" in toolChoice) {
-    return {
-      type: "function",
-      function: { name: toolChoice.name },
-    };
-  }
-
-  return toolChoice;
-};
-
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
-
 const assertApiKey = () => {
-  if (!ENV.googleAiApiKey && !ENV.anthropicApiKey && !ENV.forgeApiKey) {
-    throw new Error("SPORTS_AI_NOT_CONFIGURED: Set GEMINI_API_KEY or ANTHROPIC_API_KEY in the service environment to enable full sports readings.");
+  if (!ENV.googleAiApiKey) {
+    throw new Error("SPORTS_AI_NOT_CONFIGURED: Set GEMINI_API_KEY in the Render service environment.");
   }
 };
 
-const normalizeResponseFormat = ({
-  responseFormat,
-  response_format,
-  outputSchema,
-  output_schema,
-}: {
-  responseFormat?: ResponseFormat;
-  response_format?: ResponseFormat;
-  outputSchema?: OutputSchema;
-  output_schema?: OutputSchema;
-}):
-  | { type: "json_schema"; json_schema: JsonSchema }
-  | { type: "text" }
-  | { type: "json_object" }
-  | undefined => {
-  const explicitFormat = responseFormat || response_format;
-  if (explicitFormat) {
-    if (
-      explicitFormat.type === "json_schema" &&
-      !explicitFormat.json_schema?.schema
-    ) {
-      throw new Error(
-        "responseFormat json_schema requires a defined schema object"
-      );
-    }
-    return explicitFormat;
-  }
-
-  const schema = outputSchema || output_schema;
-  if (!schema) return undefined;
-
-  if (!schema.name || !schema.schema) {
-    throw new Error("outputSchema requires both name and schema");
-  }
-
-  return {
-    type: "json_schema",
-    json_schema: {
-      name: schema.name,
-      schema: schema.schema,
-      ...(typeof schema.strict === "boolean" ? { strict: schema.strict } : {}),
-    },
-  };
-};
-
-const RETRY_MAX_RETRIES = 4;
+const RETRY_MAX_RETRIES = 1;
 const RETRY_BASE_DELAY_MS = 500;
-const RETRY_MAX_DELAY_MS = 30_000;
+const RETRY_MAX_DELAY_MS = 2_000;
 
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
@@ -340,26 +191,7 @@ const fetchWithBackoff = async (
 };
 
 export function getSportsAIStatus() {
-  return { configured: Boolean(ENV.googleAiApiKey || ENV.anthropicApiKey || ENV.forgeApiKey), provider: ENV.googleAiApiKey ? "google-gemini" : ENV.anthropicApiKey ? "anthropic" : ENV.forgeApiKey ? "built-in-forge" : "unconfigured" };
-}
-
-async function invokeAnthropic(params: InvokeParams): Promise<InvokeResult> {
-  const text = (content: Message["content"]) => typeof content === "string" ? content :
-    (Array.isArray(content) ? content : [content]).map(part => typeof part === "string" ? part : "type" in part && part.type === "text" ? part.text : "").join("\n");
-  const response = await fetchWithBackoff("https://api.anthropic.com/v1/messages", {
-    method: "POST", signal: AbortSignal.timeout(120_000),
-    headers: { "content-type": "application/json", "x-api-key": ENV.anthropicApiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: params.model ?? ENV.anthropicModel,
-      max_tokens: params.max_tokens ?? params.maxTokens ?? 6500,
-      system: params.messages.filter(message => message.role === "system").map(message => text(message.content)).join("\n\n"),
-      messages: params.messages.filter(message => message.role === "user" || message.role === "assistant").map(message => ({ role: message.role, content: text(message.content) })),
-    }),
-  });
-  if (!response.ok) throw new Error(`SPORTS_AI_PROVIDER_ERROR: Anthropic returned HTTP ${response.status}. Check the configured key, account balance, and model.`);
-  const data = await response.json() as any;
-  if (data.stop_reason === "max_tokens") throw new Error("SPORTS_AI_TRUNCATED: Provider reached its output limit before finishing. No incomplete reading was published.");
-  return { id: data.id, created: Math.floor(Date.now()/1000), model: data.model, choices: [{ index:0, message: { role: "assistant", content: (data.content ?? []).filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n") }, finish_reason:"stop" }] };
+  return { configured: Boolean(ENV.googleAiApiKey), provider: ENV.googleAiApiKey ? "google-gemini" : "unconfigured" };
 }
 
 /** Gemini bridge retaining the existing normalized chat completion shape. */
@@ -411,87 +243,10 @@ async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
   };
 }
 
+/** Only Google Gemini handles AI reasoning. No second-provider fallback. */
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
-  if (ENV.googleAiApiKey) return invokeGemini(params);
-  if (ENV.anthropicApiKey) return invokeAnthropic(params);
-
-  const {
-    messages,
-    tools,
-    toolChoice,
-    tool_choice,
-    outputSchema,
-    output_schema,
-    responseFormat,
-    response_format,
-    model,
-    thinking,
-    reasoning,
-    maxTokens,
-    max_tokens,
-  } = params;
-
-  const payload: Record<string, unknown> = {
-    messages: messages.map(normalizeMessage),
-  };
-
-  if (model) {
-    payload.model = model;
-  }
-
-  if (tools && tools.length > 0) {
-    payload.tools = tools;
-  }
-
-  const normalizedToolChoice = normalizeToolChoice(
-    toolChoice || tool_choice,
-    tools
-  );
-  if (normalizedToolChoice) {
-    payload.tool_choice = normalizedToolChoice;
-  }
-
-  const resolvedMaxTokens = max_tokens ?? maxTokens;
-  if (typeof resolvedMaxTokens === "number") {
-    payload.max_tokens = resolvedMaxTokens;
-  }
-
-  if (thinking) {
-    payload.thinking = thinking;
-  }
-  if (reasoning) {
-    payload.reasoning = reasoning;
-  }
-
-  const normalizedResponseFormat = normalizeResponseFormat({
-    responseFormat,
-    response_format,
-    outputSchema,
-    output_schema,
-  });
-
-  if (normalizedResponseFormat) {
-    payload.response_format = normalizedResponseFormat;
-  }
-
-  const response = await fetchWithBackoff(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
-  }
-
-  return (await response.json()) as InvokeResult;
+  return invokeGemini(params);
 }
 
 export type ModelInfo = {
@@ -506,23 +261,16 @@ export type ModelsResponse = {
   data: ModelInfo[];
 };
 
+/** Lists available Google models; never contacts another AI provider. */
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
-
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
-
-  const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+  const response = await fetchWithBackoff("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100", {
+    headers: { "x-goog-api-key": ENV.googleAiApiKey },
+    signal: AbortSignal.timeout(30_000),
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `List LLM models failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
-  }
-
-  return (await response.json()) as ModelsResponse;
+  if (!response.ok) throw new Error(`SPORTS_AI_MODELS_ERROR: Google returned HTTP ${response.status}.`);
+  const data = await response.json() as { models?: Array<{ name: string }> };
+  return { object: "list", data: (data.models ?? []).map(model => ({
+    id: model.name.replace(/^models\//, ""), object: "model", created: 0, owned_by: "google",
+  })) };
 }
