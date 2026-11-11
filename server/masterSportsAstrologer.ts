@@ -78,14 +78,16 @@ missingInformation: array of uncalculated/unverified facts;
 confidence: "low" | "moderate" (NOT a statistical probability);
 baselineAgreement: "agree" | "disagree" | "baseline-unavailable".
 The baseline is ${baseline.valid ? baseline.winner : "unavailable"}. Set baselineAgreement by comparing your choice to this baseline; NO_PICK corresponds to baseline TIE. Every claim must be traceable to the supplied evidence. No outcome hindsight, fabricated facts, or betting instructions.` },
-      { role: "user", content: "Judge this game independently from the complete pregame calculation record:\\n" + JSON.stringify(evidence) },
+      { role: "user", content: "Judge this game independently from the complete pregame calculation record:\n" + JSON.stringify(evidence) },
       ...conversation,
     ],
   });
   const content = response.choices?.[0]?.message?.content;
-  const raw = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\\n").trim() : "";
+  const raw = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n").trim() : "";
   if (!raw) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Provider returned no sports judgment.");
   const judgment = parseJudgment(raw);
+  if (!baseline.valid && judgment.selectedSide !== "NO_PICK")
+    throw new Error("SPORTS_REASONING_INVALID_CHART_REQUIRES_NO_PICK");
   const expectedAgreement = !baseline.valid ? "baseline-unavailable" :
     (judgment.selectedSide === "NO_PICK" ? baseline.winner === "TIE" : judgment.selectedSide === baseline.winner) ? "agree" : "disagree";
   if (judgment.baselineAgreement !== expectedAgreement)
