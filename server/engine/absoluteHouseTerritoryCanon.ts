@@ -144,7 +144,36 @@ export function buildHouseTerritoryCanon(frame: CanonHouseFrame, teamA: string, 
       crossTerritoryRuler: rulerPlacement ? (ASC_HOUSES.has(rulerPlacement.house) ? "A" : "B") !== ownerSide : null,
     };
   });
+  const planetaryRulerships = frame.planets.map(planet => {
+    const ruledHouses = houses.filter(house => house.ruler === planet.planet).map(house => ({
+      house: house.house,
+      cuspSign: house.cuspSign,
+      ownerSide: house.ownerSide,
+      ownerTeam: house.ownerTeam,
+      significations: house.significations,
+      crossesTerritory: house.crossTerritoryRuler,
+    }));
+    const placementSide = ASC_HOUSES.has(planet.house) ? "A" : "B";
+    return {
+      planet: planet.planet,
+      placementHouse: planet.house,
+      placementSign: planet.sign ?? null,
+      placementSide,
+      placementTeam: placementSide === "A" ? teamA : teamB,
+      rulesHouses: ruledHouses,
+      ruledHouseCount: ruledHouses.length,
+      rulesBothTeams: ruledHouses.some(h => h.ownerSide === "A") && ruledHouses.some(h => h.ownerSide === "B"),
+      connections: ruledHouses.map(h => ({
+        fromHouse: h.house,
+        toPlacementHouse: planet.house,
+        fromTeam: h.ownerTeam,
+        toTeam: placementSide === "A" ? teamA : teamB,
+        direction: h.ownerSide === placementSide ? "within-team" : "cross-team",
+      })),
+    };
+  });
   return {
+    planetaryRulerships,
     source: "The Absolute: housesAndFrames.ts (static Canon house meanings)",
     status: "interpretive-evidence-only",
     scope: "Agent View, equal-house cusps, team territory",
