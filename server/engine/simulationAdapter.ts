@@ -19,6 +19,7 @@ import { calculateExperimentalLayers } from "./experimentalLayers";
 import { houseCusp, locateInHouse } from "./houseFrameFoundation";
 import { buildMethodChartSnapshot, runRegisteredMethodsFromSnapshot } from "./methodRegistry";
 import { auditNeutralMethod, type NeutralMethodDiagnostic } from "./neutralMethodAudit";
+import { buildHouseTerritoryCanon } from "./absoluteHouseTerritoryCanon";
 
 export type SimulationEventInput = {
   id?: string;
@@ -421,6 +422,12 @@ export function runSimulationEvent(input: SimulationEventInput) {
       agentView: dawnAgentChartSnapshot(agentPrediction, dualFrame.agent.ascendantLongitude, startTime),
       celestialGeometry,
     },
+    // All house-cusp lords, including a planet ruling two different houses,
+    // are calculated for every event before AI synthesis or batch persistence.
+    houseTerritoryCanon: buildHouseTerritoryCanon(
+      dawnAgentChartSnapshot(agentPrediction, dualFrame.agent.ascendantLongitude, startTime),
+      input.teamA, input.teamB,
+    ),
     experimentalLayers: {
       status: "experimental-read-only" as const,
       note: "These four evidence layers are calculated for audit/backtest inspection only and do not modify the existing live baseline or 21-method frame synthesis.",
