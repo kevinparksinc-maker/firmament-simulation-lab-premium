@@ -49,6 +49,20 @@ export function sportsPregameEvidence(input: SimulationEventInput) {
   };
 }
 
+/** Horary-inspired concentric evidence translation; all calculations remain engine-owned. */
+export function translateSportsThreeWheels(evidence: ReturnType<typeof sportsPregameEvidence>) {
+  const summarize = (layers: typeof evidence.godView.allLayers) =>
+    layers.map(layer => ({ method: layer.name, detail: layer.detail, ...(layer as any).scoreA !== undefined ? { scoreA: (layer as any).scoreA, scoreB: (layer as any).scoreB } : {} }));
+  return {
+    question: `Which side has stronger pregame testimony: ${evidence.input.teamA} or ${evidence.input.teamB}?`,
+    ring1GodView: { methods: summarize(evidence.godView.allLayers), synthesis: evidence.godView.synthesis },
+    ring2AgentMoment: { event: { startTime: evidence.input.startTime, location: evidence.input.location, teamA: evidence.input.teamA, teamB: evidence.input.teamB }, chart: evidence.chart.agentView, methods: summarize(evidence.agentView.allLayers), synthesis: evidence.agentView.synthesis },
+    ring3CrossFrame: { synthesis: evidence.synthesisView, parity: evidence.frameParity, additionalMethods: evidence.additionalMethods, experimentalLayers: evidence.experimentalLayers },
+    natalFoundation: { present: false, note: "No personal natal foundation belongs to a sports contest; never invent one." },
+    fullTechnicalEvidence: evidence,
+  };
+}
+
 export const sportsReasoningSchema = z.object({
   selectedSide: z.enum(["A", "B", "NO_PICK"]),
   reasoning: z.string().min(80),
@@ -68,6 +82,7 @@ function parseJudgment(raw: string): SportsReasoningJudgment {
 export async function interpretSportsEvent(input: SimulationEventInput, conversation: Array<{ role: "user" | "assistant"; content: string }> = []) {
   const evidence = { ...sportsPregameEvidence(input), pregameConditions: await getPregameConditions(input) };
   const baseline = evidence.synthesisView;
+  const threeWheels = translateSportsThreeWheels(evidence);
   const response = await invokeLLM({
     max_tokens: 4500,
     response_format: { type: "json_object" },
@@ -82,7 +97,7 @@ missingInformation: array of uncalculated/unverified facts;
 confidence: "low" | "moderate" (NOT a statistical probability);
 baselineAgreement: "agree" | "disagree" | "baseline-unavailable".
 The baseline is ${baseline.valid ? baseline.winner : "unavailable"}. Set baselineAgreement by comparing your choice to this baseline; NO_PICK corresponds to baseline TIE. Every claim must be traceable to the supplied evidence. No outcome hindsight, fabricated facts, or betting instructions.` },
-      { role: "user", content: "Judge this game independently from the complete pregame calculation record:\n" + JSON.stringify(evidence) },
+      { role: "user", content: "Judge this game independently from the complete pregame calculation record:\n" + JSON.stringify(threeWheels) },
       ...conversation,
     ],
   });
@@ -109,7 +124,7 @@ The baseline is ${baseline.valid ? baseline.winner : "unavailable"}. Set baselin
   }
   const team = judgment.selectedSide === "A" ? evidence.input.teamA : judgment.selectedSide === "B" ? evidence.input.teamB : null;
   return {
-    evidence, judgment,
+    evidence, threeWheels, modelProvenance: { provider: "google-gemini" as const, model: response.model }, judgment,
     prediction: { selectedSide: judgment.selectedSide, team, source: "independent_ai_reasoning" as const },
     baseline: { winner: baseline.winner, scoreA: baseline.scoreA, scoreB: baseline.scoreB, valid: baseline.valid },
     interpretation: judgment.reasoning,
