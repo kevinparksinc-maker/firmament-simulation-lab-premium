@@ -76,7 +76,7 @@ export const sportsReasoningSchema = z.object({
 export type SportsReasoningJudgment = z.infer<typeof sportsReasoningSchema>;
 function parseJudgment(raw: string): SportsReasoningJudgment {
   let json: unknown;
-  try { json = JSON.parse(raw.replace(/^\\s*```(?:json)?\\s*/, "").replace(/\\s*```\\s*$/, "")); }
+  try { json = JSON.parse(raw.replace(/^\s*```(?:json)?\s*/, "").replace(/\s*```\s*$/, "")); }
   catch { throw new Error("SPORTS_REASONING_INVALID_JSON: AI judgment was not valid JSON."); }
   return sportsReasoningSchema.parse(json);
 }
