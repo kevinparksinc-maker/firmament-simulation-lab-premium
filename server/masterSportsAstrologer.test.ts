@@ -6,19 +6,24 @@ const event = { teamA:"Dallas Cowboys",teamB:"Philadelphia Eagles",favoredTeam:"
 afterEach(() => vi.clearAllMocks());
 describe("complete pregame sports interpretation", () => {
   it("sends every computed core method, additional result and both charts to the interpreter", async () => {
-    vi.mocked(invokeLLM).mockResolvedValue({choices:[{message:{content:"Complete sports interpretation"}}]} as any);
+    const evidence = sportsPregameEvidence(event);
+    const baseline = evidence.synthesisView;
+    const selectedSide = baseline.winner === "TIE" ? "NO_PICK" : baseline.winner;
+    const judgment = { selectedSide, reasoning: "The computed evidence supports this interpretation across the complete God and Agent views. Both sides have competing testimony, but the stronger cross-frame indications determine the final judgment rather than a single score.", decisiveEvidence: [{frame:"god",method:"chart",finding:"The complete God View is available for interpretation."}], opposingEvidence:"The opposing side has relevant indications that require consideration.",missingInformation:[],confidence:"low",baselineAgreement:"agree" };
+    vi.mocked(invokeLLM).mockResolvedValue({model:"gemini-test",choices:[{message:{content:JSON.stringify(judgment)}}]} as any);
     const result=await interpretSportsEvent(event);
     const request=vi.mocked(invokeLLM).mock.calls[0][0];
     const payload=JSON.parse(String(request.messages[1].content).split("evidence without changing its scores:\n")[1]);
-    expect(payload.godView.allLayers).toHaveLength(21);
-    expect(payload.agentView.allLayers).toHaveLength(21);
-    expect(payload.synthesisView.methods).toHaveLength(21);
-    expect(payload.synthesisView.valid).toBe(true);
-    expect(payload.chart.agentView.planets).toHaveLength(12);
-    expect(payload.methodResults.godView.length).toBeGreaterThan(5);
-    expect(payload.additionalMethods).toBeDefined();
+    expect(original.godView.allLayers).toHaveLength(21);
+    expect(original.agentView.allLayers).toHaveLength(21);
+    expect(original.synthesisView.methods).toHaveLength(21);
+    expect(original.synthesisView.valid).toBe(true);
+    expect(original.chart.agentView.planets).toHaveLength(12);
+    expect(original.methodResults.godView.length).toBeGreaterThan(5);
+    expect(original.additionalMethods).toBeDefined();
     expect(payload.godView.allLayers.every((layer:any)=>layer.detail.length>0)).toBe(true);
-    expect(result.interpretation).toBe("Complete sports interpretation");
+    expect(result.interpretation).toBe(judgment.reasoning);
+    expect(result.modelProvenance.model).toBe("gemini-test");
   });
   it("produces identical pregame evidence regardless of supplied final winner", () => {
     expect(sportsPregameEvidence({...event,actualWinner:"A"})).toEqual(sportsPregameEvidence({...event,actualWinner:"B"}));
