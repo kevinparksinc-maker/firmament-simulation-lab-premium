@@ -2,6 +2,7 @@ import { getPregameConditions } from "./pregameConditions";
 import type { SimulationEventInput } from "./engine/simulationAdapter";
 import { runSimulationEvent } from "./engine/simulationAdapter";
 import { invokeLLM } from "./_core/llm";
+import { z } from "zod";
 
 /**
  * Sports interpretation is downstream of the deterministic Simulation Lab.
@@ -17,8 +18,8 @@ export const MASTER_SPORTS_ASTROLOGER_SYSTEM = [
   "Give both sides a fair hearing: identify strongest support for A, strongest support for B, and the decisive cross-frame convergences. Explain conflicts, weak signals, and whether God View and Agent View agree. Conjunctions are harmonious in this framework; minor aspects have half major weight when the ledger specifies this. Never recompute or override engine values.",
   "If verified pregame weather, wind, field conditions, injuries, roster availability or market favorite data are present, explain their relevance separately from astrological evidence. If absent, say NOT VERIFIED. Severe weather or major unknown player availability should trigger a caution/no-bet research flag, not an invented fact.",
   "For totals, discuss over/under only if the record includes relevant evidence: friction can support a lower-scoring interpretation and flow a higher-scoring interpretation, but do not invent a betting line or certainty.",
-  "Structure the final answer: WHAT (predicted winner or explicitly unresolved), WHY (numeric A/B edge and strongest evidence), HOW (specific houses, planets, geometry and timing), OPPOSITION (best evidence against the pick), CONDITIONS (weather, injuries and missing inputs), CONSEQUENCE (game script and scoring direction if supported), FINAL JUDGMENT (one clear team and numeric margin, or NO VALID PICK). Speak directly in modern plain language, with concrete reasons rather than generic filler.",
-  "If synthesis is invalid, withhold a winner and state the exact failure. If the engine records a tie, show the numeric margin and tie threshold and label it unresolved rather than manufacturing an edge. Never treat numeric score shares as real-world win probabilities.",
+  "Make an independent intellectual judgment, not a paraphrase of a predetermined arithmetic winner. Compare relevant methods by interpretive significance and corroboration rather than blindly counting points. State what testimony is decisive, what contradicts it, and what would change your judgment. Do not pretend uncalculated timing or receptions are known.",
+  "The 21-method arithmetic synthesis is an independent comparison baseline, NOT a mandatory winner. You must reach your own evidence-grounded conclusion and may disagree with its winner or tie threshold. Explain why when you disagree. Invalid or missing chart evidence requires NO PICK, not invented testimony. Never treat symbolic scores as win probabilities.",
   "Never use actualWinner, hit/miss verdicts, historical outcomes or postgame data as evidence for a pregame prediction. Never invent placements, missing data, method counts, injuries, weather, lines, scores or probabilities. This is an experimental prediction framework, not a guarantee of results or a directive to wager.",
 ].join("\n");
 
@@ -44,18 +45,67 @@ export function sportsPregameEvidence(input: SimulationEventInput) {
   };
 }
 
+export const sportsReasoningSchema = z.object({
+  selectedSide: z.enum(["A", "B", "NO_PICK"]),
+  reasoning: z.string().min(80),
+  decisiveEvidence: z.array(z.object({ frame: z.enum(["god", "agent", "cross-frame", "physical"]), method: z.string().min(1), finding: z.string().min(12) })).min(1),
+  opposingEvidence: z.string().min(20),
+  missingInformation: z.array(z.string()),
+  confidence: z.enum(["low", "moderate"]),
+  baselineAgreement: z.enum(["agree", "disagree", "baseline-unavailable"]),
+});
+export type SportsReasoningJudgment = z.infer<typeof sportsReasoningSchema>;
+function parseJudgment(raw: string): SportsReasoningJudgment {
+  let json: unknown;
+  try { json = JSON.parse(raw.replace(/^\\s*```(?:json)?\\s*/, "").replace(/\\s*```\\s*$/, "")); }
+  catch { throw new Error("SPORTS_REASONING_INVALID_JSON: AI judgment was not valid JSON."); }
+  return sportsReasoningSchema.parse(json);
+}
 export async function interpretSportsEvent(input: SimulationEventInput, conversation: Array<{ role: "user" | "assistant"; content: string }> = []) {
   const evidence = { ...sportsPregameEvidence(input), pregameConditions: await getPregameConditions(input) };
+  const baseline = evidence.synthesisView;
   const response = await invokeLLM({
-    max_tokens: 6500,
+    max_tokens: 4500,
+    response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: MASTER_SPORTS_ASTROLOGER_SYSTEM },
-      { role: "user", content: "Interpret this computed contest evidence without changing its scores:\n" + JSON.stringify(evidence) },
+      { role: "system", content: MASTER_SPORTS_ASTROLOGER_SYSTEM + `
+Return ONLY a JSON object with:
+selectedSide: "A" | "B" | "NO_PICK" (your OWN judgment, not dictated by numeric totals);
+reasoning: detailed independent synthesis with specific chart evidence, team names, method interactions and contradictions;
+decisiveEvidence: array of {frame: "god" | "agent" | "cross-frame" | "physical", method: exact supplied method name or "chart"/"pregameConditions", finding: evidence-grounded explanation};
+opposingEvidence: strongest contrary testimony;
+missingInformation: array of uncalculated/unverified facts;
+confidence: "low" | "moderate" (NOT a statistical probability);
+baselineAgreement: "agree" | "disagree" | "baseline-unavailable".
+The baseline is ${baseline.valid ? baseline.winner : "unavailable"}. Set baselineAgreement by comparing your choice to this baseline; NO_PICK corresponds to baseline TIE. Every claim must be traceable to the supplied evidence. No outcome hindsight, fabricated facts, or betting instructions.` },
+      { role: "user", content: "Judge this game independently from the complete pregame calculation record:\\n" + JSON.stringify(evidence) },
       ...conversation,
     ],
   });
   const content = response.choices?.[0]?.message?.content;
-  const interpretation = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n").trim() : "";
-  if (!interpretation) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Provider returned no sports interpretation.");
-  return { evidence, interpretation };
+  const raw = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\\n").trim() : "";
+  if (!raw) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Provider returned no sports judgment.");
+  const judgment = parseJudgment(raw);
+  const expectedAgreement = !baseline.valid ? "baseline-unavailable" :
+    (judgment.selectedSide === "NO_PICK" ? baseline.winner === "TIE" : judgment.selectedSide === baseline.winner) ? "agree" : "disagree";
+  if (judgment.baselineAgreement !== expectedAgreement)
+    throw new Error("SPORTS_REASONING_BASELINE_COMPARISON_INVALID");
+  const knownMethods = new Set([
+    "chart", "pregameConditions",
+    ...evidence.godView.allLayers.map(m => m.name),
+    ...evidence.agentView.allLayers.map(m => m.name),
+    ...evidence.additionalMethods.godView.map(m => m.name),
+    ...evidence.additionalMethods.agentView.map(m => m.name),
+  ]);
+  for (const finding of judgment.decisiveEvidence) {
+    if (!knownMethods.has(finding.method))
+      throw new Error("SPORTS_REASONING_UNKNOWN_METHOD: " + finding.method);
+  }
+  const team = judgment.selectedSide === "A" ? evidence.input.teamA : judgment.selectedSide === "B" ? evidence.input.teamB : null;
+  return {
+    evidence, judgment,
+    prediction: { selectedSide: judgment.selectedSide, team, source: "independent_ai_reasoning" as const },
+    baseline: { winner: baseline.winner, scoreA: baseline.scoreA, scoreB: baseline.scoreB, valid: baseline.valid },
+    interpretation: judgment.reasoning,
+  };
 }
