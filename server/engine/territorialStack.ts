@@ -117,7 +117,7 @@ export function getChaldeanDecan(sign: string, degreeInSign: number) {
   return { decan: (decanIndex + 1) as 1 | 2 | 3, ruler: rulers[decanIndex]! };
 }
 
-function dignity(planet: string, sign: string) {
+export function dignity(planet: string, sign: string) {
   if (EXALTATIONS[planet] === sign) return { status: "Exalted", score: 2 };
   if (DEBILITATIONS[planet] === sign) return { status: "Debilitated", score: -2 };
   if (SIGN_RULERS[sign] === planet) return { status: "Own Sign", score: 1 };

@@ -25,8 +25,8 @@ export function MasterSportsAstrologer({event}:{event:SimulationEventInput}) {
   return <section className="panel" style={{padding:20,marginBottom:20}}>
     <h2>AI Master Sports Astrologer</h2>
     <p>{event.teamA} vs {event.teamB} · {new Date(event.startTime).toLocaleString()}</p>
-    <p>Every reading and follow-up receives the full calculated God View, Agent View, combined scores, and additional method evidence for this matchup.</p>
-    <button className="button-primary" disabled={busy} onClick={()=>reading.mutate(event)}>{reading.isPending ? "Synthesizing all calculated evidence…" : "Generate full sports reading"}</button>
+    <p>The analyst compares ranked evidence for both teams and explains the strongest opposing testimony.</p>
+    <button className="button-primary" disabled={busy} onClick={()=>reading.mutate(event)}>{reading.isPending ? "Comparing the strongest evidence…" : "Generate full sports reading"}</button>
     {conversationError && <p role="alert">{conversationError}</p>}
     {(reading.error || chat.error) && <p role="alert" className="mt-3 text-rose-300">{(chat.error ?? reading.error)?.message}</p>}
     {conditions.data && <div className="mt-4 rounded-lg border border-amber-300/25 p-3">
