@@ -1,0 +1,744 @@
+{
+  "schemaVersion": 1,
+  "source": "kevinparksinc-maker/firmament-guardian",
+  "methods": [
+    {
+      "id": "western-planets-and-signs",
+      "meanings": [
+        "server/astrologyKnowledge/canon/planetsAndSigns.ts",
+        "server/astrologyKnowledge/canon/planetInHouseInterpretations.ts"
+      ],
+      "rules": [
+        "shared/hybrid.ts"
+      ],
+      "calculations": [
+        "server/astronomy.ts#calculateChart"
+      ]
+    },
+    {
+      "id": "sumerian-celestial-foundations",
+      "meanings": [
+        "server/astrologyKnowledge/canon/sumerianCelestial.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/synthesis/methodRules.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts"
+      ]
+    },
+    {
+      "id": "western-houses-and-angles",
+      "meanings": [
+        "server/astrologyKnowledge/canon/housesAndFrames.ts",
+        "server/astrologyKnowledge/canon/jyotishHouseGroups.ts"
+      ],
+      "rules": [
+        "server/astrologyCore.ts",
+        "server/astrologyKnowledge/canon/housesAndFrames.ts"
+      ],
+      "calculations": [
+        "server/astronomy.ts#sunriseAnchoredAngles",
+        "server/astrologyCore.ts#equalHouseCusps"
+      ]
+    },
+    {
+      "id": "western-aspects-and-orbs",
+      "meanings": [
+        "server/astrologyKnowledge/canon/westernRelationalAndTiming.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/synthesis/methodRules.ts",
+        "shared/chartRules.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts",
+        "server/astronomy.ts#aspectBetween"
+      ]
+    },
+    {
+      "id": "western-essential-dignities",
+      "meanings": [
+        "server/astrologyKnowledge/canon/planetsAndSigns.ts",
+        "server/astrologyKnowledge/canon/dignitiesAndHorary.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/canon/dignitiesAndHorary.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts",
+        "server/astrologyKnowledge/calculations/dignitiesAndHorary.ts"
+      ]
+    },
+    {
+      "id": "fixed-stars-royal-watchers",
+      "meanings": [
+        "server/astrologyKnowledge/canon/fixedStarsAndLots.ts",
+        "server/astrologyKnowledge/canon/historicalStarCatalog.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/canon/fixedStarsAndLots.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts",
+        "server/astrologyKnowledge/calculations/fixedStarContacts.ts"
+      ]
+    },
+    {
+      "id": "arabic-hermetic-lots",
+      "meanings": [
+        "server/astrologyKnowledge/canon/fixedStarsAndLots.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/canon/fixedStarsAndLots.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/calculations/hermeticLots.ts#calculateChartHermeticLots"
+      ]
+    },
+    {
+      "id": "arabic-lunar-manazil",
+      "meanings": [
+        "server/astrologyKnowledge/canon/manazil28.ts"
+      ],
+      "rules": [
+        "shared/hybrid.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/calculations/manazil28.ts",
+        "server/masterChart/builder.ts"
+      ]
+    },
+    {
+      "id": "vedic-nakshatras-and-padas",
+      "meanings": [
+        "server/astrologyKnowledge/canon/nakshatras27.ts"
+      ],
+      "rules": [
+        "shared/hybrid.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/calculations/nakshatras27.ts",
+        "server/masterChart/builder.ts"
+      ]
+    },
+    {
+      "id": "vedic-vargas-divisional",
+      "meanings": [
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/vargas.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/vedic/vargas.ts#vargaPlacement",
+        "server/astrologyKnowledge/vedic/divisionalCharts.ts"
+      ]
+    },
+    {
+      "id": "vedic-dasha-and-ashtakavarga",
+      "meanings": [
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts",
+        "server/astrologyKnowledge/canon/nakshatras27.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/timingAndAshtakavarga.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/vedic/timingAndAshtakavarga.ts#resolveVedicTimingAndAshtakavarga"
+      ]
+    },
+    {
+      "id": "vedic-planetary-lordship-connections",
+      "meanings": [
+        "server/astrologyKnowledge/canon/housesAndFrames.ts",
+        "server/astrologyKnowledge/canon/planetsAndSigns.ts",
+        "server/astrologyKnowledge/canon/planetInHouseInterpretations.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/planetaryLordshipConnections.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/vedic/planetaryLordshipConnections.ts#buildPlanetaryLordshipConnections"
+      ]
+    },
+    {
+      "id": "vedic-graha-drishti",
+      "meanings": [
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/index.ts",
+        "server/astrologyKnowledge/synthesis/methodRules.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts",
+        "server/astrologyKnowledge/vedic/index.ts"
+      ]
+    },
+    {
+      "id": "vedic-shadbala",
+      "meanings": [
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts",
+        "server/astrologyKnowledge/canon/planetsAndSigns.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/strength.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/vedic/strength.ts#calculateVedicStrength"
+      ]
+    },
+    {
+      "id": "vedic-bhava-bala",
+      "meanings": [
+        "server/astrologyKnowledge/canon/housesAndFrames.ts",
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/vedic/strength.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/vedic/strength.ts#calculateVedicStrength"
+      ]
+    },
+    {
+      "id": "chinese-lunar-mansions-xiu",
+      "meanings": [
+        "server/astrologyKnowledge/canon/chineseMansions28.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/canon/chineseMansions28.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts"
+      ]
+    },
+    {
+      "id": "elemental-decans",
+      "meanings": [
+        "server/astrologyKnowledge/canon/decans36.ts"
+      ],
+      "rules": [
+        "shared/hybrid.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/calculations/decans36.ts",
+        "server/masterChart/builder.ts"
+      ]
+    },
+    {
+      "id": "kabbalah-sefer-yetzirah",
+      "meanings": [
+        "server/astrologyKnowledge/canon/seferYetzirah.ts"
+      ],
+      "rules": [
+        "server/astrologyKnowledge/canon/seferYetzirah.ts"
+      ],
+      "calculations": [
+        "server/astrologyKnowledge/calculations/seferYetzirah.ts#seferYetzirahEvidence"
+      ]
+    },
+    {
+      "id": "genesis-behavioral-patterns",
+      "meanings": [
+        "server/astrologyKnowledge/behavioral/catalog.ts",
+        "server/astrologyKnowledge/canon/vedicJyotishCanon.ts"
+      ],
+      "rules": [
+        "server/genesisBackup/vedicYogaDetector.ts",
+        "server/astrologyKnowledge/behavioral/engine.ts"
+      ],
+      "calculations": [
+        "server/genesisBackup/adapter.ts#runGenesisPatternPipeline"
+      ]
+    },
+    {
+      "id": "transit-activation-layer",
+      "meanings": [
+        "server/astrologyKnowledge/canon/westernRelationalAndTiming.ts"
+      ],
+      "rules": [
+        "shared/chartRules.ts",
+        "server/astrologyKnowledge/synthesis/methodRules.ts"
+      ],
+      "calculations": [
+        "server/masterChart/builder.ts",
+        "server/energyReadV2.ts#calculateEnergyRead"
+      ]
+    }
+  ],
+  "meanings": {
+    "planets": {
+      "Sun": {
+        "terms": [
+          "Conscious vitality, central purpose, and coherent selfhood",
+          "Visible authority, sovereignty, leadership, and public authorship",
+          "Paternal archetype, honor, reputation, and moral backbone",
+          "The illuminating center that either warms and clarifies or burns (combusts) what comes too close"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Moon": {
+        "terms": [
+          "Instinctive emotional life, bodily felt safety, memory, and attachment",
+          "Rhythms of nurture, shelter, domestic belonging, and somatic receptivity",
+          "Maternal archetype, early conditioning, and what the nervous system reaches for under stress",
+          "The primary translator of celestial light into everyday human change"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Mercury": {
+        "terms": [
+          "Cognition, language, discernment, logic, interpretation, and naming",
+          "Negotiation, commerce, craft, skill, and adaptability between worlds",
+          "How the mind organizes uncertainty and translates feeling into speech"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Venus": {
+        "terms": [
+          "Attraction, affection, reciprocity, harmony, beauty, and felt value",
+          "Relational bonding, conciliation, pleasure, and what a person deems worthy of devotion",
+          "Lesser Benefic of the nocturnal sect: reconciles conflict and softens harshness"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Mars": {
+        "terms": [
+          "Courage, assertion, separation, boundary-defense, willpower, and decisive action",
+          "Lesser Malefic (constructive and more temperate in a Night Chart; sharper and more combative in a Day Chart)",
+          "How a person handles anger, threat, competition, desire, and the need to say 'no'"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Jupiter": {
+        "terms": [
+          "Wisdom, coherence, generosity, faith, law, mentorship, and expansion",
+          "Greater Benefic of the diurnal sect: stabilizes, elevates, and restores proportion",
+          "Where a person finds meaning, trust, philosophical perspective, and grace"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Saturn": {
+        "terms": [
+          "Time, boundaries, structure, consequence, endurance, mastery, and containment",
+          "Greater Malefic (more constructive, architectural, and disciplined in a Day Chart; heavier, colder, and more defensive in a Night Chart)",
+          "Where a person feels tested by reality and builds earned, unshakable authority through patience"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Uranus": {
+        "terms": [
+          "Sudden awakening, individuation, disruption of stagnant patterns, originality, and freedom",
+          "Refusal of false conformity and electric flashes of insight"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Neptune": {
+        "terms": [
+          "Transcendence, imagination, compassion, dissolution of boundaries, longing, and illusion",
+          "Where boundaries become porous and where idealization must be tested against reality"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "Pluto": {
+        "terms": [
+          "Deep psychological excavation, intensity, power dynamics, survival instincts, and regeneration",
+          "Where superficial answers fail and honest confrontation with hidden truth is required"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "North Node": {
+        "terms": [
+          "Appetite for growth, unfamiliar territory, developmental stretching, and amplification",
+          "Where the person is called to build new capacity beyond old automatic habits"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "South Node": {
+        "terms": [
+          "Ingrained instinct, default fallback reflex, mastery already acquired, and detachment/release",
+          "Where a person is naturally skilled on autopilot but risks stagnation if they hide there"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Core Doctrine",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      }
+    },
+    "signs": {
+      "Aries": {
+        "terms": [
+          "Hot and Dry",
+          "Choler",
+          "Commanding",
+          "Equinoctial / Rapid"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Ptolemy, Tetrabiblos I.11–19",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Taurus": {
+        "terms": [
+          "Cold and Dry",
+          "Melancholic",
+          "Fertile",
+          "Steadfast"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Gemini": {
+        "terms": [
+          "Hot and Moist",
+          "Sanguine",
+          "Human / Voiced",
+          "Bicorporal (Double-bodied)"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Cancer": {
+        "terms": [
+          "Cold and Moist",
+          "Phlegmatic",
+          "Fertile / Mute",
+          "Solstitial (Tropical)"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Ptolemy, Tetrabiblos",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Leo": {
+        "terms": [
+          "Hot and Dry",
+          "Choler",
+          "Royal / Commanding",
+          "Barren"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Vettius Valens; Abu Ma'shar",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Virgo": {
+        "terms": [
+          "Cold and Dry",
+          "Melancholic",
+          "Human / Voiced",
+          "Bicorporal"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Libra": {
+        "terms": [
+          "Hot and Moist",
+          "Sanguine",
+          "Human / Equinoctial"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Ptolemy, Tetrabiblos",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Scorpio": {
+        "terms": [
+          "Cold and Moist",
+          "Phlegmatic",
+          "Fixed / Silent",
+          "Fertile"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Sagittarius": {
+        "terms": [
+          "Hot and Dry",
+          "Choler",
+          "Bicorporal (Double-bodied)"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Capricorn": {
+        "terms": [
+          "Cold and Dry",
+          "Melancholic",
+          "Solstitial (Tropical)",
+          "Earthly"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Aquarius": {
+        "terms": [
+          "Hot and Moist",
+          "Sanguine",
+          "Human / Voiced",
+          "Fixed"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      },
+      "Pisces": {
+        "terms": [
+          "Cold and Moist",
+          "Phlegmatic",
+          "Fertile / Mute",
+          "Bicorporal"
+        ],
+        "source": {
+          "tradition": "hellenistic",
+          "sourceTitle": "Dorotheus of Sidon; Vettius Valens",
+          "epistemicCategory": "TRADITION"
+        }
+      }
+    },
+    "houses": {
+      "1": {
+        "title": "The Helm (Horoskopos)",
+        "topics": [
+          "Identity, physical body, vitality, temperament, and self-presentation",
+          "First moves, personal agency, and how the person meets the world"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "2": {
+        "title": "Gate of Hades",
+        "topics": [
+          "Money, moveable possessions, livelihood, resources, and practical self-sufficiency",
+          "Felt self-worth, material security, and what one values enough to steward"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "3": {
+        "title": "Goddess (Dea)",
+        "topics": [
+          "Everyday communication, speech, writing, siblings, neighbors, and local environment",
+          "Short journeys, daily errands, practical learning, and immediate mental habits"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "4": {
+        "title": "Subterranean Pivot (Hypogeion)",
+        "topics": [
+          "Home, family of origin, ancestry, father/parents, land, and private foundations",
+          "The emotional root system, inner sanctuary, and how matters conclude"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "5": {
+        "title": "Good Fortune (Agathe Tyche)",
+        "topics": [
+          "Creative self-expression, children, romance, courtship, play, joy, and risk-taking",
+          "What one creates from the heart and offers to the world for delight"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "6": {
+        "title": "Bad Fortune (Kake Tyche)",
+        "topics": [
+          "Daily labor, service, craft, discipline, physical health routines, and problem-solving",
+          "Subordinates, apprentices, small animals, and the friction of daily maintenance"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "7": {
+        "title": "The Setting Place (Dysis)",
+        "topics": [
+          "Committed partnership, marriage, business partners, contracts, and one-to-one encounter",
+          "Open rivals, legal opponents, and the qualities mirrored back by another person"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "8": {
+        "title": "The Idle Place (Epikataphora)",
+        "topics": [
+          "Shared finances, debt, taxes, inheritance, and the partner's resources",
+          "Psychological vulnerability, trust under high stakes, grief, loss, and deep regeneration"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "9": {
+        "title": "God (Theos)",
+        "topics": [
+          "Philosophy, religion, higher education, law, publishing, mentorship, and long journeys",
+          "The search for overarching truth, ethics, and worldview"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "10": {
+        "title": "Midheaven (Mesouranema)",
+        "topics": [
+          "Vocation, career, public reputation, authority, leadership, and visible contribution",
+          "How a person is judged by the public and what they build in the world"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "11": {
+        "title": "Good Spirit (Agathos Daimon)",
+        "topics": [
+          "Alliances, friends, communities, networks, patrons, and shared aspirations",
+          "Gains from one's vocation (2nd from the 10th) and long-range hopes"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      },
+      "12": {
+        "title": "Bad Spirit (Kakos Daimon)",
+        "topics": [
+          "Solitude, retreat, behind-the-scenes preparation, subconscious patterns, and hidden burdens",
+          "Self-undoing, secret adversaries, spiritual surrender, and gestation before rebirth"
+        ],
+        "source": {
+          "tradition": "firmament",
+          "sourceTitle": "Firmament Dual-Frame Architecture",
+          "epistemicCategory": "FIRMAMENT_CANON"
+        }
+      }
+    },
+    "sumerian": {
+      "source": "Sumerian celestial associations (Kramer; Rochberg; Oxford Research Encyclopedia of Planetary Science)",
+      "correspondences": {
+        "Venus": {
+          "name": "Inanna",
+          "continuity": "Later Mesopotamian Ishtar",
+          "historicalMeaning": "Venus, desire, power, and conflict in Sumerian celestial and literary traditions.",
+          "modernInterpretiveLens": "Examine how attraction, values, assertiveness and sovereignty reinforce or conflict with one another.",
+          "limit": "This is a modern symbolic reading, not an extant Sumerian natal prediction. Morning/evening-star status needs independently calculated visibility data."
+        },
+        "Moon": {
+          "name": "Nanna",
+          "continuity": "Later Mesopotamian Sin",
+          "historicalMeaning": "The Moon, lunar cycles and calendrical order.",
+          "modernInterpretiveLens": "Examine recurring needs, habits, reflection, and how personal rhythms influence decisions.",
+          "limit": "No ancient Sumerian lunar-mansion horoscope or phase-based prediction is inferred."
+        },
+        "Sun": {
+          "name": "Utu",
+          "continuity": "Later Mesopotamian Shamash",
+          "historicalMeaning": "The Sun, light, justice, and the revelation of what is hidden.",
+          "modernInterpretiveLens": "Examine integrity, accountability, visibility and the consequences of choices.",
+          "limit": "This is an explicitly modern symbolic synthesis, not a preserved Sumerian solar natal rule."
+        }
+      }
+    }
+  }
+}

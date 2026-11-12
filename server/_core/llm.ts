@@ -57,6 +57,7 @@ export type ToolChoice =
 
 export type InvokeParams = {
   messages: Message[];
+  singleAttempt?: boolean;
   tools?: Tool[];
   toolChoice?: ToolChoice;
   tool_choice?: ToolChoice;
@@ -209,9 +210,11 @@ async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
   const model = ENV.googleAiModel;
   const format = params.responseFormat ?? params.response_format;
   const jsonMode = format?.type === "json_object" || format?.type === "json_schema" || !!(params.outputSchema ?? params.output_schema);
-  const response = await fetchWithBackoff(
+  const send = params.singleAttempt ? fetch : fetchWithBackoff;
+  const response = await send(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
+      ...(params.singleAttempt ? { redirect: "error" } : {}),
       signal: AbortSignal.timeout(120_000),
       headers: { "content-type": "application/json", "x-goog-api-key": ENV.googleAiApiKey },
       body: JSON.stringify({
