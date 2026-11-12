@@ -424,14 +424,20 @@ function besiegementLayer(entries: HouseLordEntry[], planets: FramePlanet[]): Fu
   return { name: "Besiegement", scoreA: round(scoreA), scoreB: round(scoreB), ruleClass: "SIDE_SPECIFIC", detail: details.length ? details.join("; ") : "No scoring house lord enclosed on a Mars–Saturn arc of 60° or less.", source: "recovered-archive-master", calculation: calculation("Geometric enclosure on shorter Mars/Saturn zodiac arc (≤60°), negative to enclosed lord's ruled house-side", details.length ? details : ["No eligible enclosure."]), limitation: "Geometrical preliminary proxy only; a traditional applying/separating besiegement verdict requires velocities and exact aspect perfection." };
 }
 
+/** Existing reciprocal domicile test, shared by scoring and the evidence graph. */
+export function reciprocalDomicilePairs<T extends { planet: string; sign: string }>(planets: readonly T[]): Array<readonly [T, T]> {
+  const traditional = new Set(["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn"]);
+  const eligible = planets.filter(p => traditional.has(p.planet));
+  return eligible.flatMap((left, index) => eligible.slice(index + 1)
+    .filter(right => SIGN_RULERS[left.sign as (typeof SIGNS)[number]] === right.planet &&
+      SIGN_RULERS[right.sign as (typeof SIGNS)[number]] === left.planet)
+    .map(right => [left, right] as const));
+}
+
 function mutualReceptionLayer(entries: HouseLordEntry[], planets: FramePlanet[]): FullPackageLayerEvidence {
   let scoreA = 0, scoreB = 0;
   const details: string[] = [];
-  const traditional = new Set(["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn"]);
-  const eligible = planets.filter(p => traditional.has(p.planet));
-  for (let i = 0; i < eligible.length; i++) for (let j = i + 1; j < eligible.length; j++) {
-    const left = eligible[i]!, right = eligible[j]!;
-    if (SIGN_RULERS[left.sign as (typeof SIGNS)[number]] !== right.planet || SIGN_RULERS[right.sign as (typeof SIGNS)[number]] !== left.planet) continue;
+  for (const [left, right] of reciprocalDomicilePairs(planets)) {
     const leftSide = sideForHouse(left.house), rightSide = sideForHouse(right.house);
     const [la,lb] = sideScore(leftSide, 1);
     const [ra,rb] = sideScore(rightSide, 1);

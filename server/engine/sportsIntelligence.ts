@@ -1,3 +1,4 @@
+import { reciprocalDomicilePairs } from "./fullPackageDualFrameChallenger";
 import guardianCanon from "./guardianCanon.generated.json";
 import { METHOD_REGISTRY } from "./methodRegistry";
 import type { runSimulationEvent } from "./simulationAdapter";
@@ -23,6 +24,7 @@ type Evidence = {
 type HouseNode = `${"god" | "agent"}:H${number}`;
 type BodyNode = `body:${string}`;
 type Relationship =
+  | { id: string; kind: "reception"; from: BodyNode; to: BodyNode }
   | { id: string; kind: "occupies"; body: BodyNode; house: HouseNode }
   | {
       id: string;
@@ -127,6 +129,9 @@ export function buildSportsRelationshipGraph(simulation: Simulation) {
       orb: contact.orb,
       weight: contact.weight,
     });
+  }
+  for (const [left, right] of reciprocalDomicilePairs(agentView.planets)) {
+    edges.push({ id: `agent:reception:${left.planet}:${right.planet}`, kind: "reception", from: bodyNode(left.planet), to: bodyNode(right.planet) });
   }
   return { bodies, houses, edges };
 }

@@ -1,19 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
 import { invokeLLM } from "./_core/llm";
+import { interpretSportsEvent } from "./masterSportsAstrologer";
 import {
-  interpretSportsEvent,
-  sportsPregameEvidence,
-} from "./masterSportsAstrologer";
-import { validateSportsCitations } from "./engine/sportsIntelligence";
-import { METHOD_REGISTRY } from "./engine/methodRegistry";
+  validateAnalystJudgment,
+  type AnalystJudgment,
+  type SportsAdjudication,
+} from "./engine/sportsAdjudication";
 
 const event = {
   teamA: "Dallas Cowboys",
   teamB: "Philadelphia Eagles",
-  favoredTeam: "Dallas Cowboys",
-  underdogTeam: "Philadelphia Eagles",
-  roleAssignmentSource: "manual" as const,
   sport: "NFL" as const,
   location: "Arlington, TX",
   latitude: 32.7473,
@@ -21,160 +18,146 @@ const event = {
   startTime: "2026-11-08T18:00:00Z",
 };
 
-const judgment = {
-  selectedSide: "NO_PICK",
-  baselineAgreement: "disagree",
-  reasoning:
-    "Both frames have competing testimony. The local ledger supports the official side arithmetically, but the relationship evidence leaves room for an independent no-pick conclusion.",
-  decisiveEvidence: [
-    {
-      frame: "god",
-      method: "chart",
-      finding: "The God View placement is available.",
-      evidenceIds: ["god:occupancy:Sun"],
-    },
-  ],
-  opposingEvidence:
-    "The opposing side has relevant indications that require consideration.",
-  missingInformation: [],
-  confidence: "low",
-};
-
-function mockJudgment(value: unknown) {
-  vi.mocked(invokeLLM).mockResolvedValue({
-    id: "mock",
-    created: 0,
-    model: "gemini-test",
-    choices: [
-      {
-        index: 0,
-        finish_reason: "STOP",
-        message: { role: "assistant", content: JSON.stringify(value) },
-      },
-    ],
-  });
+function reply(packet: SportsAdjudication): AnalystJudgment {
+  const support = (side: "ASC" | "DSC") =>
+    packet.evidence
+      .filter(row => row.side === side || row.side === "BOTH")
+      .slice(0, 2)
+      .map(row => ({ evidenceId: row.id, claim: row.significance }));
+  return {
+    predictedWinner: "NO_PICK",
+    confidence: 0.4,
+    ascCase: support("ASC"),
+    dscCase: support("DSC"),
+    contradictionsAddressed: packet.contradictions.map(row => ({
+      contradictionId: row.id,
+      resolution: row.ruleId ? "rule" : "judgment",
+      citedRuleId: row.ruleId,
+      reasoning: row.nature.slice(0, 340),
+    })),
+    decisiveFactor: null,
+    opposingEvidence: null,
+    confidenceBasis: "Mixed testimony limits directional confidence.",
+  };
 }
 
-afterEach(() => vi.clearAllMocks());
-
-describe("complete pregame sports interpretation", () => {
-  it("makes one reasoning call with a compact, complete method roster and traceable graph", async () => {
-    const original = sportsPregameEvidence(event);
-    const baseline = original.synthesisView;
-    const response = {
-      ...judgment,
-      baselineAgreement: baseline.winner === "TIE" ? "agree" : "disagree",
-    };
-    mockJudgment(response);
-    const result = await interpretSportsEvent({ ...event, actualWinner: "A" });
-    expect(invokeLLM).toHaveBeenCalledTimes(1);
-    const request = vi.mocked(invokeLLM).mock.calls[0][0];
-    expect(request.singleAttempt).toBe(true);
-    const message = String(request.messages[1].content);
-    const payload = JSON.parse(
-      message.slice(message.indexOf("\n") + 1)
-    ) as typeof result.intelligence;
-    expect(message).not.toMatch(/actualWinner|Hit\/miss test:/);
-    expect(message.length).toBeLessThan(
-      JSON.stringify(result.threeWheels).length
-    );
-    expect(payload.evidence.filter(row => row.kind === "core")).toHaveLength(
-      63
-    );
-    expect(
-      payload.evidence.filter(row => row.kind === "registered")
-    ).toHaveLength(METHOD_REGISTRY.length * 2 + 3);
-    expect(
-      payload.evidence.filter(row => row.kind === "experimental")
-    ).toHaveLength(8);
-    expect(payload.canon.methods).toHaveLength(20);
-    expect(
-      payload.canon.methods.find(row => row.id === "vedic-shadbala")?.relation
-    ).toBe("unavailable");
-    expect(
-      payload.canon.methods.find(row => row.id === "elemental-decans")?.relation
-    ).toBe("variant");
-    expect(payload.graph.bodies).toHaveLength(12);
-    expect(payload.graph.houses).toHaveLength(24);
-    expect(
-      payload.graph.edges.filter(edge => edge.kind === "rules")
-    ).toHaveLength(12);
-    expect(
-      payload.graph.edges.filter(edge => edge.kind === "occupies")
-    ).toHaveLength(24);
-    expect(
-      payload.graph.edges.filter(edge => edge.kind === "aspect").length
-    ).toBeGreaterThan(0);
-    expect(payload.evaluation.crossFrameContradictions.length).toBeGreaterThan(
-      0
-    );
-    for (const conflict of payload.evaluation.crossFrameContradictions) {
-      expect(
-        payload.evidence.find(row => row.id === conflict.god)?.winner
-      ).not.toBe(
-        payload.evidence.find(row => row.id === conflict.agent)?.winner
-      );
-    }
-    expect(result.baseline).toMatchObject({
-      winner: baseline.winner,
-      scoreA: baseline.scoreA,
-      scoreB: baseline.scoreB,
-    });
-    expect(result.interpretation).toBe(judgment.reasoning);
-    expect(result.modelProvenance.model).toBe("gemini-test");
-    expect(() =>
-      validateSportsCitations(payload, [
-        { frame: "agent", method: "chart", evidenceIds: ["god:occupancy:Sun"] },
-      ])
-    ).toThrow("SPORTS_REASONING_UNSUPPORTED_CITATION");
-    expect(() =>
-      validateSportsCitations(payload, [
-        {
-          frame: "agent",
-          method: "NATAL_VIMSHOTTARI_V1",
-          evidenceIds: ["agent:registered:NATAL_VIMSHOTTARI_V1"],
-        },
-      ])
-    ).toThrow("SPORTS_REASONING_UNSUPPORTED_CITATION");
-  });
-
-  it("produces identical pregame evidence regardless of supplied final winner", () => {
-    expect(sportsPregameEvidence({ ...event, actualWinner: "A" })).toEqual(
-      sportsPregameEvidence({ ...event, actualWinner: "B" })
-    );
-  });
-
-  it("rejects unsupported citations after the first call without a repair request", async () => {
-    const baseline = sportsPregameEvidence(event).synthesisView;
-    mockJudgment({
-      ...judgment,
-      baselineAgreement: baseline.winner === "TIE" ? "agree" : "disagree",
-      decisiveEvidence: [
-        { ...judgment.decisiveEvidence[0], evidenceIds: ["fabricated-id"] },
-      ],
-    });
-    await expect(interpretSportsEvent(event)).rejects.toThrow(
-      "SPORTS_REASONING_UNSUPPORTED_CITATION"
-    );
-    expect(invokeLLM).toHaveBeenCalledTimes(1);
-  });
-
-  it("raises an explicit error instead of publishing empty generic text", async () => {
-    vi.mocked(invokeLLM).mockResolvedValue({
+function mockResponse(
+  change: (judgment: AnalystJudgment) => AnalystJudgment = value => value
+) {
+  vi.mocked(invokeLLM).mockImplementation(async request => {
+    const packet = JSON.parse(
+      String(request.messages[1].content)
+    ) as SportsAdjudication;
+    return {
       id: "mock",
       created: 0,
       model: "gemini-test",
+      usage: {
+        prompt_tokens: 2800,
+        completion_tokens: 530,
+        total_tokens: 3330,
+      },
       choices: [
         {
           index: 0,
           finish_reason: "STOP",
-          message: { role: "assistant", content: " " },
+          message: {
+            role: "assistant",
+            content: JSON.stringify(change(reply(packet))),
+          },
         },
       ],
-    });
-    await expect(interpretSportsEvent(event)).rejects.toThrow(
-      "SPORTS_AI_EMPTY_RESPONSE"
-    );
+    };
+  });
+}
+afterEach(() => vi.resetAllMocks());
+
+describe("sports analyst", () => {
+  it("sends evaluated, deduplicated chains and records one validated independent judgment", async () => {
+    mockResponse();
+    const result = await interpretSportsEvent({ ...event, actualWinner: "A" });
     expect(invokeLLM).toHaveBeenCalledTimes(1);
+    const request = vi.mocked(invokeLLM).mock.calls[0][0];
+    expect(request.singleAttempt).toBe(true);
+    const payload = String(request.messages[1].content);
+    expect(payload).not.toMatch(
+      /actualWinner|methodTraces|guardianCanon|traditionalTitle|cartesianChart|fullTechnicalEvidence/
+    );
+    expect(Buffer.byteLength(payload)).toBeLessThan(20_000);
+    const packet = result.analyst;
+    expect(new Set(packet.evidence.map(row => row.chain.planet)).size).toBe(
+      packet.evidence.length
+    );
+    expect(
+      packet.evidence.find(row => row.chain.planet === "Saturn")
+    ).toMatchObject({
+      tier: 1,
+      side: "BOTH",
+      chain: { rulesHouses: [1, 12], occupiesHouse: 3 },
+    });
+    expect(
+      packet.evidence.find(row => row.chain.planet === "Moon")
+    ).toMatchObject({
+      side: "ASC",
+      chain: { rulesHouses: [6], occupiesHouse: 10 },
+    });
+    expect(packet.contradictions.length).toBeGreaterThan(0);
+    expect(result.analystAudit.status).toBe("accepted");
+    expect(result.analystAudit.usage?.prompt_tokens).toBe(2800);
+    expect(result.analystAudit.metrics?.contradictionsAddressed).toBe(
+      packet.contradictions.length
+    );
+    expect(result.interpretation).toContain("[EV-");
+  });
+
+  it("falls back after invalid citations and never sends a repair call", async () => {
+    mockResponse(judgment => ({
+      ...judgment,
+      ascCase: [
+        { evidenceId: "EV-999", claim: "Invalid evidence" },
+        ...judgment.ascCase.slice(1),
+      ],
+    }));
+    const result = await interpretSportsEvent(event);
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(result.judgment).toBeNull();
+    expect(result.prediction.source).toBe("deterministic_evaluator");
+    expect(result.analystAudit.failureCode).toBe(
+      "SPORTS_ANALYST_UNSUPPORTED_CITATION"
+    );
+  });
+
+  it("requires all contradictions and validates admissible rule IDs", async () => {
+    mockResponse();
+    const { analyst } = await interpretSportsEvent(event);
+    const valid = reply(analyst);
+    expect(() =>
+      validateAnalystJudgment(analyst, {
+        ...valid,
+        contradictionsAddressed: [],
+      })
+    ).toThrow("SPORTS_ANALYST_MISSING_CONTRADICTIONS");
+    const [first, ...rest] = valid.contradictionsAddressed;
+    expect(() =>
+      validateAnalystJudgment(analyst, {
+        ...valid,
+        contradictionsAddressed: [
+          { ...first, resolution: "rule", citedRuleId: "UNKNOWN" },
+          ...rest,
+        ],
+      })
+    ).toThrow("SPORTS_ANALYST_UNSUPPORTED_RULE");
+    expect(
+      validateAnalystJudgment(analyst, { ...valid, confidence: 0.99 }).metrics
+        .confidenceOutsideBand
+    ).toBe(true);
+  });
+
+  it("returns the local result after a provider failure", async () => {
+    vi.mocked(invokeLLM).mockRejectedValue(new Error("provider unavailable"));
+    const result = await interpretSportsEvent(event);
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(result.analystAudit.status).toBe("provider");
+    expect(result.prediction.source).toBe("deterministic_evaluator");
   });
 });

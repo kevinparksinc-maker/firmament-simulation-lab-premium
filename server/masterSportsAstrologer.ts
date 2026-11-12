@@ -2,32 +2,23 @@ import { getPregameConditions } from "./pregameConditions";
 import type { SimulationEventInput } from "./engine/simulationAdapter";
 import { runSimulationEvent } from "./engine/simulationAdapter";
 import { invokeLLM } from "./_core/llm";
-import { z } from "zod";
-import { buildSportsIntelligence, validateSportsCitations } from "./engine/sportsIntelligence";
+import { buildSportsAdjudication, validateAnalystJudgment, type AnalystJudgment } from "./engine/sportsAdjudication";
 
-/**
- * Sports interpretation is downstream of the deterministic Simulation Lab.
- * The language model must not calculate or overwrite scores.
- */
-export const MASTER_SPORTS_ASTROLOGER_SYSTEM = [
-  "You are the Master Sports Prediction Strategist for Firmament Simulation Lab Premium. Your job is to synthesize every available calculated sports method into a decisive, auditable contest judgment, not a natal personality reading.",
-  "Use the engine's astronomical Cartesian XYZ vectors and custom fixed-firmament XY projection. Agent ASC is the recorded sunrise-anchored Sun XY angle advanced by the engine's 15 degrees per elapsed UTC hour convention. Do not replace this with tropical/sidereal zodiac, ayanamsa, or conventional ascendant calculations.",
-  "Team A is the Ascendant side (houses 1, 2, 3, 6, 10, 11); Team B is the Descendant side (houses 4, 5, 7, 8, 9, 12). Use recorded favorite/underdog assignments; never silently swap teams or sides.",
-  "Interpret the Agent View relationship graph and Guardian house meanings: explain both teams’ six houses, their cusp rulers, each ruler’s actual placement and whether it crosses into opposing territory; distinguish occupancy from rulership. Follow the graph’s rules and occupies edges to trace every ruled house, including dual-sign rulers (Mercury, Venus, Mars, Jupiter, Saturn) and mixed-team ownership; explain each ruled-house-to-placement-house connection. Treat imported Canon as interpretive evidence and do not silently award extra points or invent causation.",
-  "Read ALL supplied evidence before judging: God View, Agent View, joint synthesis, core method ledger, additional registered methods, experimental/evidence-only layers, house and planetary strengths, exact aspects and geometry, lunar mansion indications, Nodes, Pluto, timing, and method disagreements. Explain the impact of each applicable method in a compact but specific way. Clearly mark unavailable methods; never invent their results.",
-  "Respect the engine's official 21-method core scoring and any other explicitly recorded score eligibility. Do not silently add evidence-only or experimental metrics into official totals. Quote exact team scores, method names, weights and margins as computed, not fabricated.",
-  "Give both sides a fair hearing: identify strongest support for A, strongest support for B, and the decisive cross-frame convergences. Explain conflicts, weak signals, and whether God View and Agent View agree. Use Guardian’s harmonious conjunction doctrine when interpreting contacts. The archived Premium friction method uses its own conjunction scoring. Reconcile that recorded difference and preserve the score. Minor aspects have half major weight when the ledger specifies this. Never recompute or override engine values.",
-  "If verified pregame weather, wind, field conditions, injuries, roster availability or market favorite data are present, explain their relevance separately from astrological evidence. If absent, say NOT VERIFIED. Severe weather or major unknown player availability should trigger a caution/no-bet research flag, not an invented fact.",
-  "For totals, discuss over/under only if the record includes relevant evidence: friction can support a lower-scoring interpretation and flow a higher-scoring interpretation, but do not invent a betting line or certainty.",
-  "Make an independent intellectual judgment, not a paraphrase of a predetermined arithmetic winner. Compare relevant methods by interpretive significance and corroboration rather than blindly counting points. State what testimony is decisive, what contradicts it, and what would change your judgment. Do not pretend uncalculated timing or receptions are known.",
-  "The 21-method arithmetic synthesis is an independent comparison baseline, NOT a mandatory winner. You must reach your own evidence-grounded conclusion and may disagree with its winner or tie threshold. Explain why when you disagree. Invalid or missing chart evidence requires NO PICK, not invented testimony. Never treat symbolic scores as win probabilities.",
-  "HORARY-STYLE QUESTION FIRST: Understand the actual contest question, the teams, the kickoff or tipoff moment, and whether the user seeks a winner, timing, or total. Do not answer a generic sports question. Map the question to relevant ASC/DSC territories, house rulers, the Moon, applying and separating contacts, receptions and dispositors when calculated, and verified real-world conditions.",
-  "HORARY-STYLE TESTIMONY HIERARCHY: Read the complete evidence ledger, rank the strongest 2–5 decisive testimonies, then identify corroborating evidence, contradictions, obstacles, delays, and missing calculations. Give God View and Agent View distinct interpretations before cross-frame synthesis. Secondary mansions, decans, stars and experimental methods refine rather than arbitrarily overrule primary testimony. Never invent receptions, perfection or timing that the engine did not calculate.",
-  "MASTER INTERPRETER STANDARD: Calculate deeply, judge hierarchically, interpret humanly. The calculation engine calculates; you interpret. Explain how each decisive factor could matter for this specific game in direct, clear language, not a degree dump or a generic template. The final answer must cover JUDGMENT, WHY, WHAT COMPLICATES IT, WHAT IT MEANS FOR THIS MATCHUP, and PRACTICAL NEXT STEP, while preserving the strict JSON response contract.",
-  "FOLLOW-UP CONTINUITY: For follow-up questions about the same matchup, reuse the original event chart and supplied evidence; do not silently recalculate for a different moment. Distinguish newly verified pregame information from original chart evidence. Do not manufacture certainty, probabilities, personal knowledge, or a wager recommendation.",
-  "FINAL PRESENTATION: Give the user the selected team or NO PICK first, followed by a cohesive, plain-language explanation of WHY. Internally consider every supplied method and its relationships, but do NOT dump method tables, raw degree lists, scores, or a method-by-method inventory into the user-facing reasoning. Highlight only the strongest convergences, the most meaningful contrary evidence, and the deciding rationale. Keep exact calculations in the separate structured evidence payload for optional inspection.",
-  "Never use actualWinner, hit/miss verdicts, historical outcomes or postgame data as evidence for a pregame prediction. Never invent placements, missing data, method counts, injuries, weather, lines, scores or probabilities. This is an experimental prediction framework, not a guarantee of results or a directive to wager.",
-].join("\n");
+export const MASTER_SPORTS_ASTROLOGER_SYSTEM = `
+You judge a sports matchup from an evidence package that has already been evaluated. Treat the package as the complete source for astrological claims. Compare the evidence without calculating placements, changing scores, or applying rules from memory. Keep reported physical conditions separate. Prior conversation may clarify the question; it cannot supply chart facts or outcomes.
+
+Build both teams' cases using their strongest applicable items. BOTH is mixed testimony and cannot be counted twice as independent support. Address every contradiction exactly once. Apply its supplied rule only when the ledger names it. Otherwise explain the judgment call and give a null rule ID. Compare the decisive relationship to the strongest opposition. Close or insufficient cases can be NO_PICK with a null decisive factor. Confidence is a symbolic judgment indicator, never a probability.
+
+Return JSON only with these exact fields:
+predictedWinner: "ASC" | "DSC" | "NO_PICK";
+confidence: number from 0 to 1;
+ascCase, dscCase: arrays of up to 3 {evidenceId, claim}, include at least 2 when available;
+contradictionsAddressed: array of {contradictionId, resolution: "rule" | "judgment", citedRuleId: string | null, reasoning};
+decisiveFactor: {evidenceId, why} | null;
+opposingEvidence: {evidenceId, whyItDoesNotOutweigh} | null;
+confidenceBasis: string.
+Each evidence ID is an exact supplied EV ID. Put IDs in the structured fields only. Keep each explanation within 340 characters. Discuss only facts supported by the cited item. If the chart is unusable, return NO_PICK. Do not use postgame outcomes or give wager instructions.
+`.trim();
 
 export function sportsPregameEvidence(input: SimulationEventInput) {
   return serializePregameEvidence(runSimulationEvent({ ...input, actualWinner: undefined }));
@@ -68,64 +59,79 @@ export function translateSportsThreeWheels(evidence: ReturnType<typeof sportsPre
   };
 }
 
-export const sportsReasoningSchema = z.object({
-  selectedSide: z.enum(["A", "B", "NO_PICK"]),
-  reasoning: z.string().min(80),
-  decisiveEvidence: z.array(z.object({ frame: z.enum(["god", "agent", "cross-frame", "physical"]), method: z.string().min(1), finding: z.string().min(12), evidenceIds: z.array(z.string().min(1)).min(1) })).min(1),
-  opposingEvidence: z.string().min(20),
-  missingInformation: z.array(z.string()),
-  confidence: z.enum(["low", "moderate"]),
-  baselineAgreement: z.enum(["agree", "disagree", "baseline-unavailable"]),
-});
-export type SportsReasoningJudgment = z.infer<typeof sportsReasoningSchema>;
-function parseJudgment(raw: string): SportsReasoningJudgment {
-  let json: unknown;
-  try { json = JSON.parse(raw.replace(/^\s*```(?:json)?\s*/, "").replace(/\s*```\s*$/, "")); }
-  catch { throw new Error("SPORTS_REASONING_INVALID_JSON: AI judgment was not valid JSON."); }
-  return sportsReasoningSchema.parse(json);
+function presentJudgment(judgment: AnalystJudgment, teamASC: string, teamDSC: string) {
+  const label = judgment.predictedWinner === "ASC" ? teamASC : judgment.predictedWinner === "DSC" ? teamDSC : "No pick";
+  const cases = [[teamASC, judgment.ascCase], [teamDSC, judgment.dscCase]] as const;
+  return [
+    `**${label}**`,
+    ...cases.filter(([, claims]) => claims.length).map(([team, claims]) =>
+      `**${team}** — ${claims.map(row => `${row.claim} [${row.evidenceId}]`).join(" ")}`),
+    ...(judgment.contradictionsAddressed.length ? [`**Contradictions** — ${judgment.contradictionsAddressed.map(row =>
+      `${row.reasoning} [${row.contradictionId}]${row.citedRuleId ? ` [${row.citedRuleId}]` : ""}`).join(" ")}`] : []),
+    ...(judgment.decisiveFactor ? [`**Decisive factor** — ${judgment.decisiveFactor.why} [${judgment.decisiveFactor.evidenceId}]`] : []),
+    ...(judgment.opposingEvidence ? [`**Strongest opposition** — ${judgment.opposingEvidence.whyItDoesNotOutweigh} [${judgment.opposingEvidence.evidenceId}]`] : []),
+    judgment.confidenceBasis,
+  ].join("\n\n");
 }
+
 export async function interpretSportsEvent(input: SimulationEventInput, conversation: Array<{ role: "user" | "assistant"; content: string }> = []) {
+  const start = performance.now();
   const simulation = runSimulationEvent({ ...input, actualWinner: undefined });
   const pregameConditions = await getPregameConditions(input);
-  const intelligence = buildSportsIntelligence(simulation, pregameConditions);
+  const analyst = buildSportsAdjudication(simulation, pregameConditions);
   const evidence = { ...serializePregameEvidence(simulation), pregameConditions };
   const baseline = evidence.synthesisView;
   const threeWheels = translateSportsThreeWheels(evidence);
-  const response = await invokeLLM({
-    max_tokens: 4500,
-    singleAttempt: true,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: MASTER_SPORTS_ASTROLOGER_SYSTEM + `
-Return ONLY a JSON object with:
-selectedSide: "A" | "B" | "NO_PICK" (your OWN judgment, not dictated by numeric totals);
-reasoning: detailed independent synthesis with specific chart evidence, team names, method interactions and contradictions;
-decisiveEvidence: array of {frame: "god" | "agent" | "cross-frame" | "physical", method: exact method value from the cited row, finding: evidence-grounded explanation, evidenceIds: array of exact evidence row or relationship edge IDs in the same frame. For a relationship edge use method "chart". A shared aspect may be cited from either view};
-opposingEvidence: strongest contrary testimony;
-missingInformation: array of uncalculated/unverified facts;
-confidence: "low" | "moderate" (NOT a statistical probability);
-baselineAgreement: "agree" | "disagree" | "baseline-unavailable".
-The baseline is ${baseline.valid ? baseline.winner : "unavailable"}. Set baselineAgreement by comparing your choice to this baseline; NO_PICK corresponds to baseline TIE. Every claim must be traceable to the supplied evidence. No outcome hindsight, fabricated facts, or betting instructions.` },
-      { role: "user", content: "Judge this game from the pregame evidence package. Core, registered and experimental results carry their own score eligibility. The local ranking is an aid to evidence review.\n" + JSON.stringify(intelligence) },
-      ...conversation,
-    ],
+  const payload = JSON.stringify({
+    ...analyst,
+    question: [...conversation].reverse().find(message => message.role === "user")?.content.slice(0, 1200),
   });
-  const content = response.choices?.[0]?.message?.content;
-  const raw = typeof content === "string" ? content.trim() : Array.isArray(content) ? content.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n").trim() : "";
-  if (!raw) throw new Error("SPORTS_AI_EMPTY_RESPONSE: Provider returned no sports judgment.");
-  const judgment = parseJudgment(raw);
-  if (!baseline.valid && judgment.selectedSide !== "NO_PICK")
-    throw new Error("SPORTS_REASONING_INVALID_CHART_REQUIRES_NO_PICK");
-  const expectedAgreement = !baseline.valid ? "baseline-unavailable" :
-    (judgment.selectedSide === "NO_PICK" ? baseline.winner === "TIE" : judgment.selectedSide === baseline.winner) ? "agree" : "disagree";
-  if (judgment.baselineAgreement !== expectedAgreement)
-    throw new Error("SPORTS_REASONING_BASELINE_COMPARISON_INVALID");
-  validateSportsCitations(intelligence, judgment.decisiveEvidence);
-  const team = judgment.selectedSide === "A" ? evidence.input.teamA : judgment.selectedSide === "B" ? evidence.input.teamB : null;
+  let judgment: AnalystJudgment | null = null;
+  let metrics: ReturnType<typeof validateAnalystJudgment>["metrics"] | null = null;
+  let modelProvenance: { provider: "google-gemini"; model: string } | null = null;
+  let usage: Awaited<ReturnType<typeof invokeLLM>>["usage"];
+  let failure: "provider" | "invalid-judgment" | "unusable-chart" | null = null;
+  let failureCode: string | undefined;
+  let requestCount = 0;
+
+  if (analyst.chartUsable) {
+    try {
+      requestCount += 1;
+      const response = await invokeLLM({
+        max_tokens: 2600,
+        singleAttempt: true,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: MASTER_SPORTS_ASTROLOGER_SYSTEM }, { role: "user", content: payload }],
+      });
+      modelProvenance = { provider: "google-gemini", model: response.model };
+      usage = response.usage;
+      const content = response.choices?.[0]?.message?.content;
+      const raw = typeof content === "string" ? content : content?.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "";
+      const validated = validateAnalystJudgment(analyst, JSON.parse(raw.trim().replace(/^\x60\x60\x60(?:json)?\s*/, "").replace(/\s*\x60\x60\x60$/, "")));
+      judgment = validated.result;
+      metrics = validated.metrics;
+    } catch (error) {
+      failure = modelProvenance ? "invalid-judgment" : "provider";
+      const code = error instanceof Error ? error.message.match(/^SPORTS_[A-Z_]+/)?.[0] : undefined;
+      failureCode = code ?? (failure === "provider" ? "SPORTS_ANALYST_PROVIDER_ERROR" : "SPORTS_ANALYST_INVALID_RESPONSE");
+    }
+  } else {
+    failure = "unusable-chart";
+    failureCode = "SPORTS_ANALYST_UNUSABLE_CHART";
+  }
+
+  const decided = judgment?.predictedWinner ?? (analyst.chartUsable ? analyst.ranking.lean : "NO_PICK");
+  const selectedSide = decided === "ASC" ? "A" : decided === "DSC" ? "B" : "NO_PICK";
+  const team = selectedSide === "A" ? evidence.input.teamA : selectedSide === "B" ? evidence.input.teamB : null;
+  const interpretation = judgment
+    ? presentJudgment(judgment, evidence.input.teamA, evidence.input.teamB)
+    : `**${team ?? "No pick"}**\n\n${failure === "unusable-chart" ? "Chart parity did not pass." : "AI adjudication was unavailable. This is the local evidence evaluator’s result."}`;
   return {
-    evidence, threeWheels, intelligence, modelProvenance: { provider: "google-gemini" as const, model: response.model }, judgment,
-    prediction: { selectedSide: judgment.selectedSide, team, source: "independent_ai_reasoning" as const },
+    evidence, threeWheels, analyst, modelProvenance, judgment,
+    analystAudit: { status: failure ?? "accepted", failureCode, metrics, usage, requestCount,
+      evidenceBytes: Buffer.byteLength(payload), latencyMs: Math.round(performance.now() - start) },
+    prediction: { selectedSide, team, source: judgment ? "independent_ai_reasoning" as const : "deterministic_evaluator" as const },
     baseline: { winner: baseline.winner, scoreA: baseline.scoreA, scoreB: baseline.scoreB, valid: baseline.valid },
-    interpretation: judgment.reasoning,
+    interpretation,
   };
 }
