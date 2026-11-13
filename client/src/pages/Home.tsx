@@ -577,6 +577,16 @@ export default function Home() {
 
       {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><span><b>Cartesian XYZ + sunrise</b><small>Sun XY angle at sunrise + elapsed hours × 15°. Equal houses every 30°.</small></span></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
 
+      {/* Primary product experience: live and upcoming fixtures */}
+      <section className="mb-4 rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-4"><h2 className="text-xl font-bold text-white">Live & Upcoming Games</h2><p className="text-sm text-slate-300">Select a scheduled or live matchup to open its event chart. The historical research tools remain below.</p><div className="mt-3 flex flex-wrap gap-2"><a href="#live-scoreboard" className="rounded-lg bg-cyan-500 px-3 py-2 text-sm font-bold text-slate-950">Browse games</a><a href="#quick-game-sim" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-white">Manual game entry</a></div></section>
+      {/* Live scoreboard feed */}
+      <div id="live-scoreboard">
+        {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}><MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} /></Suspense>}
+      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="NCAAB">College basketball</option><option value="NBA">NBA</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
+        {liveGames.error && <p role="alert" className="text-rose-300">{liveGames.error.message}</p>}
+        <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
+      </div>
+
       {/* QUICK GAME SIMULATION BAR - Easy, zero-friction fixture setup */}
       <div id="quick-game-sim">
         <QuickGameSimBar
@@ -598,14 +608,6 @@ export default function Home() {
           />
         </div>
       )}
-
-      {/* Live scoreboard feed */}
-      <div id="live-scoreboard">
-        {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}><MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} /></Suspense>}
-      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="NCAAB">College basketball</option><option value="NBA">NBA</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
-        {liveGames.error && <p role="alert" className="text-rose-300">{liveGames.error.message}</p>}
-        <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
-      </div>
 
       <section className="stats-ribbon"><div><span><Activity size={14} />Synthesis status</span><strong>{simulation ? verdictCopy(simulation.synthesisView.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.synthesisView.valid ? simulation.synthesisView.winner : "TIE", simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Select a matchup"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Enter a game or choose the NFL schedule"}</small></div></section>
 
