@@ -13,6 +13,18 @@ describe("ATP/WTA scoreboard normalization",()=>{
   expect(result[0]).toMatchObject({sport:"TENNIS",teamA:"Player One",teamB:"Player Two",isLive:true,scoreA:"6 3",scoreB:"4 2",oddsStatus:"unavailable"});
   expect(result[0]?.favoriteTeam).toBeUndefined();
  });
+ it("reads ESPN groupings and formats provider set scores", () => {
+  const payload = { events: [{ groupings: [{ competitions: [{
+    id: "match-2",
+    date: "2026-11-12T20:00Z",
+    status: { type: { state: "in", shortDetail: "Set 2" } },
+    competitors: [
+      { athlete: { displayName: "Player One" }, linescores: [{ value: 6 }, { value: 3 }] },
+      { athlete: { displayName: "Player Two" }, linescores: [{ value: 4 }, { value: 2 }] },
+    ],
+  }] }] }] };
+  expect(parseTennisScoreboard(payload, "ATP")).toMatchObject([{ state: "live", scoreA: "6 3", scoreB: "4 2", period: "Set 2" }]);
+ });
  it("ignores incomplete fixtures instead of manufacturing players or dates",()=>{
   expect(parseTennisScoreboard({events:[{competitions:[{competitors:[{},{}]}]}]},"WTA")).toEqual([]);
  });

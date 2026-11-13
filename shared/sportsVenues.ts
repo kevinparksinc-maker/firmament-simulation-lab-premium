@@ -30,6 +30,14 @@ export const SPORTS_VENUES: VenueInfo[] = [
   { name: "Camp Randall Stadium", city: "Madison, WI", sport: "NCAAF", latitude: 43.0700, longitude: -89.4127, alias: ["camp randall", "wisconsin", "madison"] },
   { name: "Gaylord Family Oklahoma Memorial", city: "Norman, OK", sport: "NCAAF", latitude: 35.2059, longitude: -97.4426, alias: ["oklahoma", "norman", "sooners"] },
 
+  // NCAA basketball arenas used by the scoreboard.
+  // https://en.wikipedia.org/wiki/Reed_Arena
+  { name: "Reed Arena", city: "College Station, TX", sport: "NCAAB", latitude: 30.60578, longitude: -96.34619 },
+  // https://www.openstreetmap.org/way/83857518
+  { name: "Marriott Center", city: "Provo, UT", sport: "NCAAB", latitude: 40.25407, longitude: -111.64936 },
+  // https://en.wikipedia.org/wiki/Don_Haskins_Center
+  { name: "Don Haskins Center", city: "El Paso, TX", sport: "NCAAB", latitude: 31.777608, longitude: -106.505718 },
+
   // NFL Stadiums
   { name: "Arrowhead Stadium (GEHA Field)", city: "Kansas City, MO", sport: "NFL", latitude: 39.0489, longitude: -94.4839, alias: ["arrowhead", "kansas city", "chiefs"] },
   { name: "Lambeau Field", city: "Green Bay, WI", sport: "NFL", latitude: 44.5013, longitude: -88.0622, alias: ["lambeau", "green bay", "packers"] },

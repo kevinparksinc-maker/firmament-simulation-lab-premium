@@ -1,5 +1,16 @@
 import { SPORTS_VENUES } from "../shared/sportsVenues";
-export type ScheduleSport = "MLB" | "NBA" | "NFL" | "NHL" | "MLS" | "NCAAF" | "NCAAB" | "TENNIS";
+import { SCOREBOARD_SPORTS, type ScheduleSport } from "../shared/scoreboard";
+export type { ScheduleSport } from "../shared/scoreboard";
+
+type GameState = "live" | "scheduled" | "final" | "inactive";
+
+function gameState(state?: string, status = ""): GameState {
+  if (/postpon|cancel|suspend|abandon|forfeit|delayed/i.test(status)) return "inactive";
+  if (state === "in" || state === "Live") return "live";
+  if (state === "post" || state === "Final") return "final";
+  if (state === "pre" || state === "Preview") return "scheduled";
+  return "inactive";
+}
 
 export type ScheduledGame = {
   id: string;
@@ -21,6 +32,8 @@ export type ScheduledGame = {
   oddsStatus: "available" | "unavailable";
   oddsUpdatedAt?: string;
   isLive?: boolean;
+  state: GameState;
+  timeConfirmed?: boolean;
   scoreA?: string;
   scoreB?: string;
   period?: string;
@@ -42,6 +55,7 @@ export function coordinatesFor(venue: string) {
   if (venueCoordinates[venue]) return venueCoordinates[venue];
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
   const key = normalize(venue);
+  if (!key) return undefined;
   const known = SPORTS_VENUES.find(item => normalize(item.name) === key || normalize(item.name.split(" (")[0]) === key || key.includes(normalize(item.name.split(" (")[0])) || item.alias?.some(alias => normalize(alias) === key));
   return known ? [known.latitude, known.longitude] as [number,number] : undefined;
 }
@@ -60,6 +74,8 @@ async function fetchJson(url: string) {
 
 async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
   const payload = await fetchJson(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=venue,team`);
+  const games = payload.dates?.flatMap((entry: any) => entry.games ?? []) ?? [];
+  if (games.length === 0) return [];
   const oddsPayload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${dateKey(date)}`).catch(() => ({ events: [] }));
   const oddsByMatchup = new Map<string, any>();
   for (const event of oddsPayload.events ?? []) {
@@ -68,7 +84,6 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
     const home = competition?.competitors?.find((item: any) => item.homeAway === "home")?.team?.displayName;
     if (away && home) oddsByMatchup.set(`${away}|${home}`, competition);
   }
-  const games = payload.dates?.flatMap((entry: any) => entry.games ?? []) ?? [];
   return games.map((game: any) => {
     const venue = game.venue?.name ?? game.teams?.home?.team?.venue?.name ?? "Venue unavailable";
     const [latitude, longitude] = coordinatesFor(venue) ?? [];
@@ -77,7 +92,8 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
     const competition = oddsByMatchup.get(`${away}|${home}`);
     const odds = competition?.odds?.[0];
     const favoriteTeam = odds?.homeTeamOdds?.favorite ? home : odds?.awayTeamOdds?.favorite ? away : undefined;
-    const state = game.status?.abstractGameState;
+    const status = game.status?.detailedState ?? "Status unavailable";
+    const state = gameState(game.status?.abstractGameState, status);
     return {
       id: `mlb-${game.gamePk}`,
       sport: "MLB" as const,
@@ -87,7 +103,9 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
       location: game.teams.home.team.locationName ? `${game.teams.home.team.locationName}, ${game.teams.home.team.parentOrgName ?? "USA"}` : venue,
       ...(latitude !== undefined ? { latitude, longitude } : {}),
       startTime: game.gameDate,
-      status: game.status?.detailedState ?? "Scheduled",
+      status,
+      state,
+      timeConfirmed: game.status?.startTimeTBD !== true,
       source: "MLB Stats API + ESPN odds",
       favoriteTeam,
       underdogTeam: favoriteTeam ? (favoriteTeam === home ? away : home) : undefined,
@@ -96,9 +114,9 @@ async function mlbSchedule(date: string): Promise<ScheduledGame[]> {
       oddsProvider: odds?.provider?.displayName ?? "ESPN odds feed",
       oddsStatus: favoriteTeam ? "available" : "unavailable",
       ...(favoriteTeam ? { oddsUpdatedAt: new Date().toISOString() } : {}),
-      isLive: state === "Live",
-      scoreA: String(game.teams.away.score ?? "0"),
-      scoreB: String(game.teams.home.score ?? "0"),
+      isLive: state === "live",
+      scoreA: game.teams.away.score?.toString(),
+      scoreB: game.teams.home.score?.toString(),
       period: game.status?.detailedState ?? "Scheduled",
     };
   });
@@ -114,38 +132,50 @@ async function espnSchedule(sport: Exclude<ScheduleSport, "MLB" | "TENNIS">, dat
     NCAAB: "basketball/mens-college-basketball",
   };
   const path = paths[sport];
-  const payload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${dateKey(date)}`);
-  return (payload.events ?? []).map((event: any) => {
+  // ESPN's default college scoreboards can omit games outside the ranked slate.
+  const group = sport === "NCAAB" ? "&groups=50&limit=1000" : sport === "NCAAF" ? "&groups=80&limit=1000" : "";
+  const payload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${dateKey(date)}${group}`);
+  return (payload.events ?? []).flatMap((event: any): ScheduledGame | [] => {
     const competition = event.competitions?.[0];
     const competitors = competition?.competitors ?? [];
     const away = competitors.find((team: any) => team.homeAway === "away") ?? competitors[1];
     const home = competitors.find((team: any) => team.homeAway === "home") ?? competitors[0];
     const venue = competition?.venue?.fullName ?? "Venue unavailable";
     const city = competition?.venue?.address?.city;
-    const state = event.status?.type?.state;
+    const type = competition?.status?.type ?? event.status?.type;
+    const status = type?.shortDetail ?? type?.description ?? "Status unavailable";
+    const state = gameState(type?.state, [type?.name, status].join(" "));
+    const start = new Date(competition?.date ?? event.date);
+    const teamA = away?.team?.displayName;
+    const teamB = home?.team?.displayName;
+    if (!teamA || !teamB || !Number.isFinite(start.getTime())) return [];
+    const odds = competition?.odds?.[0];
+    const favoriteTeam = odds?.homeTeamOdds?.favorite === true ? teamB : odds?.awayTeamOdds?.favorite === true ? teamA : undefined;
     const coordinates = coordinatesFor(venue);
     return {
       id: `${sport.toLowerCase()}-${event.id}`,
       sport,
-      teamA: away?.team?.displayName ?? "Away team",
-      teamB: home?.team?.displayName ?? "Home team",
+      teamA,
+      teamB,
       venue,
       location: city ? [city, competition?.venue?.address?.state ?? competition?.venue?.address?.country].filter(Boolean).join(", ") : venue,
-      startTime: new Date(event.date).toISOString(),
-      status: event.status?.type?.shortDetail ?? "Scheduled",
+      startTime: start.toISOString(),
+      status,
+      state,
+      timeConfirmed: competition?.timeValid !== false,
       source: "ESPN schedule feed",
       ...(coordinates ? {latitude:coordinates[0],longitude:coordinates[1]} : {}),
-      favoriteTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite ? home?.team?.displayName : competition?.odds?.[0]?.awayTeamOdds?.favorite ? away?.team?.displayName : undefined,
-      underdogTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite ? away?.team?.displayName : competition?.odds?.[0]?.awayTeamOdds?.favorite ? home?.team?.displayName : undefined,
-      homeMoneyline: competition?.odds?.[0]?.moneyline?.home?.close?.odds,
-      awayMoneyline: competition?.odds?.[0]?.moneyline?.away?.close?.odds,
-      oddsProvider: competition?.odds?.[0]?.provider?.displayName ?? "ESPN odds feed",
-      oddsStatus: competition?.odds?.[0]?.homeTeamOdds?.favorite || competition?.odds?.[0]?.awayTeamOdds?.favorite ? "available" : "unavailable",
-      ...(competition?.odds?.[0] ? { oddsUpdatedAt: new Date().toISOString() } : {}),
-      isLive: state === "in",
-      scoreA: away?.score ?? "0",
-      scoreB: home?.score ?? "0",
-      period: event.status?.type?.shortDetail ?? event.status?.type?.detail ?? "Scheduled",
+      favoriteTeam,
+      underdogTeam: favoriteTeam ? (favoriteTeam === teamB ? teamA : teamB) : undefined,
+      homeMoneyline: odds?.moneyline?.home?.close?.odds,
+      awayMoneyline: odds?.moneyline?.away?.close?.odds,
+      oddsProvider: odds?.provider?.displayName ?? odds?.provider?.name ?? "ESPN odds feed",
+      oddsStatus: favoriteTeam ? "available" : "unavailable",
+      ...(odds ? { oddsUpdatedAt: new Date().toISOString() } : {}),
+      isLive: state === "live",
+      scoreA: away?.score?.toString(),
+      scoreB: home?.score?.toString(),
+      period: type?.shortDetail ?? type?.detail,
     };
   });
 }
@@ -168,19 +198,26 @@ export function parseTennisScoreboard(payload: any, tour: "ATP" | "WTA"): Schedu
         const id = `tennis-${tour.toLowerCase()}-${node.id ?? parent?.id ?? `${left}-${right}-${date}`}`;
         if (!seen.has(id)) {
           seen.add(id);
-          const state = node.status?.type?.state ?? parent?.status?.type?.state ?? "pre";
+          const type = node.status?.type;
+          const status = type?.shortDetail ?? type?.description ?? "Status unavailable";
+          const state = gameState(type?.state, [type?.name, status].join(" "));
           const venue = node.venue?.fullName ?? parent?.venue?.fullName ?? parent?.name ?? "Tennis venue unavailable";
-          const score = (c:any) => c?.score == null ? "—" : String(c.score);
+          const score = (competitor: any) => {
+            if (competitor?.score != null) return String(competitor.score);
+            const sets = (competitor?.linescores ?? []).flatMap((set: any) =>
+              Number.isFinite(set.value) ? [String(set.value)] : []);
+            return sets.length > 0 ? sets.join(" ") : undefined;
+          };
           const eventName = parent?.name ?? parent?.shortName ?? tour;
           found.push({id,sport:"TENNIS",teamA:left,teamB:right,venue,location:venue,
-            startTime:parsedDate.toISOString(),status:node.status?.type?.shortDetail ?? parent?.status?.type?.shortDetail ?? "Scheduled",
-            source:`ESPN ${tour} tennis scoreboard`,oddsStatus:"unavailable",isLive:state==="in",
+            startTime:parsedDate.toISOString(),status,state,timeConfirmed:node.timeValid !== false,
+            source:`ESPN ${tour} tennis scoreboard`,oddsStatus:"unavailable",isLive:state==="live",
             scoreA:score(first),scoreB:score(second),
-            period:node.status?.type?.detail ?? `${tour} · ${eventName}`});
+            period:type?.shortDetail ?? type?.detail ?? `${tour} · ${eventName}`});
         }
       }
     }
-    for (const field of ["events","competitions","matches","draws","groups"]) {
+    for (const field of ["events","competitions","matches","draws","groups","groupings"]) {
       const children = node[field];
       if (Array.isArray(children)) for (const child of children) visit(child,node,depth+1);
     }
@@ -195,26 +232,91 @@ async function tennisSchedule(date:string): Promise<ScheduledGame[]> {
     const payload = await fetchJson(`https://site.api.espn.com/apis/site/v2/sports/tennis/${tour}/scoreboard?dates=${dateKey(date)}`);
     return parseTennisScoreboard(payload,tour.toUpperCase() as "ATP"|"WTA");
   }));
+  if (results.every(result => result.status === "rejected")) throw new Error("Tennis feeds unavailable");
   return results.flatMap(result => result.status==="fulfilled" ? result.value : []);
 }
 
+function scheduleForSport(sport: ScheduleSport, date: string) {
+  if (sport === "MLB") return mlbSchedule(date);
+  if (sport === "TENNIS") return tennisSchedule(date);
+  return espnSchedule(sport, date);
+}
+
 export async function listScheduledGames(date: string, sport: ScheduleSport | "ALL" = "ALL") {
-  const sports: ScheduleSport[] = sport === "ALL" ? ["MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"] : [sport];
-  const results = await Promise.allSettled(sports.map((item) => item === "MLB" ? mlbSchedule(date) : item === "TENNIS" ? tennisSchedule(date) : espnSchedule(item, date)));
+  const sports = sport === "ALL" ? SCOREBOARD_SPORTS : [sport];
+  const results = await Promise.allSettled(sports.map(item => scheduleForSport(item, date)));
   if (results.every(result => result.status === "rejected")) throw new Error("SCHEDULE_FEED_UNAVAILABLE: The schedule provider could not be reached. Refresh or enter the matchup manually.");
-  return results.flatMap((result) => result.status === "fulfilled" ? result.value : []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  return results.flatMap(result => result.status === "fulfilled" ? result.value : []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+const scoreboardCache = new Map<string, { expiresAt: number; games: Promise<ScheduledGame[]> }>();
+
+function cachedScoreboard(sport: ScheduleSport, date: string) {
+  const key = `${sport}:${date}`;
+  const now = Date.now();
+  const cached = scoreboardCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.games;
+
+  scoreboardCache.forEach((entry, entryKey) => {
+    if (entry.expiresAt <= now) scoreboardCache.delete(entryKey);
+  });
+  if (scoreboardCache.size >= 96) {
+    const oldest = scoreboardCache.keys().next().value;
+    if (oldest) scoreboardCache.delete(oldest);
+  }
+  const games = scheduleForSport(sport, date).catch(error => {
+    if (scoreboardCache.get(key)?.games === games) scoreboardCache.delete(key);
+    throw error;
+  });
+  scoreboardCache.set(key, { games, expiresAt: now + 25_000 });
+  return games;
+}
+
+function adjacentDates(date: string) {
+  return [-1, 0, 1].map(offset => {
+    const day = new Date(`${date}T12:00:00Z`);
+    day.setUTCDate(day.getUTCDate() + offset);
+    return day.toISOString().slice(0, 10);
+  });
+}
+
+export async function listScoreboard(date: string, sport: ScheduleSport | "ALL", timeZone: string) {
+  const formatDate = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "2-digit", day: "2-digit", timeZone });
+  const [year, month, day] = date.split("-");
+  const localDate = `${month}/${day}/${year}`;
+  const sports = sport === "ALL" ? SCOREBOARD_SPORTS : [sport];
+  const dates = adjacentDates(date);
+  const unavailable = new Set<ScheduleSport>();
+  const fixtures = new Map<string, ScheduledGame>();
+  await Promise.all(sports.map(async item => {
+    const results = await Promise.allSettled(dates.map(day => cachedScoreboard(item, day)));
+    if (results.some(result => result.status === "rejected")) unavailable.add(item);
+    // Prefer the requested date's record when feeds overlap.
+    for (const index of [0, 2, 1]) {
+      const result = results[index];
+      if (result.status === "fulfilled") {
+        for (const game of result.value) fixtures.set(game.id, game);
+      }
+    }
+  }));
+
+  const games = Array.from(fixtures.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const now = new Date();
+  return {
+    live: formatDate.format(now) === localDate ? games.filter(game => game.state === "live") : [],
+    upcoming: games.filter(game => game.state === "scheduled" && formatDate.format(new Date(game.startTime)) === localDate &&
+      (game.timeConfirmed === false || Date.parse(game.startTime) > now.getTime())),
+    unavailableSports: sports.filter(item => unavailable.has(item)),
+    updatedAt: now.toISOString(),
+  };
 }
 
 export async function listLiveGames(date: string) {
-  const currentDate = new Date(`${date}T12:00:00.000Z`);
-  currentDate.setUTCDate(currentDate.getUTCDate() - 1);
-  const previousDate = currentDate.toISOString().slice(0, 10);
+  const [previousDate] = adjacentDates(date);
   const [games, previousGames] = await Promise.all([
     listScheduledGames(date, "ALL"),
     listScheduledGames(previousDate, "ALL"),
   ]);
-  const liveGames = [...games, ...previousGames].filter((game) => game.isLive);
-  // Keep the rail useful during quiet windows. The UI labels these as Upcoming;
-  // they are never treated as live events by the calculation handoff.
-  return liveGames.length > 0 ? liveGames : games.slice(0, 12);
+  const unique = new Map([...previousGames, ...games].map(game => [game.id, game]));
+  return Array.from(unique.values()).filter(game => game.isLive);
 }

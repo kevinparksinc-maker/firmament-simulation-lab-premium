@@ -1,0 +1,207 @@
+.game-scoreboard {
+  margin-top: 24px;
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid #284157;
+  border-radius: 20px;
+  background: #0c1726;
+}
+
+.scoreboard-heading,
+.scoreboard-card-top,
+.scoreboard-teams > div,
+.scoreboard-read {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scoreboard-heading h1 {
+  color: #f2f8ff;
+  font-family: "Instrument Sans", sans-serif;
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  line-height: 1.1;
+}
+
+.scoreboard-refresh,
+.scoreboard-views button,
+.scoreboard-sports button,
+.scoreboard-dates button {
+  min-height: 44px;
+  border: 1px solid #30465e;
+  border-radius: 9px;
+  padding: 8px 12px;
+  color: #c3d4e5;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.scoreboard-refresh,
+.scoreboard-views button,
+.scoreboard-empty button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.scoreboard-refresh:disabled { opacity: .7; }
+
+.scoreboard-views {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.scoreboard-views button {
+  background: #111f31;
+  font-size: 15px;
+}
+
+.scoreboard-views button[aria-pressed="true"] {
+  border-color: #83efff;
+  background: #a0f4ff;
+  color: #082431;
+}
+
+.scoreboard-views small {
+  border-radius: 99px;
+  padding: 1px 7px;
+  background: #245365;
+  color: #fff;
+  font-size: 11px;
+}
+
+.scoreboard-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #46ce9a;
+}
+
+.scoreboard-sports,
+.scoreboard-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.scoreboard-sports button[aria-pressed="true"],
+.scoreboard-dates button[aria-pressed="true"] {
+  border-color: #65b7cc;
+  background: #173849;
+  color: #c7f6ff;
+}
+
+.game-scoreboard button:focus-visible,
+.game-tools a:focus-visible {
+  outline: 2px solid #a0f4ff;
+  outline-offset: 3px;
+}
+
+.scoreboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 245px), 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.scoreboard-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #294058;
+  border-radius: 12px;
+  padding: 14px;
+  background: #111f31;
+}
+
+.scoreboard-card-top {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: #afc4d9;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.scoreboard-card-top .scoreboard-in-play { color: #76efbb; }
+.scoreboard-teams { display: grid; gap: 6px; }
+.scoreboard-teams strong { color: #f1f6ff; font-size: 15px; }
+.scoreboard-teams b { color: #f1f6ff; font-size: 18px; font-variant-numeric: tabular-nums; }
+.scoreboard-venue,
+.scoreboard-updated { color: #a3b8ce; font-size: 12px; }
+
+.scoreboard-read {
+  min-height: 44px;
+  margin-top: auto;
+  border: 1px solid #3b667e;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #152f43;
+  color: #bcf4ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.scoreboard-read:hover:not(:disabled) { background: #21455c; }
+.scoreboard-read:disabled { opacity: .65; }
+.scoreboard-updated { margin-top: 16px; }
+.scoreboard-notice { margin-top: 12px; color: #ffd997; font-size: 13px; }
+
+.scoreboard-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  border: 1px dashed #30465e;
+  border-radius: 12px;
+  padding: 22px 12px;
+  color: #cad9e8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.scoreboard-empty button { min-height: 44px; color: #a0f4ff; font-weight: 650; }
+
+.scoreboard-coordinates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  color: #c3d4e5;
+  font-size: 12px;
+}
+
+.scoreboard-coordinates p,
+.scoreboard-coordinates button { grid-column: 1 / -1; }
+
+.scoreboard-coordinates input {
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid #52708d;
+  border-radius: 6px;
+  padding: 7px;
+  color: #fff;
+}
+
+.game-tools { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 16px; }
+
+.game-tools a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: #b6d4ed;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 550px) {
+  .game-scoreboard { margin-top: 12px; }
+  .scoreboard-sports { flex-wrap: nowrap; overflow-x: auto; padding: 3px; }
+  .scoreboard-sports button { flex-shrink: 0; }
+}

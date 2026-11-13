@@ -38,8 +38,7 @@ export type QuickGameInput = {
 type Props = {
   isPending: boolean;
   onSimulate: (input: QuickGameInput) => Promise<void>;
-  activeSimulationTeamA?: string;
-  activeSimulationTeamB?: string;
+  initiallyOpen?: boolean;
 };
 
 function formatDatetimeLocal(date: Date) {
@@ -52,8 +51,8 @@ function formatDatetimeLocal(date: Date) {
   return `${year}-${month}-${day}T${hours}:${mins}`;
 }
 
-export function QuickGameSimBar({ isPending, onSimulate }: Props) {
-  const [isOpen, setIsOpen] = useState(true);
+export function QuickGameSimBar({ isPending, onSimulate, initiallyOpen = true }: Props) {
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
 
   // Form State
   const [sport, setSport] = useState<QuickGameInput["sport"]>("NFL");

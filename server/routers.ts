@@ -9,7 +9,8 @@ import { createSimulationDataset, createSimulationRun, getSimulationEvents, getS
 import { parseSimulationCsv } from "./simulationData";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { listLiveGames, listScheduledGames } from "./schedules";
+import { listLiveGames, listScheduledGames, listScoreboard } from "./schedules";
+import { SCOREBOARD_SPORTS } from "../shared/scoreboard";
 import { invokeLLM } from "./_core/llm";
 import { interpretSportsEvent } from "./masterSportsAstrologer";
 import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
@@ -150,6 +151,14 @@ export const appRouter = router({
     }),
   }),
   schedules: router({
+    scoreboard: publicProcedure.input(z.object({
+      date: z.iso.date(),
+      sport: z.enum(["ALL", ...SCOREBOARD_SPORTS]),
+      timeZone: z.string().max(100).refine(value => {
+        try { new Intl.DateTimeFormat("en-US", { timeZone: value }); return true; }
+        catch { return false; }
+      }, "Invalid time zone"),
+    })).query(({ input }) => listScoreboard(input.date, input.sport, input.timeZone)),
     conditions: publicProcedure.input(eventInput).query(({input})=>getPregameConditions(input)),
     list: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), sport: z.enum(["ALL", "MLB", "NBA", "NFL", "NHL", "MLS", "NCAAF", "NCAAB", "TENNIS"]).default("ALL") })).query(({ input }) => listScheduledGames(input.date, input.sport)),
     live: publicProcedure.input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(({ input }) => listLiveGames(input.date)),

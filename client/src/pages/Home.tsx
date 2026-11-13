@@ -1,3 +1,4 @@
+import type { ScheduledGame } from "../../../server/schedules";
 import type { SimulationEventInput } from "../../../server/engine/simulationAdapter";
 import { compareFrameMethods, summarizeMethodComparison } from "@/lib/crossFrameMethods";
 import { lazy, Suspense, useMemo, useState } from "react";
@@ -17,17 +18,14 @@ import {
   Flame,
   Gauge,
   Layers3,
-  LoaderCircle,
   MapPin,
   Orbit,
-  Play,
   Radar,
   Settings2,
   ShieldCheck,
   Sparkles,
   Target,
   Trophy,
-  Waves,
   X,
   Zap,
 } from "lucide-react";
@@ -38,6 +36,7 @@ import { QuickGameSimBar, type QuickGameInput } from "@/components/QuickGameSimB
 import { SportsbookCallBanner } from "@/components/SportsbookCallBanner";
 import { downloadResultBundle } from "@/components/ResearchWorkbench";
 import { VedicDiamondChart } from "@/components/VedicDiamondChart";
+import { GameScoreboard, type VenueCoordinates } from "@/components/GameScoreboard";
 
 const MasterSportsAstrologer = lazy(() => import("@/components/MasterSportsAstrologer").then(module => ({ default: module.MasterSportsAstrologer })));
 
@@ -147,35 +146,6 @@ function FrameGlyph({ kind }: { kind: "god" | "agent" }) {
 
 function StatusPill({ verdict, children }: { verdict?: Verdict; children: React.ReactNode }) {
   return <span className={`status-pill ${verdict ? `status-${verdict}` : ""}`}>{children}</span>;
-}
-
-type LiveGame = {
-  id: string;
-  sport: string;
-  teamA: string;
-  teamB: string;
-  location: string;
-  startTime: string;
-  status: string;
-  source: string;
-  isLive?: boolean;
-  scoreA?: string;
-  scoreB?: string;
-  period?: string;
-  favoriteTeam?: string;
-  underdogTeam?: string;
-  oddsStatus?: "available" | "unavailable";
-  latitude?: number;
-  longitude?: number;
-};
-
-function LiveNowRail({ games, isLoading, selectedId, onRefresh, onSelect }: { games: LiveGame[]; isLoading: boolean; selectedId?: string; onRefresh: () => void; onSelect: (game: LiveGame) => void }) {
-  const hasLiveGames = games.some((game) => game.isLive);
-  return <section className="live-now-rail">
-    <div className="live-now-heading"><div><div className="live-kicker"><span />{hasLiveGames ? "LIVE NOW" : "NEXT UP"} · AUTO-REFRESH 60S</div><h2>{hasLiveGames ? "Games in play across the major sports" : "Next games across the major sports"}</h2><p>Tennis displays player matches and supplied scores. Scoreboard data is separate from the Firmament interpretation engine. Select a game when you want to open it as a research event.</p></div><button className="live-refresh" onClick={onRefresh}><LoaderCircle size={14} className={isLoading ? "spin" : ""} />{isLoading ? "Syncing" : "Refresh feed"}</button></div>
-    <div className="live-game-track">{isLoading && games.length === 0 ? <div className="live-empty"><LoaderCircle size={18} className="spin" /><span>Checking the live scoreboard…</span></div> : games.length === 0 ? <div className="live-empty"><CircleDot size={18} /><span>No games were returned by the scoreboard sources.</span><small>Sources: MLB Stats API + ESPN scoreboard feeds</small></div> : games.map((game) => <button className={`live-game-card ${selectedId === game.id ? "live-game-card-selected" : ""}`} key={game.id} onClick={() => onSelect(game)}><div className="live-game-top"><StatusPill verdict={game.isLive ? "hit" : "unverified"}><i className={game.isLive ? "live-dot" : "upcoming-dot"} />{game.sport} · {game.isLive ? "LIVE" : "UPCOMING"}</StatusPill><span>{game.period ?? game.status}</span></div><div className="live-matchup"><div><strong>{game.teamA}</strong><b>{game.scoreA ?? "—"}</b></div><div><strong>{game.teamB}</strong><b>{game.scoreB ?? "—"}</b></div></div><div className="live-game-meta"><span><MapPin size={11} />{game.location}</span><em>{selectedId === game.id ? "Selected" : game.status}</em></div></button>)}</div>
-    <div className="live-source-line"><span>Coverage: MLB · NBA · NFL · NHL · MLS · NCAA football · NCAA basketball · ATP/WTA tennis</span><span>Feed timestamp updates with each sync</span></div>
-  </section>;
 }
 
 function ResultArc({ scoreA, scoreB, teamA, teamB }: { scoreA: number; scoreB: number; teamA: string; teamB: string }) {
@@ -416,12 +386,8 @@ export default function Home() {
   const [chartStyle, setChartStyle] = useState<"diamond" | "circular">("diamond");
   const model = "fixed-earth-dawn-anchored" as const;
   const [showConfig, setShowConfig] = useState(false);
-  const [selectedLiveGame, setSelectedLiveGame] = useState<LiveGame | null>(null);
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const simulate = trpc.simulate.event.useMutation();
-  const [scheduleDate, setScheduleDate] = useState(() => { const local = new Date(); return `${local.getFullYear()}-${String(local.getMonth()+1).padStart(2,"0")}-${String(local.getDate()).padStart(2,"0")}`; });
-  const [scheduleSport, setScheduleSport] = useState<"ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS">("NCAAB");
-  const liveDate = scheduleDate;
-  const liveGames = trpc.schedules.list.useQuery({ date: liveDate, sport: scheduleSport }, { refetchInterval: 60_000, staleTime: 30_000 });
 
   const layers = useMemo<OverlayLayer[]>(() => {
     if (simulation) return [
@@ -438,7 +404,6 @@ export default function Home() {
 
   const handleQuickSimulate = async (input: QuickGameInput) => {
     try {
-      setSelectedLiveGame(null);
       const result = await simulate.mutateAsync({
         id: `custom-${input.sport.toLowerCase()}-${Date.now()}`,
         teamA: input.teamA,
@@ -470,37 +435,34 @@ export default function Home() {
     }
   };
 
-  const runFixture = async () => {
-    const live = selectedLiveGame;
-    if (!live) { toast.error("Choose an NFL fixture or enter a matchup first."); return; }
+  const runFixture = async (game: ScheduledGame, coordinates?: VenueCoordinates) => {
+    setPendingGameId(game.id);
     try {
       const result = await simulate.mutateAsync({
-        id: `live-${live.id}`,
-        teamA: live.teamA,
-        ...(live?.favoriteTeam && live?.underdogTeam ? { favoredTeam: live.favoriteTeam, underdogTeam: live.underdogTeam, roleAssignmentSource: "market-odds" as const } : { roleAssignmentSource: "legacy-side-order" as const }),
-        teamB: live.teamB,
-        sport: live?.sport === "MLB" || live?.sport === "NBA" || live?.sport === "NFL" || live?.sport === "NHL" || live?.sport === "MLS" || live?.sport === "NCAAF" || live?.sport === "NCAAB" || live?.sport === "TENNIS" ? live.sport : "MLB",
-        location: live.location,
-        latitude: live.latitude,
-        longitude: live.longitude,
-        startTime: live.startTime,
-        // A sample chart is not a historical outcome; leave it unverified.
+        id: `live-${game.id}`,
+        teamA: game.teamA,
+        teamB: game.teamB,
+        ...(game.favoriteTeam && game.underdogTeam
+          ? { favoredTeam: game.favoriteTeam, underdogTeam: game.underdogTeam, roleAssignmentSource: "market-odds" as const }
+          : { roleAssignmentSource: "legacy-side-order" as const }),
+        sport: game.sport,
+        location: game.location,
+        latitude: coordinates?.latitude ?? game.latitude,
+        longitude: coordinates?.longitude ?? game.longitude,
+        startTime: game.startTime,
         agentViewModel: model,
       });
       setSimulation(result as Simulation);
       setSelected(null);
       setFilter("all");
-      toast.success("Observatory trace complete", { description: live ? `${live.teamA} vs ${live.teamB} loaded as an unverified live research event.` : "The frame-method signals have been calculated for the selected fixture." });
+      requestAnimationFrame(() => document.getElementById("sportsbook-call-banner")?.scrollIntoView({ behavior: "smooth" }));
     } catch (error) {
-      toast.error("Calculation could not complete", { description: error instanceof Error ? error.message : "The engine did not return a usable trace." });
+      toast.error("Calculation could not complete", {
+        description: error instanceof Error ? error.message : "The engine did not return a usable trace.",
+      });
+    } finally {
+      setPendingGameId(null);
     }
-  };
-
-  const openLiveGame = (game: LiveGame) => {
-    setSelectedLiveGame(game);
-    setSimulation(null);
-    setSelected(null);
-    toast.success("Live game loaded", { description: `${game.teamA} vs ${game.teamB} is ready. Review the event, then use Calculate selected live game.` });
   };
 
   const selectLayer = (layer: OverlayLayer) => {
@@ -516,13 +478,12 @@ export default function Home() {
   return <div className="observatory-shell premium-lab">
     <div className="cosmic-noise" /><div className="aurora aurora-one" /><div className="aurora aurora-two" /><div className="grid-horizon" />
     <aside className="obs-sidebar">
-      <div className="obs-brand"><div className="brand-seal"><Orbit size={22} /></div><div><strong>FIRMAMENT</strong><span>Sports Lab / 01</span></div></div>
+      <div className="obs-brand"><div className="brand-seal"><Orbit size={22} /></div><div><strong>FIRMAMENT</strong><span>Simulation Lab Premium</span></div></div>
       <div className="sidebar-section">
         <span>Sportsbook Lab</span>
-        <a className="nav-current" href="#command-deck"><Radar size={17} />Command deck</a>
-        <a href="#quick-game-sim"><Zap size={17} />Quick game setup</a>
+        <a className="nav-current" href="#live-scoreboard"><CircleDot size={17} />Live &amp; upcoming</a>
+        <a href="#quick-game-sim"><Zap size={17} />Manual game entry</a>
         {simulation && <a href="#sportsbook-call-banner"><Trophy size={17} />Sportsbook call</a>}
-        <a href="#live-scoreboard"><CircleDot size={17} />Live scoreboard</a>
         <a href="#frame-overlays"><Layers3 size={17} />Frame overlays</a>
         <a href="#pattern-intelligence"><Brain size={17} />Pattern intelligence</a>
         <a href="#method-laboratory"><Beaker size={17} />Methods laboratory</a>
@@ -536,10 +497,9 @@ export default function Home() {
 
     <main className="obs-main" id="command-deck">
       <header className="obs-header">
-        <div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>FIRMAMENT</span></div>
-        <div className="header-path"><span>Sportsbook research</span><ChevronRight size={13} /><strong>Simulation Lab</strong></div>
+        <div className="mobile-brand"><div className="brand-seal"><Orbit size={18} /></div><span>Simulation Lab Premium</span></div>
+        <div className="header-path"><span>Sportsbook research</span><ChevronRight size={13} /><strong>Simulation Lab Premium</strong></div>
         <div className="header-actions">
-          <div className="engine-live"><i />Engine linked</div>
           <button
             className="config-button text-cyan-300 border-cyan-400/30 hover:bg-cyan-400/10"
             onClick={() => document.getElementById("quick-game-sim")?.scrollIntoView({ behavior: "smooth" })}
@@ -565,41 +525,21 @@ export default function Home() {
           <button className={`config-button ${showConfig ? "config-active" : ""}`} onClick={() => setShowConfig((current) => !current)}>
             <Settings2 size={15} />Run profile
           </button>
-          <button className="run-button" onClick={runFixture} disabled={simulate.isPending || !selectedLiveGame}>
-            <Play size={14} fill="currentColor" />
-            {simulate.isPending ? "Resolving trace" : selectedLiveGame ? "Calculate selected live game" : "Select a game first"}
-          </button>
         </div>
       </header>
 
-      <section className="hero-grid"><div className="hero-copy"><div className="live-kicker"><span />DUAL-FRAME RESEARCH SURFACE</div><h1>Make the <em>logic</em> visible.</h1><p>Positions come from astronomical ephemeris Cartesian XYZ vectors and our fixed-firmament XY projection. The sunrise Sun angle advances 15° per elapsed hour to set the Ascendant and equal houses. Every method keeps its calculation evidence.</p><div className="hero-meta"><div><span>Interpretation model</span><strong>Cartesian XYZ + sunrise Agent View</strong></div><div><span>Pattern memory</span><strong>37+ verified games · FPRE-V2</strong></div><div><span>Audit posture</span><strong>{simulation?.comparison.verified ? "Verified outcome" : "Unverified research"}</strong></div></div></div>
-        <div className="hero-signal"><div className="signal-dial"><div className="dial-orbit orbit-a" /><div className="dial-orbit orbit-b" /><div className="dial-center"><Waves size={25} /><b>{simulation ? agreement : "—"}</b><span>{simulation ? "frame alignment" : "method signals"}</span></div><span className="dial-star star-one" /><span className="dial-star star-two" /><span className="dial-star star-three" /></div><div className="signal-caption"><strong>{simulation ? `${supportCount} supported · ${conflictCount} conflicting` : "Evidence has a shape"}</strong><span>{simulation ? "Click through the constellation to inspect individual signal strength." : "Run a fixture to populate the evidence field with actual calculations."}</span></div></div></section>
-
-      {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View remains fixed to the permanent Aries-zero reference.</span></div></div><div className="model-options"><span><b>Cartesian XYZ + sunrise</b><small>Sun XY angle at sunrise + elapsed hours × 15°. Equal houses every 30°.</small></span></div><button className="dock-close" onClick={() => setShowConfig(false)}><X size={16} /></button></section>}
-
-      {/* Primary product experience: live and upcoming fixtures */}
-      <section className="mb-4 rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-4"><h2 className="text-xl font-bold text-white">Live & Upcoming Games</h2><p className="text-sm text-slate-300">Select a scheduled or live matchup to open its event chart. The historical research tools remain below.</p><div className="mt-3 flex flex-wrap gap-2"><a href="#live-scoreboard" className="rounded-lg bg-cyan-500 px-3 py-2 text-sm font-bold text-slate-950">Browse games</a><a href="#quick-game-sim" className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-white">Manual game entry</a></div></section>
-      {/* Live scoreboard feed */}
-      <div id="live-scoreboard">
-        {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}><MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} /></Suspense>}
-      <div className="schedule-controls" style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",padding:"12px 0"}}><label>Game date <input aria-label="Game date" type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} /></label><label>Sport <select aria-label="Sport" value={scheduleSport} onChange={(event) => setScheduleSport(event.target.value as "ALL" | "NFL" | "NCAAF" | "NCAAB" | "NBA" | "TENNIS")}><option value="NFL">NFL</option><option value="NCAAF">College football</option><option value="NCAAB">College basketball</option><option value="NBA">NBA</option><option value="ALL">All sports</option><option value="TENNIS">🎾 ATP / WTA tennis</option></select></label><span>Favorite assigned to Ascendant only when odds are available; otherwise side order is unverified.</span></div>
-        {liveGames.error && <p role="alert" className="text-rose-300">{liveGames.error.message}</p>}
-        <LiveNowRail games={(liveGames.data ?? []) as LiveGame[]} isLoading={liveGames.isLoading || liveGames.isFetching} selectedId={selectedLiveGame?.id} onRefresh={() => void liveGames.refetch()} onSelect={openLiveGame} />
+      <GameScoreboard pendingId={pendingGameId} disabled={simulate.isPending || pendingGameId !== null} onRead={runFixture} />
+      <div className="game-tools">
+        <a href="#quick-game-sim">Manual game entry</a>
+        <a href="/daily">Daily Slate Studio</a>
       </div>
 
-      {/* QUICK GAME SIMULATION BAR - Easy, zero-friction fixture setup */}
-      <div id="quick-game-sim">
-        <QuickGameSimBar
-          isPending={simulate.isPending}
-          onSimulate={handleQuickSimulate}
-          activeSimulationTeamA={simulation?.input.teamA}
-          activeSimulationTeamB={simulation?.input.teamB}
-        />
-      </div>
+      {showConfig && <section className="config-dock"><div className="config-dock-title"><Settings2 size={17} /><div><strong>Agent View calibration</strong><span>God View uses the permanent Aries-zero reference.</span></div></div><div className="model-options"><span><b>Cartesian XYZ + sunrise</b><small>Sun XY angle at sunrise + elapsed hours × 15°. Equal houses every 30°.</small></span></div><button className="dock-close" onClick={() => setShowConfig(false)} aria-label="Close run profile"><X size={16} /></button></section>}
 
       {/* SPORTSBOOK GAME CALL BANNER - Clear, unambiguous prediction outcome */}
       {simulation && (
         <div id="sportsbook-call-banner">
+          <div className="game-tools"><a href="#live-scoreboard">Back to games</a></div>
           <SportsbookCallBanner
             simulation={simulation as any}
             onDownloadAudit={() => downloadResultBundle(simulation)}
@@ -609,7 +549,15 @@ export default function Home() {
         </div>
       )}
 
-      <section className="stats-ribbon"><div><span><Activity size={14} />Synthesis status</span><strong>{simulation ? verdictCopy(simulation.synthesisView.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.synthesisView.valid ? simulation.synthesisView.winner : "TIE", simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Select a matchup"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Enter a game or choose the NFL schedule"}</small></div></section>
+      {simulation && <Suspense fallback={<p>Opening Master Sports Astrologer…</p>}>
+        <MasterSportsAstrologer key={JSON.stringify(simulation.input)} event={simulation.input} />
+      </Suspense>}
+
+      <div id="quick-game-sim">
+        <QuickGameSimBar isPending={simulate.isPending} onSimulate={handleQuickSimulate} initiallyOpen={false} />
+      </div>
+
+      <section className="stats-ribbon"><div><span><Activity size={14} />Synthesis status</span><strong>{simulation ? verdictCopy(simulation.synthesisView.verdict) : "Trace-ready"}</strong><small>{simulation ? sideLabel(simulation.synthesisView.valid ? simulation.synthesisView.winner : "TIE", simulation) : "No model result yet"}</small></div><div><span><Target size={14} />Frame relationship</span><strong>{agreement}</strong><small>{simulation ? `${sideLabel(simulation.godView.synthesis.winner, simulation)} / ${sideLabel(simulation.agentView.synthesis.winner, simulation)}` : "Two frames stand ready"}</small></div><div><span><Gauge size={14} />Evidence density</span><strong>{simulation ? `${supportCount + conflictCount} / ${methodCount}` : "Awaiting calculation"}</strong><small>{simulation ? "Scored readings in current trace" : "Each reading retains its own state"}</small></div><div><span><Trophy size={14} />Fixture</span><strong>{simulation ? (simulation.comparison.verified ? "Verified" : "Unverified") : "Select a matchup"}</strong><small>{simulation ? `${simulation.input.teamA} vs ${simulation.input.teamB}` : "Choose a game from the scoreboard"}</small></div></section>
 
       <section className="frame-deck" id="frame-overlays"><div className="section-intro"><div><p className="eyebrow">Perspective pair</p><h2>Two coordinate frames. One auditable decision surface.</h2></div><p>Read their independence before reading their agreement. The experiment gains evidence when each frame is allowed to state its own case.</p></div><div className="frame-grid"><FrameCard frame={simulation?.godView ?? null} kind="god" simulation={simulation} active={activeFrame === "god"} onClick={() => setActiveFrame("god")} /><div className="frame-link"><span>FRAME COMPARISON</span><div><i /><i /><i /></div><strong>{agreement}</strong></div><FrameCard frame={simulation?.agentView ?? null} kind="agent" simulation={simulation} active={activeFrame === "agent"} onClick={() => setActiveFrame("agent")} /></div></section>
       <FrameExplanation simulation={simulation} />
