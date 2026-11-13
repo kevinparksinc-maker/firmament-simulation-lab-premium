@@ -306,6 +306,7 @@ export function QuickGameSimBar({ isPending, onSimulate }: Props) {
                 {(
                   [
                     ["NCAAF", "College FB"],
+                    ["NCAAB", "College Basketball"],
                     ["NFL", "NFL Football"],
                     ["NBA", "NBA Basketball"],
                     ["MLB", "MLB Baseball"],
