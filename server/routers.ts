@@ -14,6 +14,7 @@ import { SCOREBOARD_SPORTS } from "../shared/scoreboard";
 import { invokeLLM } from "./_core/llm";
 import { interpretSportsEvent } from "./masterSportsAstrologer";
 import { buildPersonalChart, type PersonalChartInput } from "./engine/personalChart";
+import { calculateGuardianMasterChart, summarizeGuardianMasterChart, type GuardianMasterChartInput } from "./engine/guardianMasterChart";
 import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
 import { extractPattern, discoverPatterns, matchHistoricalPattern, evaluatePatternHoldout, analyzeGameForensic, matchGamePatterns, getDefaultHistoricalMemory } from "./engine/patternRecognition";
 
@@ -45,6 +46,17 @@ const personalChartInput = z.object({
   transitLatitude: z.number().min(-90).max(90),
   transitLongitude: z.number().min(-180).max(180),
 }) satisfies z.ZodType<PersonalChartInput>;
+
+const guardianMasterChartInput = z.object({
+  birthDateTime: z.string().datetime(),
+  birthLocation: z.string().min(1).max(180),
+  birthLatitude: z.number().min(-90).max(90),
+  birthLongitude: z.number().min(-180).max(180),
+  transitDateTime: z.string().datetime().optional(),
+  transitLocation: z.string().min(1).max(180).optional(),
+  transitLatitude: z.number().min(-90).max(90).optional(),
+  transitLongitude: z.number().min(-180).max(180).optional(),
+}) satisfies z.ZodType<GuardianMasterChartInput>;
 
 export const appRouter = router({
   system: systemRouter,
@@ -218,6 +230,10 @@ export const appRouter = router({
   }),
   personal: router({
     chart: publicProcedure.input(personalChartInput).mutation(({ input }) => buildPersonalChart(input)),
+    masterChart: publicProcedure.input(guardianMasterChartInput).mutation(async ({ input }) => {
+      const snapshot = await calculateGuardianMasterChart(input);
+      return { snapshot, summary: summarizeGuardianMasterChart(snapshot) };
+    }),
   }),
   experiments: router({
     sportsFeatures: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(1000) })).mutation(({ input }) => runSportsFeatureExperiment(input.events)),
