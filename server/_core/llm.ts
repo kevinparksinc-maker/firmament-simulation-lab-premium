@@ -195,6 +195,10 @@ export function getSportsAIStatus() {
   return { configured: Boolean(ENV.googleAiApiKey), provider: ENV.googleAiApiKey ? "google-gemini" : "unconfigured" };
 }
 
+export function getConfiguredLLMModel() {
+  return ENV.googleAiModel;
+}
+
 /** Gemini bridge retaining the existing normalized chat completion shape. */
 async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
   const toText = (content: Message["content"]): string =>
@@ -207,7 +211,7 @@ async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
     parts: [{ text: toText(m.content) }],
   }));
   if (!contents.length) throw new Error("SPORTS_AI_EMPTY_MESSAGES");
-  const model = ENV.googleAiModel;
+  const model = params.model ?? ENV.googleAiModel;
   const format = params.responseFormat ?? params.response_format;
   const jsonMode = format?.type === "json_object" || format?.type === "json_schema" || !!(params.outputSchema ?? params.output_schema);
   const send = params.singleAttempt ? fetch : fetchWithBackoff;
@@ -223,6 +227,7 @@ async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
         generationConfig: {
           maxOutputTokens: params.max_tokens ?? params.maxTokens ?? 6500,
           ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+          ...(format?.type === "json_schema" ? { responseJsonSchema: format.json_schema.schema } : {}),
         },
       }),
     }

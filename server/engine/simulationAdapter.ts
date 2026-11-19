@@ -36,6 +36,7 @@ export type SimulationEventInput = {
   longitude?: number;
   startTime: string;
   actualWinner?: "A" | "B" | "TIE";
+  includeIntelligentReasoning?: boolean;
   agentViewRotation?: AgentViewRotationMode;
   agentViewModel?: "fixed-earth-dawn-anchored";
   sunriseTime?: string;

@@ -17,6 +17,7 @@ import { buildPersonalChart, type PersonalChartInput } from "./engine/personalCh
 import { calculateGuardianMasterChart, summarizeGuardianMasterChart, type GuardianMasterChartInput } from "./engine/guardianMasterChart";
 import { runSportsFeatureExperiment } from "./engine/sportsFeatureExperiment";
 import { extractPattern, discoverPatterns, matchHistoricalPattern, evaluatePatternHoldout, analyzeGameForensic, matchGamePatterns, getDefaultHistoricalMemory } from "./engine/patternRecognition";
+import { reasonAboutSimulation } from "./engine/intelligentReasoning";
 
 const eventInput = z.object({
   id: z.string().optional(),
@@ -31,6 +32,7 @@ const eventInput = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   startTime: z.string().datetime(),
   actualWinner: z.enum(["A", "B", "TIE"]).optional(),
+  includeIntelligentReasoning: z.boolean().optional(),
   agentViewModel: z.enum(["fixed-earth-dawn-anchored"]).optional(),
   sunriseTime: z.string().datetime().optional(),
   sunriseSource: z.string().max(180).optional(),
@@ -198,7 +200,11 @@ export const appRouter = router({
     }),
   }),
   simulate: router({
-    event: publicProcedure.input(eventInput).mutation(({ input }) => runSimulationEvent(input)),
+    event: publicProcedure.input(eventInput).mutation(async ({ input }) => {
+      const simulation = runSimulationEvent(input);
+      if (input.includeIntelligentReasoning === false) return simulation;
+      return { ...simulation, intelligentReasoning: await reasonAboutSimulation(simulation) };
+    }),
     batch: publicProcedure.input(z.object({ events: z.array(eventInput).min(1).max(10000) })).mutation(({ input }) => runSimulationBatch(input.events)),
   }),
   patterns: router({
