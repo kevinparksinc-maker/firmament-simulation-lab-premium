@@ -3,8 +3,8 @@ import { resolveVenue } from "./firmamentEngine";
 import { synthesizeFramePredictions } from "./crossFrameSynthesis";
 import {
   generateCartesianKPPrediction,
-  generateCartesianPlanetReadings,
   generatePredictionForModel,
+  buildSharedMasterChart,
   fixedHouseFromLongitude,
   kpDetailsFromCanonicalLongitude,
   runFullPackageDualFrameChallenger,
@@ -131,7 +131,9 @@ function chartSnapshot(prediction: ReturnType<typeof generateCartesianKPPredicti
 }
 
 function fixedGodChartSnapshot(prediction: ReturnType<typeof generateCartesianKPPrediction>, startTime: Date) {
-  const planets = generateCartesianPlanetReadings(startTime);
+  // This is a view of the coordinator-owned master prediction; no second
+  // ephemeris calculation is permitted for the same event.
+  const planets = prediction.planets;
   const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
   const houses = Array.from({ length: 12 }, (_, index) => {
     const house = index + 1;
@@ -350,15 +352,18 @@ export function runSimulationEvent(input: SimulationEventInput) {
       : {}),
   };
 
-  const activePrediction = generateCartesianKPPrediction(gameInput);
-  const agentPrediction = generatePredictionForModel(gameInput, "sunrise-cartesian");
-  const dualFrame = runFullPackageDualFrameChallenger(gameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: "fixed-earth-dawn-anchored" });
+  const masterChart = buildSharedMasterChart(gameInput);
+  const sharedGameInput: GameInput = { ...gameInput, masterChart };
+  const activePrediction = masterChart.god;
+  const agentPrediction = masterChart.agent;
+  const dualFrame = runFullPackageDualFrameChallenger(sharedGameInput, { agentViewRotation: input.agentViewRotation ?? "none", agentViewModel: "fixed-earth-dawn-anchored" });
   const godExperimental = calculateExperimentalLayers(activePrediction, startTime);
   const agentExperimental = calculateExperimentalLayers(agentPrediction as ReturnType<typeof generateCartesianKPPrediction>, startTime);
   const godMethodSnapshot = buildMethodChartSnapshot(activePrediction, startTime, "god");
   const agentMethodSnapshot = buildMethodChartSnapshot(agentPrediction as ReturnType<typeof generateCartesianKPPrediction>, startTime, "agent", dualFrame.agent.ascendantLongitude);
-  const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot);
-  const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot);
+  const methodProvenance = { masterChartId: masterChart.masterChartId };
+  const godMethodResults = runRegisteredMethodsFromSnapshot(godMethodSnapshot, undefined, methodProvenance);
+  const agentMethodResults = runRegisteredMethodsFromSnapshot(agentMethodSnapshot, undefined, methodProvenance);
   // Additional registered techniques are displayed explicitly beside the 21 core
   // layers. Their scores do not silently modify the 21-method synthesis.
   const additionalMethodIds = ["ASHTAKAVARGA_V1", "EVENT_LUNAR_DASHA_CHAIN_V1", "NATAL_VIMSHOTTARI_V1"] as const;
@@ -437,6 +442,8 @@ export function runSimulationEvent(input: SimulationEventInput) {
     methodResults: {
       registryVersion: "METHOD_REGISTRY_V1",
       snapshotConvention: "cartesian-xyz-sunrise-equal-houses-v3",
+      masterChartId: masterChart.masterChartId,
+      calculationVersion: masterChart.calculationVersion,
       godView: godMethodResults,
       agentView: agentMethodResults,
     },

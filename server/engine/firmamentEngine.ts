@@ -68,6 +68,8 @@ export type GameInput = {
   sunriseTime?: Date;
   sunriseSource?: string;
   agentViewModel?: "fixed-earth-dawn-anchored";
+  /** Coordinator-owned immutable event chart consumed by every method path. */
+  masterChart?: SharedMasterChart;
 };
 
 export type KP249Entry = {
@@ -428,6 +430,14 @@ export type Prediction = {
   kpStellar: LayerVerdict;
   combined: LayerVerdict & { confidence: number; agreement: "AGREE" | "DIVERGE" | "TIE" };
 };
+
+export type SharedMasterChart = Readonly<{
+  masterChartId: string;
+  calculationVersion: "SHARED_EVENT_CHART_V1";
+  cartesianChart: ReturnType<typeof buildEventCartesianChart>;
+  god: Prediction;
+  agent: Prediction;
+}>;
 
 const KNOWN_VENUES: Array<{ keys: string[]; label: string; latitude: number; longitude: number }> = [
   { keys: ["baltimore", "camden yards"], label: "Baltimore, MD", latitude: 39.2838, longitude: -76.6216 },
@@ -949,6 +959,9 @@ function kpVerdict(houses: HouseReading[], planets: PlanetReading[], domeModel: 
 }
 
 export function generatePredictionForModel(input: GameInput, domeModel: DomeModel): Prediction {
+  if (input.masterChart) {
+    return domeModel === "fixed-zodiac-wheel" ? input.masterChart.god : input.masterChart.agent;
+  }
   const venue = input.coordinates
     ? { label: input.location, latitude: input.coordinates.latitude, longitude: input.coordinates.longitude, inferred: false }
     : resolveVenue(input.location);
@@ -1010,6 +1023,39 @@ export function generatePredictionForModel(input: GameInput, domeModel: DomeMode
       ],
     },
   };
+}
+
+function masterChartId(input: GameInput) {
+  const source = `${input.startTime.toISOString()}|${input.location}|${input.coordinates?.latitude ?? ""}|${input.coordinates?.longitude ?? ""}|${input.teamA}|${input.teamB}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `master-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+/** Build both frame views exactly once; downstream methods only read this object. */
+export function buildSharedMasterChart(input: GameInput): SharedMasterChart {
+  if (input.masterChart) return input.masterChart;
+  const venue = input.coordinates
+    ? { latitude: input.coordinates.latitude, longitude: input.coordinates.longitude }
+    : resolveVenue(input.location);
+  const cartesianChart = input.cartesianChart ?? buildEventCartesianChart({
+    ...input,
+    latitude: venue.latitude,
+    longitude: venue.longitude,
+  });
+  const baseInput = { ...input, cartesianChart, masterChart: undefined };
+  const god = generatePredictionForModel(baseInput, "fixed-zodiac-wheel");
+  const agent = generatePredictionForModel(baseInput, "sunrise-cartesian");
+  return Object.freeze({
+    masterChartId: masterChartId(input),
+    calculationVersion: "SHARED_EVENT_CHART_V1" as const,
+    cartesianChart: god.cartesianChart,
+    god,
+    agent,
+  });
 }
 
 /** Active fixed dome: raw zero-tilt longitude mapped to permanent sectors. */

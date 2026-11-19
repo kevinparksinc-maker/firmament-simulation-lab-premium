@@ -42,6 +42,8 @@ export type MethodResult = {
   evidence: MethodEvidence[];
   detail: string;
   calculationVersion: string;
+  masterChartId?: string;
+  sourceSnapshot?: "shared-master-chart";
 };
 export type MethodSpec = {
   id: string;
@@ -161,12 +163,15 @@ export function runMethod(methodId: string, input: MethodInput): MethodResult {
   }
   return method.run(input);
 }
-export function runRegisteredMethodsFromSnapshot(snapshot: MethodChartSnapshot, methodIds = METHOD_REGISTRY.map((method) => method.id)) {
-  return methodIds.map((methodId) => runMethod(methodId, {
-    prediction: snapshot.prediction,
-    // Method-specific timing doctrine sees the event time but cannot advance
-    // the shared snapshot clock for the next method.
-    eventTime: new Date(snapshot.eventTime.getTime()),
+export function runRegisteredMethodsFromSnapshot(snapshot: MethodChartSnapshot, methodIds = METHOD_REGISTRY.map((method) => method.id), provenance?: { masterChartId: string }) {
+  return methodIds.map((methodId) => ({
+    ...runMethod(methodId, {
+      prediction: snapshot.prediction,
+      // Method-specific timing doctrine sees the event time but cannot advance
+      // the shared snapshot clock for the next method.
+      eventTime: new Date(snapshot.eventTime.getTime()),
+    }),
+    ...(provenance ? { masterChartId: provenance.masterChartId, sourceSnapshot: "shared-master-chart" as const } : {}),
   }));
 }
 
