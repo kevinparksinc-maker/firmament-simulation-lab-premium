@@ -1,0 +1,181 @@
+{
+  "generatedAt": "2026-11-19T00:16:21.269Z",
+  "note": "Pre-game predictions; outcomes intentionally not supplied.",
+  "games": [
+    {
+      "id": "NBA-2026-11-19-MEM-CLE",
+      "sport": "NBA",
+      "matchup": "Memphis Grizzlies at Cleveland Cavaliers",
+      "startTime": "2026-11-19T00:00:00.000Z",
+      "location": "Rocket Arena, Cleveland",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.374
+      },
+      "synthesisScores": {
+        "A": 13.8,
+        "B": 20.99
+      },
+      "methodCounts": {
+        "A": 11,
+        "B": 7,
+        "TIE": 0,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-9aacf439"
+    },
+    {
+      "id": "NBA-2026-11-19-HOU-IND",
+      "sport": "NBA",
+      "matchup": "Houston Rockets at Indiana Pacers",
+      "startTime": "2026-11-19T00:00:00.000Z",
+      "location": "Gainbridge Fieldhouse, Indianapolis",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.374
+      },
+      "synthesisScores": {
+        "A": 12.05,
+        "B": 29.61
+      },
+      "methodCounts": {
+        "A": 12,
+        "B": 6,
+        "TIE": 0,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-620f0db7"
+    },
+    {
+      "id": "NBA-2026-11-19-MIL-MIA",
+      "sport": "NBA",
+      "matchup": "Milwaukee Bucks at Miami Heat",
+      "startTime": "2026-11-19T00:00:00.000Z",
+      "location": "Kaseya Center, Miami",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.374
+      },
+      "synthesisScores": {
+        "A": 11.33,
+        "B": 26.9
+      },
+      "methodCounts": {
+        "A": 10,
+        "B": 6,
+        "TIE": 2,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-64718af8"
+    },
+    {
+      "id": "NBA-2026-11-19-PHI-ORL",
+      "sport": "NBA",
+      "matchup": "Philadelphia 76ers at Orlando Magic",
+      "startTime": "2026-11-19T00:00:00.000Z",
+      "location": "Kia Center, Orlando",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.374
+      },
+      "synthesisScores": {
+        "A": 9.08,
+        "B": 25.78
+      },
+      "methodCounts": {
+        "A": 9,
+        "B": 7,
+        "TIE": 2,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-d9785846"
+    },
+    {
+      "id": "NBA-2026-11-19-CHI-BKN",
+      "sport": "NBA",
+      "matchup": "Chicago Bulls at Brooklyn Nets",
+      "startTime": "2026-11-19T00:30:00.000Z",
+      "location": "Barclays Center, Brooklyn",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.37
+      },
+      "synthesisScores": {
+        "A": 19.04,
+        "B": 26.22
+      },
+      "methodCounts": {
+        "A": 14,
+        "B": 4,
+        "TIE": 0,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-58753f4e"
+    },
+    {
+      "id": "NBA-2026-11-19-WSH-TOR",
+      "sport": "NBA",
+      "matchup": "Washington Wizards at Toronto Raptors",
+      "startTime": "2026-11-19T00:30:00.000Z",
+      "location": "Scotiabank Arena, Toronto",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 7.79,
+        "B": 18.37
+      },
+      "synthesisScores": {
+        "A": 6.46,
+        "B": 32.92
+      },
+      "methodCounts": {
+        "A": 8,
+        "B": 8,
+        "TIE": 2,
+        "NONE": 4
+      },
+      "frameAgreement": "agree",
+      "masterChartId": "master-8795736d"
+    },
+    {
+      "id": "NFL-2026-11-19-IND-HOU",
+      "sport": "NFL",
+      "matchup": "Indianapolis Colts at Houston Texans",
+      "startTime": "2026-11-20T02:15:00.000Z",
+      "location": "NRG Stadium, Houston",
+      "baselinePick": "B",
+      "synthesisPick": "B",
+      "baselineScores": {
+        "A": 10.39,
+        "B": 15.198
+      },
+      "synthesisScores": {
+        "A": 19.51,
+        "B": 24.24
+      },
+      "methodCounts": {
+        "A": 7,
+        "B": 8,
+        "TIE": 3,
+        "NONE": 4
+      },
+      "frameAgreement": "split",
+      "masterChartId": "master-5da65387"
+    }
+  ]
+}
