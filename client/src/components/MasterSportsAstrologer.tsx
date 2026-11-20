@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SimulationEventInput } from "../../../server/engine/simulationAdapter";
 import { trpc } from "@/lib/trpc";
 import { AIChatBox, type Message } from "./AIChatBox";
@@ -8,9 +8,16 @@ export function MasterSportsAstrologer({event}:{event:SimulationEventInput}) {
   const [messages,setMessages]=useState<Message[]>([]);
   const reading=trpc.ai.sportsReading.useMutation();
   const chat=trpc.ai.sportsChat.useMutation();
+  const autoStartedFor=useRef<string | null>(null);
+  const eventKey=JSON.stringify(event);
   const conditions=trpc.schedules.conditions.useQuery(event,{staleTime:60_000,retry:1});
   const busy=reading.isPending || chat.isPending;
   const [conversationError,setConversationError]=useState("");
+  useEffect(()=>{
+    if(autoStartedFor.current===eventKey) return;
+    autoStartedFor.current=eventKey;
+    reading.mutate(event);
+  },[event,eventKey,reading.mutate]);
   async function send(content:string) {
     if(busy) return;
     if(messages.length>=20) {setConversationError("Start a new conversation for this game to continue. Your current messages remain visible.");return;}
@@ -26,7 +33,7 @@ export function MasterSportsAstrologer({event}:{event:SimulationEventInput}) {
     <h2>AI Master Sports Astrologer</h2>
     <p>{event.teamA} vs {event.teamB} · {new Date(event.startTime).toLocaleString()}</p>
     <p>The analyst compares ranked evidence for both teams and explains the strongest opposing testimony.</p>
-    <button className="button-primary" disabled={busy} onClick={()=>reading.mutate(event)}>{reading.isPending ? "Comparing the strongest evidence…" : "Generate full sports reading"}</button>
+    <button className="button-primary" disabled={busy} onClick={()=>reading.mutate(event)}>{reading.isPending ? "Generating the full reading…" : reading.data ? "Regenerate full sports reading" : "Generate full sports reading"}</button>
     {conversationError && <p role="alert">{conversationError}</p>}
     {(reading.error || chat.error) && <p role="alert" className="mt-3 text-rose-300">{(chat.error ?? reading.error)?.message}</p>}
     {conditions.data && <div className="mt-4 rounded-lg border border-amber-300/25 p-3">

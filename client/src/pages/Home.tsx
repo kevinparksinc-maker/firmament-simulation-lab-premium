@@ -79,6 +79,18 @@ type Simulation = {
   input: SimulationEventInput;
   engine: { source: string; calculationPath: string; fixedBackground: string; hamalAnchor: string };
   baseline: { winner: Side; verdict: Verdict; combined: { scoreA: number; scoreB: number } };
+  intelligentReasoning?: {
+    prediction: Side;
+    confidence: number;
+    confidenceLabel: "low" | "moderate" | "high";
+    reasoningSummary: string;
+    modelVersion: string;
+    status: "accepted" | "fallback";
+    failureCode?: string;
+    evidenceUsed: Array<{ id: string; note: string }>;
+    contradictions: Array<{ id: string; description: string; resolution: string }>;
+    missingInputs: string[];
+  };
   godView: Frame;
   agentView: Frame;
   synthesisView: { version:string; valid:boolean; reason:string; winner:Side; verdict:Verdict; scoreA:number; scoreB:number; margin:number; formula:string; methods:Array<{name:string;winner:Side;scoreA:number;scoreB:number;godScoreA:number;godScoreB:number;agentScoreA:number;agentScoreB:number;formula:string}> };
@@ -306,6 +318,20 @@ function DecisionBreakdown({ simulation }: { simulation: Simulation | null }) {
           <p className="mt-2 text-xs text-slate-400">{simulation.synthesisView.formula} This is a third predictive output derived from the two correlated frame evaluations, not independent astronomical data or proven accuracy.</p>
           <p className="mt-2 text-sm text-slate-300">God View: <strong>{sideLabel(god.synthesis.winner, simulation)}</strong> ({god.synthesis.scoreA.toFixed(2)} A / {god.synthesis.scoreB.toFixed(2)} B). Agent View: <strong>{sideLabel(agent.synthesis.winner, simulation)}</strong> ({agent.synthesis.scoreA.toFixed(2)} A / {agent.synthesis.scoreB.toFixed(2)} B).</p>
           <p className="mt-2 text-sm text-slate-300">Parity: {simulation.frameParity.valid ? "Passed" : "Failed—review before relying on the comparison"}. Synthesis runs its own deterministic 21-method fusion, separately from the existing baseline.</p>
+          {simulation.intelligentReasoning && <section aria-live="polite" className="mt-5 rounded-xl border border-violet-300/25 bg-violet-300/[0.06] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-lg font-semibold text-white">Intelligent AI reading</h4>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${simulation.intelligentReasoning.status === "accepted" ? "bg-emerald-300/10 text-emerald-200" : "bg-amber-300/10 text-amber-200"}`}>
+                {simulation.intelligentReasoning.status === "accepted" ? "Gemini response" : "Deterministic fallback · AI unavailable"}
+              </span>
+            </div>
+            <p className="mt-3 text-sm text-violet-100"><strong>AI read: {sideLabel(simulation.intelligentReasoning.prediction, simulation)}</strong> · {simulation.intelligentReasoning.confidenceLabel} stated confidence ({Math.round(simulation.intelligentReasoning.confidence * 100)}%; not a calibrated probability)</p>
+            <p className="mt-2 text-sm leading-6 text-slate-200">{simulation.intelligentReasoning.reasoningSummary}</p>
+            <p className="mt-2 text-xs text-slate-400">Model: {simulation.intelligentReasoning.modelVersion}{simulation.intelligentReasoning.failureCode ? ` · ${simulation.intelligentReasoning.failureCode}` : ""}</p>
+            {simulation.intelligentReasoning.evidenceUsed.length > 0 && <div className="mt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Evidence cited</p><ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-300">{simulation.intelligentReasoning.evidenceUsed.map(item => <li key={item.id}><strong>{item.id}:</strong> {item.note}</li>)}</ul></div>}
+            {simulation.intelligentReasoning.contradictions.length > 0 && <div className="mt-3"><p className="text-xs font-semibold uppercase tracking-wide text-amber-200">Unresolved or noted conflicts</p><ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-300">{simulation.intelligentReasoning.contradictions.map(item => <li key={item.id}>{item.description} <span className="text-slate-500">({item.resolution})</span></li>)}</ul></div>}
+            {simulation.intelligentReasoning.missingInputs.length > 0 && <div className="mt-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Missing inputs / caveats</p><ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-400">{simulation.intelligentReasoning.missingInputs.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></div>}
+          </section>}
           <div className="mt-5 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4">
             <h4 className="text-lg font-semibold text-white">Method comparison · God vs Agent</h4>
             <p className="mt-1 text-sm text-slate-300">Compare each method with itself in the other frame. Agreement does not establish predictive accuracy. No method weights or picks are modified.</p>

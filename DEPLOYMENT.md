@@ -16,7 +16,7 @@ The AI Master Sports Astrologer panel generates a complete reading and supports 
 
 ## AI configuration
 
-Set `ANTHROPIC_API_KEY` in the Render service Environment settings. `ANTHROPIC_MODEL` can override the default `claude-sonnet-4-6`. Anthropic takes priority over the legacy built-in Forge provider. Keys are never included in the repository. Without a key, calculations still work and AI returns an explicit configuration error.
+Set `GEMINI_API_KEY` in the deployed server environment; `GOOGLE_API_KEY` is also accepted. `GEMINI_MODEL` can override the default `gemini-2.5-flash`. The current server calls Google Gemini only. Keys are never included in the repository. Without a Gemini key, deterministic calculations still work and AI readings return an explicit configuration error or deterministic fallback, depending on the endpoint.
 
 For NFL fixtures linked to ESPN event IDs, pregame readings request provider weather and injury reports and verify the returned teams and kickoff. Missing reports remain NOT VERIFIED; empty injury data is never interpreted as a clean roster. Severe weather raises a NO-BET research flag without removing the calculated reading. Current reports are excluded from historical replay. These reports are not a final inactive list or a complete wind/field/roof feed.
 
